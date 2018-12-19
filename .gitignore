@@ -1,0 +1,5 @@
+# ignore node_modules folder
+node_modules/
+
+# ignore contents in test folder
+test/

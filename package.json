@@ -1,0 +1,30 @@
+{
+  "name": "proximo",
+  "version": "1.0.0",
+  "description": "Proximo project",
+  "main": "index.js",
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "express": "^4.16.4",
+    "mysql": "^2.16.0"
+  },
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "eslint": "^5.10.0",
+    "mocha": "^5.2.0",
+    "request": "^2.88.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cocest/proximo.git"
+  },
+  "author": "Attamah Celestine",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cocest/proximo/issues"
+  },
+  "homepage": "https://github.com/cocest/proximo#readme"
+}
