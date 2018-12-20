@@ -2,7 +2,7 @@
   "name": "proximo",
   "version": "1.0.0",
   "description": "Proximo project",
-  "main": "index.js",
+  "main": "app.js",
   "dependencies": {
     "bcrypt": "^3.0.2",
     "body-parser": "^1.18.3",
@@ -37,5 +37,8 @@
   "bugs": {
     "url": "https://github.com/cocest/proximo/issues"
   },
-  "homepage": "https://github.com/cocest/proximo#readme"
+  "homepage": "https://github.com/cocest/proximo#readme",
+  "engine": {
+    "node": "8.12.0"
+  }
 }
