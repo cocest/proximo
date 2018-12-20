@@ -37,6 +37,13 @@
  app.use('/api/v2', api_route_v2);
 
  //start listening to incoming call from client
- http.createServer(app).listen(rs_config.port, rs_config.host, () => {
-     console.log(`Resource server started on port ${rs_config.port}`);
- });
+ if (rs_config.host == '') {
+    http.createServer(app).listen(rs_config.port, () => {
+        console.log(`Resource server started on port ${rs_config.port}`);
+    });
+
+ } else {
+    http.createServer(app).listen(rs_config.port, rs_config.host, () => {
+        console.log(`Resource server started on port ${rs_config.port}`);
+    });
+ }
