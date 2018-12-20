@@ -2,6 +2,7 @@
   "name": "proximo",
   "version": "1.0.0",
   "description": "Proximo project",
+  "start": "node app.js",
   "main": "app.js",
   "dependencies": {
     "bcrypt": "^3.0.2",
