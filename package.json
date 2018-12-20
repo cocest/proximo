@@ -2,7 +2,6 @@
   "name": "proximo",
   "version": "1.0.0",
   "description": "Proximo project",
-  "start": "node app.js",
   "main": "app.js",
   "dependencies": {
     "bcrypt": "^3.0.2",
@@ -27,7 +26,8 @@
     "request": "^2.88.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js"
   },
   "repository": {
     "type": "git",
