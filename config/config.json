@@ -15,6 +15,7 @@
     },
 
     "production": {
+        "system_override": true,
         "config_id": "production",
         "port": 3000
     },
