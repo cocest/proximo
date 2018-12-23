@@ -1,0 +1,27 @@
+{
+    "loader_settings": {},
+
+    "environment": {
+        "JWT_ENCRYPTION_SECRET": "938ufp348gjvu34v",
+        "JWT_ISSUER": "proximo.com",
+        "MORE_HERE": "add global variables here"
+    },
+
+    "development": {
+        "system_override": true,
+        "config_id": "development",
+        "port": 8080,
+        "db": {}
+    },
+
+    "production": {
+        "config_id": "production",
+        "port": 3000
+    },
+
+    "testing": {
+        "config_id": "testing",
+        "port": 3000,
+        "db": {}
+    }
+}
