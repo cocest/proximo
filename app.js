@@ -34,7 +34,7 @@ let public_path = path.resolve(__dirname, 'public');
 app.use(express.static(public_path));
 
 // route for OAuth v2
-app.use('/oauth2/v2', oauth2);
+app.use('/oauth2/v1', oauth2);
 
 // route for API version 1
 app.use('/api/v1', api_route_v1);
