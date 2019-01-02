@@ -28,7 +28,15 @@
     "production": {
         "system_override": true,
         "config_id": "production",
-        "port": 3000
+        "port": 3000,
+        "db": {
+            "driver_name": "mysql",
+            "connection_limit": 10,
+            "host": "127.0.0.1",
+            "database": "proximo",
+            "user": "neon",
+            "password": "dec18-THU27@5am"
+        }
     },
 
     "testing": {

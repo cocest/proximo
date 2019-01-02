@@ -133,7 +133,7 @@ class Utilities {
         }
     }
 
-    static checkScopes(scopes) {
+    static allowedScopes(scopes) {
         return (req, res, next) => {
             // validate scopes
             const token_scopes = req.user.access_token.scopes;
