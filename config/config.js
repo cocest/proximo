@@ -7,8 +7,9 @@
  */
 
 const config = require('./config.json');
+const load_settings = config.settings;
 const environment_variables = config.environment;
-const environment = process.env.NODE_ENV || 'development';
+const environment = process.env.NODE_ENV || load_settings.default_environment;
 const environment_config = config[environment];
 const override = environment_config.system_override || false;
 

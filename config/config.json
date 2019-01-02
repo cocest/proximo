@@ -1,8 +1,12 @@
 {
-    "loader_settings": {},
+    "settings": {
+        "default_environment": "development"
+    },
 
     "environment": {
-        "JWT_ENCRYPTION_SECRET": "938ufp348gjvu34v",
+        "JWT_ENCRYPT_SECRET": "938ufp348gjvu34v",
+        "REFRESH_TOKEN_ENCRYPT_SECRET": "y83klwvd6cnszcvs",
+        "REFRESH_TOKEN_EXPIRE_IN": 30,
         "JWT_ISSUER": "proximo.com",
         "MORE_HERE": "add global variables here"
     },
@@ -11,7 +15,14 @@
         "system_override": true,
         "config_id": "development",
         "port": 8080,
-        "db": {}
+        "db": {
+            "driver_name": "mysql",
+            "connection_limit": 10,
+            "host": "127.0.0.1",
+            "database": "proximo",
+            "user": "neon",
+            "password": "dec18-THU27@5am"
+        }
     },
 
     "production": {

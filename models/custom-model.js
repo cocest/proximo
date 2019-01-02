@@ -1,25 +1,17 @@
 /*
- * Utitlies or helper function for Proximo
- *
+ * This module contain utility or helper functions to manage,
+ * set and retrieve data from database.
+ * 
  * Author: Attamah Celestine .C.
  * Email: attamahcelestine@gmail.com
  * Date: __/__/__
  * 
  */
 
-const proximo_model = require('../models/proximo-model');
-var validator = require('validator');
-
-class Utilities {
-    constructor() {
-        //Empty
-    }
-
-    /*
-     * //
-     */
-    static compareToHashDataInDB(tableName, searches, ...args) {
-        proximo_model.test();
+ class Model {
+     static getHashData(tableName, tableColumn, searches) {
+         //get hash password
+        let hash_password = gDB.get(tableName, [tableColumn], a);
         
         return new Promise((resolve) => {
             //iterate through the searches
@@ -32,8 +24,7 @@ class Utilities {
 
             //throw new Error('Error occured');
         });
-    }
-}
+     }
+ }
 
-//export the object that contains the utility functions
-module.exports = Utilities;
+ module.exports = Model;

@@ -18,9 +18,11 @@
     "jsonwebtoken": "^8.4.0",
     "morgan": "^1.9.1",
     "mysql": "^2.16.0",
+    "needle": "^2.2.4",
     "nodemailer": "^4.7.0",
     "rand-token": "^0.4.0",
-    "validator": "^10.9.0"
+    "validator": "^10.9.0",
+    "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
     "chai": "^4.2.0",
