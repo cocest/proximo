@@ -12,36 +12,37 @@
     },
 
     "development": {
-        "system_override": true,
         "config_id": "development",
-        "port": 8080,
+        "port": "$env:PORT|8080",
         "db": {
             "driver_name": "mysql",
             "connection_limit": 10,
-            "host": "127.0.0.1",
+            "host": "$env:HOST|127.0.0.1",
             "database": "proximo",
-            "user": "neon",
+            "username": "neon",
             "password": "dec18-THU27@5am"
         }
     },
 
     "production": {
-        "system_override": true,
         "config_id": "production",
         "port": 3000,
         "db": {
             "driver_name": "mysql",
             "connection_limit": 10,
-            "host": "127.0.0.1",
-            "database": "proximo",
-            "user": "neon",
-            "password": "dec18-THU27@5am"
+            "host": "$env:DB_HOST",
+            "database": "$env:DB_DATABASE",
+            "username": "$env:DB_USERNAME",
+            "password": "$env:DB_PASSWORD"
         }
     },
 
     "testing": {
         "config_id": "testing",
-        "port": 3000,
-        "db": {}
+        "port": "$env:PORT|300",
+        "db": {
+            "host": "$env:HOST_NAME",
+            "username": "$env:USERNAME|a43fvdg54ewgds42"
+        }
     }
 }

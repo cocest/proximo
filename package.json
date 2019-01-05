@@ -22,6 +22,7 @@
     "needle": "^2.2.4",
     "nodemailer": "^4.7.0",
     "rand-token": "^0.4.0",
+    "url-parse": "^1.4.4",
     "validator": "^10.9.0",
     "zxcvbn": "^4.4.2"
   },
@@ -46,7 +47,7 @@
   },
   "homepage": "https://github.com/cocest/proximo#readme",
   "engine": {
-    "node": "8.12.0",
+    "node": "10.15.0",
     "npm": "6.4.1"
   }
 }

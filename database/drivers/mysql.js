@@ -15,7 +15,7 @@ const pool = mysql.createPool(
         connectionLimit: global.gConfig.db.connection_limit,
         database: global.gConfig.db.database,
         host: global.gConfig.db.host,
-        user: global.gConfig.db.user,
+        user: global.gConfig.db.username,
         password: global.gConfig.db.password
     }
 );
