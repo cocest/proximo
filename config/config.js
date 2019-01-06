@@ -15,15 +15,20 @@ const environment_config = config[environment];
 // merge environment_variables and environment_config together
 Object.assign(environment_config, environment_variables);
 
-// load server listening port
-if (environment_config.port) assignSetting(environment_config, "port");
+// load and set all the settings
+objectIterator(environment_config);
 
-// check if db setting exist and load settings
-if (environment_config.db) {
-    if (environment_config.db.host) assignSetting(environment_config.db, "host");
-    if (environment_config.db.database) assignSetting(environment_config.db, "database");
-    if (environment_config.db.username) assignSetting(environment_config.db, "username");
-    if (environment_config.db.password) assignSetting(environment_config.db, "password");
+// iterate through object
+function objectIterator(ob) {
+    let keys = Object.keys(ob);
+    for (let i = 0; i < keys.length; i++) {
+        if (typeof ob[keys[i]] == 'object') {
+            objectIterator(ob[keys[i]]);
+
+        } else {
+            assignSetting(ob, keys[i]);
+        }
+    }
 }
 
 // utility function that assign value to configuration variables
@@ -46,13 +51,14 @@ function assignSetting(env_config, setting) {
 
             } else { // most be default or defined value
                 value = splits[i].trim();
-                if (/^(\d{1,3}.){3}\d{1,3}$/.test(value)) { // check if is IP Address
-                    env_config[setting] = value;
+                if (/^\d+$/.test(value)) { // check if is integer
+                    env_config[setting] = parseInt(value);             
 
                 } else {
-                    env_config[setting] = parseInt(value) ? parseInt(value) : value;
-                    break;
+                    env_config[setting] = value;
                 }
+
+                break;
             }
         }
     }
