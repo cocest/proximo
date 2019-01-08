@@ -4,8 +4,8 @@
     },
 
     "environment": {
-        "JWT_ENCRYPT_SECRET": "938ufp348gjvu34v",
-        "REFRESH_TOKEN_ENCRYPT_SECRET": "y83klwvd6cnszcvs",
+        "JWT_ENCRYPT_SECRET": "ECyJJ2ls8WKI8fvKBSk8WHSrYO4lVlsZd8mxXUuOazO4viBbZquESCVWbYkdiEvK",
+        "REFRESH_TOKEN_ENCRYPT_SECRET": "A9ggdYC4NUzq2op12uP8WclIouuwyk1GUlB1rih8cMm1IvqytriRcUCrhIooyQsm",
         "REFRESH_TOKEN_EXPIRE_IN": 30,
         "JWT_ISSUER": "proximo.com",
         "MORE_HERE": "add global variables here"
@@ -19,8 +19,8 @@
             "connection_limit": 10,
             "host": "$env:HOST|127.0.0.1",
             "database": "proximo",
-            "username": "neon",
-            "password": "dec18-THU27@5am"
+            "username": "root",
+            "password": ""
         }
     },
 

@@ -35,19 +35,35 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
 
         // allow name of this format "O'Reiley" and "Proximo"
         if (!(req.body.firstName && /^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.firstName))) {
-            invalid_inputs.push({ error_code: "invalid_input", field: "firstName", message: "Firstname not acceptable" });
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "firstName",
+                message: "Firstname not acceptable"
+            });
         }
 
         if (!(req.body.lastName && /^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.lastName))) {
-            invalid_inputs.push({ error_code: "invalid_input", field: "lastName", message: "Lastname not acceptable" });
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "lastName",
+                message: "Lastname not acceptable"
+            });
         }
 
         if (!(req.body.password && zxcvbn(req.body.password).score > 1)) {
-            invalid_inputs.push({ error_code: "invalid_input", field: "password", message: "Password is too weak" });
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "password",
+                message: "Password is too weak"
+            });
         }
 
         if (!(req.body.gender && /^(male|female|other)$/.test(req.body.gender))) {
-            invalid_inputs.push({ error_code: "invalid_input", field: "gender", message: "Invalid gender" });
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "gender",
+                message: "Invalid gender"
+            });
         }
 
         if (req.body.email && validator.isEmail(req.body.email)) {
@@ -69,7 +85,11 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 } else {
                     if (results.length > 0) { // the SQL query is fast enough
                         // email has been used by another user
-                        invalid_inputs.push({ error_code: "input_exist", field: "email", message: "Email address has been claimed" });
+                        invalid_inputs.push({
+                            error_code: "input_exist",
+                            field: "email",
+                            message: "Email address has been claimed"
+                        });
                     }
 
                     // check if any input is invalid
@@ -86,41 +106,65 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                         return;
 
                     } else {
-                        // store user's information to database
-                        gDB.query(
-                            'INSERT INTO user (firstName, lastName, emailAddress, gender) VALUE (?, ?, ?, ?)',
-                            [req.body.firstName, req.body.lastName, req.body.email, req.body.gender],
-                            err => {
-                                if (err) {
-                                    res.status(500);
-                                    res.json({
-                                        status: 500,
-                                        error_code: "internal_error",
-                                        message: "Internal error"
-                                    });
+                        // hash user's password before storing to database
+                        bcrypt.hash(req.body.password, saltRounds).then(hash => {
+                            // store user's information to database
+                            gDB.query(
+                                'START TRANSACTION;' +
+                                'INSERT INTO user (firstName, lastName, emailAddress, gender) VALUE (?, ?, ?, ?);' +
+                                'SELECT @user_id:=MAX(userID) FROM user;' +
+                                'INSERT INTO userauthentication (userID, emailAddress, password) VALUE (@user_id, ?, ?);' +
+                                'COMMIT;',
+                                [req.body.firstName, req.body.lastName, req.body.email, req.body.gender, req.body.email, hash],
+                                err => {
+                                    if (err) {
+                                        res.status(500);
+                                        res.json({
+                                            status: 500,
+                                            error_code: "internal_error",
+                                            message: "Internal error"
+                                        });
 
-                                    // log the error to log file
-                                    //code here
+                                        // log the error to log file
+                                        //code here
 
-                                    return;
+                                        return;
 
-                                } else {
-                                    res.status(200);
-                                    res.json({
-                                        status: 200,
-                                        message: "New user created successfully"
-                                    });
+                                    } else {
+                                        res.status(200);
+                                        res.json({
+                                            status: 200,
+                                            message: "New user created successfully"
+                                        });
 
-                                    return;
+                                        return;
+                                    }
                                 }
-                            }
-                        );
+                            );
+
+                        }).catch(reason => {
+                            res.status(500);
+                            res.json({
+                                status: 500,
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            //code here
+
+                            return;
+                        });
                     }
                 }
             });
 
         } else { // not valid
-            invalid_inputs.push({ error_code: "invalid_input", field: "email", message: "Your email is not acceptable" });
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "email",
+                message: "Your email is not acceptable"
+            });
 
             // send json error message to client
             res.status(406);
@@ -158,7 +202,10 @@ router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read
 
     } else {
         res.status(200);
-        res.send('Welcome to REST API version 1');
+        res.json({
+            status: 200,
+            message: 'Welcome to REST API version 1'
+        });
     }
 });
 

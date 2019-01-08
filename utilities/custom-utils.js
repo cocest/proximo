@@ -22,15 +22,30 @@ class Utilities {
 
         return new Promise((resolve) => {
             //iterate through the searches
-            searches.forEach(search => {
-                let { column, search } = search;
-            });
 
             //executed successfully
             resolve();
 
             //throw new Error('Error occured');
         });
+    }
+
+    static allowOnlyBodyFormatOf(body_format) {
+        return (req, res, next) => {
+            if (!req.is(body_format)) {
+                res.status(415);
+                res.json({
+                    status: 415,
+                    error_code: "unsupported_format",
+                    message: "Unsupported body type"
+                });
+
+                return;
+
+            } else {
+                return next();
+            }
+        };
     }
 
     static checkOAuth2TokenCrendentials(grantType, body, call) {
@@ -92,7 +107,10 @@ class Utilities {
 
             if (token_type == 'Bearer' && token) {
                 // validation access
-                jwt.verify(token, gConfig.JWT_ENCRYPT_SECRET, { issuer: gConfig.JWT_ISSUER }, (err, decoded) => {
+                jwt.verify(token, gConfig.JWT_ENCRYPT_SECRET, {
+                    algorithms: ['HS256'],
+                    issuer: gConfig.JWT_ISSUER
+                }, (err, decoded) => {
                     if (err) {
                         // check if token has expired error
                         if (err.name == 'TokenExpiredError') {
@@ -163,13 +181,17 @@ class Utilities {
 
         if (role[0] == 'user' || role[0] == 'client') {
             if (!(role[1] == 'default' || role[1] == 'defined')) {
-                return call({ errorCode: 'invalid_scope_definition' }, []);
+                return call({
+                    errorCode: 'invalid_scope_definition'
+                }, []);
 
             } else {
-                gDB.query('SELECT scopes FROM apiprivileges WHERE role = ?', [role[0]], (err, results) => {
+                gDB.query('SELECT scopes FROM apiprivileges WHERE role = ? LIMIT 1', [role[0]], (err, results) => {
                     // internal error
-                    if (!err || results.length < 1) {
-                        return call({ errorCode: 'internal_error' }, []);
+                    if (err || results.length < 1) {
+                        return call({
+                            errorCode: 'internal_error'
+                        }, []);
 
                     } else {
                         const default_scopes = results[0].scopes.trim().split(' ');
@@ -197,7 +219,9 @@ class Utilities {
             // code here
 
         } else {
-            return call({ errorCode: 'invalid_scope_definition' }, []);
+            return call({
+                errorCode: 'invalid_scope_definition'
+            }, []);
         }
     }
 }

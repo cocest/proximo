@@ -1,6 +1,6 @@
 /*
  * This module implement the OAuth 2.0 specification which is a flexibile
- * authorization framework that describes a number of grants (“methods”)
+ * authorization framework for a number of grants (“methods”)
  * for a client application to acquire an access token (which represents
  * a user’s permission for the client to access their data) which can be
  * used to authenticate a request to an API endpoint.
@@ -21,7 +21,12 @@ const custom_utils = require('../utilities/custom-utils');
 const router = express.Router();
 
 // create application/x-www-form-urlencoded parser
-let urlencoded_parser = body_parser.urlencoded({ extended: false });
+let urlencoded_parser = body_parser.urlencoded({
+    extended: false
+});
+
+// check if contents in http body is url encoded
+router.use(custom_utils.allowOnlyBodyFormatOf('application/x-www-form-urlencoded'));
 
 // handle authorization code flow part one
 router.post('/authorize', urlencoded_parser, (req, res) => {
@@ -150,10 +155,9 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                     } else {
                                         // generate new access token
-                                        let expires_in = Math.floor(Date.now() / 1000) + (60 * 15);  //valid for i5 minutes
+                                        let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
 
-                                        jwt.sign(
-                                            {
+                                        jwt.sign({
                                                 iss: gConfig.JWT_ISSUER,
                                                 exp: expires_in,
                                                 role: results[0].role,
@@ -163,7 +167,9 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                             gConfig.JWT_ENCRYPT_SECRET,
 
-                                            { algorithm: 'HS256' },
+                                            {
+                                                algorithm: 'HS256'
+                                            },
 
                                             (err, token) => { // call back function
                                                 if (err) {
@@ -181,7 +187,6 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                                 } else {
                                                     // send the JWT token to requester
-                                                    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                                                     res.json({
                                                         token_type: 'Bearer',
                                                         expires_in: expires_in,
@@ -335,10 +340,9 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                                             } else {
                                                                 let role = req.body.scope.trim().split(' ')[0].split('.')[0];
-                                                                let expires_in = Math.floor(Date.now() / 1000) + (60 * 10);  //valid for 10 minutes
+                                                                let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
 
-                                                                jwt.sign(
-                                                                    {
+                                                                jwt.sign({
                                                                         iss: gConfig.JWT_ISSUER,
                                                                         exp: expires_in,
                                                                         role: role,
@@ -348,7 +352,9 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                                                     gConfig.JWT_ENCRYPT_SECRET,
 
-                                                                    { algorithm: 'HS256' },
+                                                                    {
+                                                                        algorithm: 'HS256'
+                                                                    },
 
                                                                     (err, token) => { // call back function
                                                                         if (err) {
@@ -394,7 +400,6 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                                                                         } else {
                                                                                             // send the JWT token to requester
-                                                                                            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                                                                                             res.json({
                                                                                                 token_type: 'Bearer',
                                                                                                 expires_in: expires_in,
@@ -426,11 +431,37 @@ router.post('/token', urlencoded_parser, (req, res) => {
                                                             }
                                                         });
                                                     }
+
+                                                }).catch(reason => {
+                                                    res.status(500);
+                                                    res.json({
+                                                        status: 500,
+                                                        error_code: "internal_error",
+                                                        message: "Internal error"
+                                                    });
+
+                                                    // log the error to log file
+                                                    //code here
+
+                                                    return;
                                                 });
                                             }
                                         });
                                     }
                                 }
+
+                            }).catch(reason => {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                //code here
+
+                                return;
                             });
                         }
                     });
@@ -465,7 +496,7 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                         } else {
                             // compare client_secret to hash in database
-                            bcrypt.compare(req.body.client_secret, results[0].secret).then(hash_res => {
+                            bcrypt.compare(req.body.client_secret, results[0].clientSecret).then(hash_res => {
                                 if (!hash_res) {
                                     res.status(401);
                                     res.json({
@@ -518,10 +549,9 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                             } else {
                                                 let role = req.body.scope.trim().split(' ')[0].split('.')[0];
-                                                let expires_in = Math.floor(Date.now() / 1000) + (60 * 10);  //valid for 10 minutes
+                                                let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
 
-                                                jwt.sign(
-                                                    {
+                                                jwt.sign({
                                                         iss: gConfig.JWT_ISSUER,
                                                         exp: expires_in,
                                                         role: role,
@@ -531,7 +561,9 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                                     gConfig.JWT_ENCRYPT_SECRET,
 
-                                                    { algorithm: 'HS256' },
+                                                    {
+                                                        algorithm: 'HS256'
+                                                    },
 
                                                     (err, token) => { // call back function
                                                         if (err) {
@@ -549,7 +581,6 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                                         } else {
                                                             // send the JWT token to requester
-                                                            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                                                             res.json({
                                                                 token_type: 'Bearer',
                                                                 expires_in: expires_in,
@@ -564,6 +595,19 @@ router.post('/token', urlencoded_parser, (req, res) => {
                                         });
                                     }
                                 }
+
+                            }).catch(reason => {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                //code here
+
+                                return;
                             });
                         }
                     });
