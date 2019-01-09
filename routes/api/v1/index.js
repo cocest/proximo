@@ -172,8 +172,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                                             message: "Internal error"
                                         });
 
-                                        console.log(err);
-
                                         // log the error to log file
                                         //code here
 
