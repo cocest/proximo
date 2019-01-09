@@ -5,6 +5,7 @@
 const express = require('express');
 const custom_utils = require('../../../utilities/custom-utils');
 const body_parser = require('body-parser');
+const bcrypt = require('bcrypt');
 const zxcvbn = require('zxcvbn');
 const validator = require('validator');
 const router = express.Router();
@@ -34,23 +35,44 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         const invalid_inputs = [];
 
         // allow name of this format "O'Reiley" and "Proximo"
-        if (!(req.body.firstName && /^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.firstName))) {
+        if (!req.body.firstName) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "firstName",
+                message: "Firstname has to be defined"
+            });
+
+        } else if (!/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.firstName)) {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "firstName",
-                message: "Firstname not acceptable"
+                message: "Firstname is not acceptable"
             });
         }
 
-        if (!(req.body.lastName && /^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.lastName))) {
+        if (!req.body.lastName) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "lastName",
+                message: "Lastname has to be defined"
+            });
+
+        } else if (!/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.lastName)) {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "lastName",
-                message: "Lastname not acceptable"
+                message: "Lastname is not acceptable"
             });
         }
 
-        if (!(req.body.password && zxcvbn(req.body.password).score > 1)) {
+        if (!req.body.password) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "password",
+                message: "Password has to be defined"
+            });
+
+        } else if (zxcvbn(req.body.password).score < 2) {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "password",
@@ -58,7 +80,14 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
             });
         }
 
-        if (!(req.body.gender && /^(male|female|other)$/.test(req.body.gender))) {
+        if (!req.body.gender) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "gender",
+                message: "Gender has to be defined"
+            });
+            
+        } else if (!/^(male|female|others)$/.test(req.body.gender)) {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "gender",
@@ -66,7 +95,25 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
             });
         }
 
-        if (req.body.email && validator.isEmail(req.body.email)) {
+        if (!req.body.email) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "email",
+                message: "Email has to be defined"
+            });
+
+            // send json error message to client
+            res.status(406);
+            res.json({
+                status: 406,
+                error_code: "invalid_field",
+                errors: invalid_inputs,
+                message: "Field(s) value not acceptable"
+            });
+
+            return;
+
+        } else if (validator.isEmail(req.body.email)) {
             // check if email doesn't exist
             gDB.query('SELECT 1 FROM user WHERE emailAddress = ? LIMIT 1', [req.body.email], (err, results) => {
                 if (err) {
@@ -107,7 +154,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
 
                     } else {
                         // hash user's password before storing to database
-                        bcrypt.hash(req.body.password, saltRounds).then(hash => {
+                        bcrypt.hash(req.body.password, 10).then(hash => {
                             // store user's information to database
                             gDB.query(
                                 'START TRANSACTION;' +
@@ -125,15 +172,17 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                                             message: "Internal error"
                                         });
 
+                                        console.log(err);
+
                                         // log the error to log file
                                         //code here
 
                                         return;
 
                                     } else {
-                                        res.status(200);
+                                        res.status(201);
                                         res.json({
-                                            status: 200,
+                                            status: 201,
                                             message: "New user created successfully"
                                         });
 
@@ -163,7 +212,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "email",
-                message: "Your email is not acceptable"
+                message: "Email is not acceptable"
             });
 
             // send json error message to client

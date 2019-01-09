@@ -65,6 +65,11 @@ app.use((req, res) => {
     res.send('File not found');
 });
 
+// validate user credentials
+/*gDB.query('SELECT MAX(categoryID) AS maxUserID FROM newscategories', (err, results) => {
+    console.log(results);
+});*/
+
 //start listening on provided port
 http.createServer(app).listen(gConfig.port, () => {
     console.log(`Proximo server started on port ${gConfig.port}`);

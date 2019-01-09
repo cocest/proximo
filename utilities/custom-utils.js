@@ -121,6 +121,8 @@ class Utilities {
                                 message: "Unauthorized"
                             });
 
+                            return;
+
                         } else {
                             res.status(401);
                             res.json({
@@ -128,11 +130,18 @@ class Utilities {
                                 error_code: "invalid_token",
                                 message: "Unauthorized"
                             });
+
+                            return;
                         }
 
                     } else { // token validated successfully
                         // attach decoded JWT token to request
-                        req.user.access_token = decoded;
+                        if (!req.user) {
+                            req.user = {access_token: decoded};
+
+                        } else {
+                            req.user.access_token = decoded;
+                        }
 
                         next(); // move to next
                     }
@@ -172,6 +181,8 @@ class Utilities {
                 error_code: "insufficient_scope",
                 message: "Forbidden"
             });
+
+            return;
         }
     }
 
