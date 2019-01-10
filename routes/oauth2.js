@@ -25,12 +25,30 @@ let urlencoded_parser = body_parser.urlencoded({
     extended: false
 });
 
+// check if body is empty
+router.use((req, res, next) => {
+    if (req.body) {
+        return next();
+
+    } else {
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+});
+
 // check if contents in http body is url encoded
 router.use(custom_utils.allowOnlyBodyFormatOf('application/x-www-form-urlencoded'));
 
 // handle authorization code flow part one
 router.post('/authorize', urlencoded_parser, (req, res) => {
-    if (!req.body) {
+    // determine authorization
+    if (!req.body.response_type) {
         res.status(400);
         res.json({
             status: 400,
@@ -40,37 +58,25 @@ router.post('/authorize', urlencoded_parser, (req, res) => {
 
         return;
 
+    } else if (req.body.response_type == 'code') {
+        // code here
+
     } else {
-        // determine authorization
-        if (!req.body.response_type) {
-            res.status(400);
-            res.json({
-                status: 400,
-                error_code: "invalid_request",
-                message: "Bad request"
-            });
+        res.status(404);
+        res.json({
+            status: 404,
+            error_code: "unsupported_response_type",
+            message: "Authorization flow not supported"
+        });
 
-            return;
-
-        } else if (req.body.response_type == 'code') {
-            // code here
-
-        } else {
-            res.status(404);
-            res.json({
-                status: 404,
-                error_code: "unsupported_response_type",
-                message: "Authorization flow not supported"
-            });
-
-            return;
-        }
+        return;
     }
 });
 
 // handle request for access token
 router.post('/token', urlencoded_parser, (req, res) => {
-    if (!req.body) {
+    // determine authorization flow or type
+    if (!req.body.grant_type) {
         res.status(400);
         res.json({
             status: 400,
@@ -80,96 +86,359 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
         return;
 
-    } else {
-        // determine authorization flow or type
-        if (!req.body.grant_type) {
-            res.status(400);
-            res.json({
-                status: 400,
-                error_code: "invalid_request",
-                message: "Bad request"
-            });
+    } else if (req.body.grant_type == 'refresh_token') {
+        // issue JWT token to user using refresh token
+        custom_utils.checkOAuth2TokenCrendentials(req.body.grant_type, req.body, err => {
+            if (!err) {
+                res.status(401);
+                res.json({
+                    status: 401,
+                    error_code: "incomplete_credentials",
+                    message: "Unauthorized"
+                });
 
-            return;
+                return;
 
-        } else if (req.body.grant_type == 'refresh_token') {
-            // issue JWT token to user using refresh token
-            custom_utils.checkOAuth2TokenCrendentials(req.body.grant_type, req.body, err => {
-                if (!err) {
-                    res.status(401);
-                    res.json({
-                        status: 401,
-                        error_code: "incomplete_credentials",
-                        message: "Unauthorized"
-                    });
+            } else {
+                try {
+                    // decrypt refresh token
+                    const decipher = crypto.createDecipher('sha256', gConfig.REFRESH_TOKEN_ENCRYPT_SECRET);
+                    let decrypted_rf_token = decipher.update(req.body.refresh_token, 'hex', 'utf8');
+                    decrypted_rf_token += decipher.final('utf8');
 
-                    return;
+                    // get refresh token from database
+                    gDB.query(
+                        'SELECT * FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
+                        [decrypted_rf_token, req.body.client_id]
+                    ).then(results => {
+                        if (results.length < 1) {
+                            res.status(401);
+                            res.json({
+                                status: 401,
+                                error_code: "authentication_required",
+                                message: "Unauthorized"
+                            });
 
-                } else {
-                    try {
-                        // decrypt refresh token
-                        const decipher = crypto.createDecipher('sha256', gConfig.REFRESH_TOKEN_ENCRYPT_SECRET);
-                        let decrypted_rf_token = decipher.update(req.body.refresh_token, 'hex', 'utf8');
-                        decrypted_rf_token += decipher.final('utf8');
+                            return;
 
-                        // get refresh token from database
-                        gDB.query(
-                            'SELECT * FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
-                            [decrypted_rf_token, req.body.client_id]
-                        ).then(results => {
-                            if (results.length < 1) {
+                        } else {
+                            // check if refresh token hasn't expired
+                            let lasted_days = (Date.now() / 1000 - results[0].time) / 86400;
+
+                            if (lasted_days > gConfig.REFRESH_TOKEN_EXPIRE_IN) {
                                 res.status(401);
                                 res.json({
                                     status: 401,
-                                    error_code: "authentication_required",
+                                    error_code: "refresh_token_expired",
+                                    message: "Unauthorized"
+                                });
+
+                                // Refresh token has expired. Remove from database
+                                gDB.query(
+                                    'DELETE FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
+                                    [decrypted_rf_token, req.body.client_id]
+                                ).catch(reason => {
+                                    // log the error to log file
+                                    //code here
+
+                                    return;
+                                });
+
+                            } else {
+                                // generate new access token
+                                let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
+
+                                jwt.sign({
+                                        iss: gConfig.JWT_ISSUER,
+                                        exp: expires_in,
+                                        role: results[0].role,
+                                        user_id: results[0].userID,
+                                        scopes: results[0].assignedScopes.trim().split(' ')
+                                    },
+
+                                    gConfig.JWT_ENCRYPT_SECRET,
+
+                                    {
+                                        algorithm: 'HS256'
+                                    },
+
+                                    (err, token) => { // call back function
+                                        if (err) {
+                                            res.status(500);
+                                            res.json({
+                                                status: 500,
+                                                error_code: "internal_error",
+                                                message: "Internal error"
+                                            });
+
+                                            // log the error to log file
+                                            //code here
+
+                                            return;
+
+                                        } else {
+                                            // send the JWT token to requester
+                                            res.json({
+                                                token_type: 'Bearer',
+                                                expires_in: expires_in,
+                                                access_token: token
+                                            });
+
+                                            return;
+                                        }
+                                    }
+                                );
+                            }
+                        }
+
+                    }).catch(reason => {
+                        res.status(500);
+                        res.json({
+                            status: 500,
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        //code here
+
+                        return;
+                    });
+
+                } catch (er) {
+                    if (er.message == 'Bad input string') {
+                        res.status(401);
+                        res.json({
+                            status: 401,
+                            error_code: "unauthorized_client",
+                            message: "Unauthorized"
+                        });
+
+                        return;
+
+                    } else {
+                        res.status(500);
+                        res.json({
+                            status: 500,
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        //code here
+
+                        return;
+                    }
+                }
+            }
+        });
+
+    } else if (req.body.grant_type == 'authorization_code') {
+        // code here
+
+    } else if (req.body.grant_type == 'password') {
+        // issue JWT token to user using "Resource owner credentials grant"
+        custom_utils.checkOAuth2TokenCrendentials(req.body.grant_type, req.body, err => {
+            if (err) {
+                res.status(401);
+                res.json({
+                    status: 401,
+                    error_code: "incomplete_credentials",
+                    message: "Unauthorized"
+                });
+
+                return;
+
+            } else {
+                // get client credentials
+                gDB.query(
+                    'SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1',
+                    [req.body.client_id]
+                ).then(results => {
+                    if (results.length < 1) {
+                        res.status(401);
+                        res.json({
+                            status: 401,
+                            error_code: "unauthorized_client",
+                            message: "Unauthorized"
+                        });
+
+                        return;
+
+                    } else {
+                        // compare client_secret to hash in database
+                        bcrypt.compare(req.body.client_secret, results[0].secret).then(hash_res => {
+                            if (!hash_res) {
+                                res.status(401);
+                                res.json({
+                                    status: 401,
+                                    error_code: "unauthorized_client",
                                     message: "Unauthorized"
                                 });
 
                                 return;
 
                             } else {
-                                // check if refresh token hasn't expired
-                                let lasted_days = (Date.now() / 1000 - results[0].time) / 86400;
-
-                                if (lasted_days > gConfig.REFRESH_TOKEN_EXPIRE_IN) {
+                                // check if client is allow to use this authorization process
+                                if (!results[0].permittedGrants.trim().split(' ').find(g => g == 'password')) {
                                     res.status(401);
                                     res.json({
                                         status: 401,
-                                        error_code: "refresh_token_expired",
+                                        error_code: "authorization_not_allowed",
                                         message: "Unauthorized"
                                     });
 
-                                    // Refresh token has expired. Remove from database
-                                    gDB.query(
-                                        'DELETE FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
-                                        [decrypted_rf_token, req.body.client_id]
-                                    ).catch(reason => {
-                                        // log the error to log file
-                                        //code here
-
-                                        return;
-                                    });
+                                    return;
 
                                 } else {
-                                    // generate new access token
-                                    let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
+                                    // validate user credentials
+                                    gDB.query(
+                                        'SELECT userID, password FROM userauthentication WHERE emailAddress = ? LIMIT 1',
+                                        [req.body.username]
+                                    ).then(results => {
+                                        if (results.length < 1) {
+                                            res.status(401);
+                                            res.json({
+                                                status: 401,
+                                                error_code: "unauthorized_user",
+                                                message: "Unauthorized"
+                                            });
 
-                                    jwt.sign({
-                                            iss: gConfig.JWT_ISSUER,
-                                            exp: expires_in,
-                                            role: results[0].role,
-                                            user_id: results[0].userID,
-                                            scopes: results[0].assignedScopes.trim().split(' ')
-                                        },
+                                            return;
 
-                                        gConfig.JWT_ENCRYPT_SECRET,
+                                        } else {
+                                            // compare password to hash in database
+                                            bcrypt.compare(req.body.password, results[0].password).then(hash_res => {
+                                                if (!hash_res) {
+                                                    res.status(401);
+                                                    res.json({
+                                                        status: 401,
+                                                        error_code: "unauthorized_user",
+                                                        message: "Unauthorized"
+                                                    });
 
-                                        {
-                                            algorithm: 'HS256'
-                                        },
+                                                    return;
 
-                                        (err, token) => { // call back function
-                                            if (err) {
+                                                } else {
+                                                    // get access scope(s) or permission
+                                                    custom_utils.assignAPIPrivileges(req, (err, assign_scopes) => {
+                                                        if (err) {
+                                                            if (err.errorCode == 'invalid_scope_definition') {
+                                                                res.status(400);
+                                                                res.json({
+                                                                    status: 400,
+                                                                    error_code: "invalid_scope_definition",
+                                                                    message: "Bad request"
+                                                                });
+
+                                                                return;
+
+                                                            } else if (err.errorCode == 'internal_error') {
+                                                                res.status(500);
+                                                                res.json({
+                                                                    status: 500,
+                                                                    error_code: "internal_error",
+                                                                    message: "Internal error"
+                                                                });
+
+                                                                // log the error to log file
+                                                                //code here
+
+                                                                return;
+                                                            }
+
+                                                        } else {
+                                                            let role = req.body.scope.trim().split(' ')[0].split('.')[0];
+                                                            let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
+
+                                                            jwt.sign({
+                                                                    iss: gConfig.JWT_ISSUER,
+                                                                    exp: expires_in,
+                                                                    role: role,
+                                                                    user_id: results[0].userID,
+                                                                    scopes: assign_scopes
+                                                                },
+
+                                                                gConfig.JWT_ENCRYPT_SECRET,
+
+                                                                {
+                                                                    algorithm: 'HS256'
+                                                                },
+
+                                                                (err, token) => { // call back function
+                                                                    if (err) {
+                                                                        res.status(500);
+                                                                        res.json({
+                                                                            status: 500,
+                                                                            error_code: "internal_error",
+                                                                            message: "Internal error"
+                                                                        });
+
+                                                                        // log the error to log file
+                                                                        //code here
+
+                                                                        return;
+
+                                                                    } else {
+                                                                        // generate refresh token
+                                                                        let refresh_token = rand_token.generate(32);
+
+                                                                        try {
+                                                                            // encrypt the refresh token
+                                                                            const cipher = crypto.createCipher('sha256', gConfig.REFRESH_TOKEN_ENCRYPT_SECRET);
+                                                                            let encrypted_token = cipher.update(refresh_token, 'utf8', 'hex');
+                                                                            encrypted_token += cipher.final('hex');
+
+                                                                            // store refresh token to database
+                                                                            gDB.query(
+                                                                                'INSERT INTO apirefreshtoken (clientID, userID, role, refreshToken, assignedScopes) VALUES (?, ?, ?, ?, ?)',
+                                                                                [req.body.client_id, results[0].userID, role, refresh_token, assign_scopes.join(' ')]
+                                                                            ).then(results => {
+                                                                                // send the JWT token to requester
+                                                                                res.json({
+                                                                                    token_type: 'Bearer',
+                                                                                    expires_in: expires_in,
+                                                                                    access_token: token,
+                                                                                    refresh_token: encrypted_token
+                                                                                });
+
+                                                                                return;
+
+                                                                            }).catch(reason => {
+                                                                                res.status(500);
+                                                                                res.json({
+                                                                                    status: 500,
+                                                                                    error_code: "internal_error",
+                                                                                    message: "Internal error"
+                                                                                });
+
+                                                                                // log the error to log file
+                                                                                //code here
+
+                                                                                return;
+                                                                            });
+
+                                                                        } catch (er) { // catch the error just in case the crypto fail
+                                                                            res.status(500);
+                                                                            res.json({
+                                                                                status: 500,
+                                                                                error_code: "internal_error",
+                                                                                message: "Internal error"
+                                                                            });
+
+                                                                            // log the error to log file
+                                                                            //code here
+
+                                                                            return;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            );
+                                                        }
+                                                    });
+                                                }
+
+                                            }).catch(reason => {
                                                 res.status(500);
                                                 res.json({
                                                     status: 500,
@@ -181,19 +450,22 @@ router.post('/token', urlencoded_parser, (req, res) => {
                                                 //code here
 
                                                 return;
-
-                                            } else {
-                                                // send the JWT token to requester
-                                                res.json({
-                                                    token_type: 'Bearer',
-                                                    expires_in: expires_in,
-                                                    access_token: token
-                                                });
-
-                                                return;
-                                            }
+                                            });
                                         }
-                                    );
+
+                                    }).catch(reason => {
+                                        res.status(500);
+                                        res.json({
+                                            status: 500,
+                                            error_code: "internal_error",
+                                            message: "Internal error"
+                                        });
+
+                                        // log the error to log file
+                                        //code here
+
+                                        return;
+                                    });
                                 }
                             }
 
@@ -210,19 +482,156 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                             return;
                         });
+                    }
 
-                    } catch (er) {
-                        if (er.message == 'Bad input string') {
-                            res.status(401);
-                            res.json({
-                                status: 401,
-                                error_code: "unauthorized_client",
-                                message: "Unauthorized"
-                            });
+                }).catch(reason => {
+                    res.status(500);
+                    res.json({
+                        status: 500,
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
 
-                            return;
+                    // log the error to log file
+                    //code here
 
-                        } else {
+                    return;
+                });
+            }
+        });
+
+    } else if (req.body.grant_type == 'client_credentials') {
+        // issue JWT token to user using "Client credentials grant"
+        custom_utils.checkOAuth2TokenCrendentials(req.body.grant_type, req.body, err => {
+            if (err) {
+                res.status(401);
+                res.json({
+                    status: 401,
+                    error_code: "incomplete_credentials",
+                    message: "Unauthorized"
+                });
+
+                return;
+
+            } else {
+                // get client credentials
+                gDB.query(
+                    'SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1',
+                    [req.body.client_id]
+                ).then(results => {
+                    if (results.length < 1) {
+                        res.status(401);
+                        res.json({
+                            status: 401,
+                            error_code: "unauthorized_client",
+                            message: "Unauthorized"
+                        });
+
+                        return;
+
+                    } else {
+                        // compare client_secret to hash in database
+                        bcrypt.compare(req.body.client_secret, results[0].clientSecret).then(hash_res => {
+                            if (!hash_res) {
+                                res.status(401);
+                                res.json({
+                                    status: 401,
+                                    error_code: "unauthorized_client",
+                                    message: "Unauthorized"
+                                });
+
+                                return;
+
+                            } else {
+                                // check if client is allow to use this authorization process
+                                if (!results[0].permittedGrants.trim().split(' ').find(g => g == 'client_credentials')) {
+                                    res.status(401);
+                                    res.json({
+                                        status: 401,
+                                        error_code: "authorization_not_allowed",
+                                        message: "Unauthorized"
+                                    });
+
+                                    return;
+
+                                } else {
+                                    // get access scope(s) or permission
+                                    custom_utils.assignAPIPrivileges(req, (err, assign_scopes) => {
+                                        if (err) {
+                                            if (err.errorCode == 'invalid_scope_definition') {
+                                                res.status(400);
+                                                res.json({
+                                                    status: 400,
+                                                    error_code: "invalid_scope_definition",
+                                                    message: "Bad request"
+                                                });
+
+                                                return;
+
+                                            } else if (err.errorCode == 'internal_error') {
+                                                res.status(500);
+                                                res.json({
+                                                    status: 500,
+                                                    error_code: "internal_error",
+                                                    message: "Internal error"
+                                                });
+
+                                                // log the error to log file
+                                                //code here
+
+                                                return;
+                                            }
+
+                                        } else {
+                                            let role = req.body.scope.trim().split(' ')[0].split('.')[0];
+                                            let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
+
+                                            jwt.sign({
+                                                    iss: gConfig.JWT_ISSUER,
+                                                    exp: expires_in,
+                                                    role: role,
+                                                    user_id: req.body.client_id,
+                                                    scopes: assign_scopes
+                                                },
+
+                                                gConfig.JWT_ENCRYPT_SECRET,
+
+                                                {
+                                                    algorithm: 'HS256'
+                                                },
+
+                                                (err, token) => { // call back function
+                                                    if (err) {
+                                                        res.status(500);
+                                                        res.json({
+                                                            status: 500,
+                                                            error_code: "internal_error",
+                                                            message: "Internal error"
+                                                        });
+
+                                                        // log the error to log file
+                                                        //code here
+
+                                                        return;
+
+                                                    } else {
+                                                        // send the JWT token to requester
+                                                        res.json({
+                                                            token_type: 'Bearer',
+                                                            expires_in: expires_in,
+                                                            access_token: token
+                                                        });
+
+                                                        return;
+                                                    }
+                                                }
+                                            );
+                                        }
+                                    });
+                                }
+                            }
+
+                        }).catch(reason => {
                             res.status(500);
                             res.json({
                                 status: 500,
@@ -234,450 +643,34 @@ router.post('/token', urlencoded_parser, (req, res) => {
                             //code here
 
                             return;
-                        }
+                        });
                     }
-                }
-            });
 
-        } else if (req.body.grant_type == 'authorization_code') {
-            // code here
-
-        } else if (req.body.grant_type == 'password') {
-            // issue JWT token to user using "Resource owner credentials grant"
-            custom_utils.checkOAuth2TokenCrendentials(req.body.grant_type, req.body, err => {
-                if (err) {
-                    res.status(401);
+                }).catch(reason => {
+                    res.status(500);
                     res.json({
-                        status: 401,
-                        error_code: "incomplete_credentials",
-                        message: "Unauthorized"
+                        status: 500,
+                        error_code: "internal_error",
+                        message: "Internal error"
                     });
+
+                    // log the error to log file
+                    //code here
 
                     return;
-
-                } else {
-                    // get client credentials
-                    gDB.query(
-                        'SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1',
-                        [req.body.client_id]
-                    ).then(results => {
-                        if (results.length < 1) {
-                            res.status(401);
-                            res.json({
-                                status: 401,
-                                error_code: "unauthorized_client",
-                                message: "Unauthorized"
-                            });
-
-                            return;
-
-                        } else {
-                            // compare client_secret to hash in database
-                            bcrypt.compare(req.body.client_secret, results[0].secret).then(hash_res => {
-                                if (!hash_res) {
-                                    res.status(401);
-                                    res.json({
-                                        status: 401,
-                                        error_code: "unauthorized_client",
-                                        message: "Unauthorized"
-                                    });
-
-                                    return;
-
-                                } else {
-                                    // check if client is allow to use this authorization process
-                                    if (!results[0].permittedGrants.trim().split(' ').find(g => g == 'password')) {
-                                        res.status(401);
-                                        res.json({
-                                            status: 401,
-                                            error_code: "authorization_not_allowed",
-                                            message: "Unauthorized"
-                                        });
-
-                                        return;
-
-                                    } else {
-                                        // validate user credentials
-                                        gDB.query(
-                                            'SELECT userID, password FROM userauthentication WHERE emailAddress = ? LIMIT 1',
-                                            [req.body.username]
-                                        ).then(results => {
-                                            if (results.length < 1) {
-                                                res.status(401);
-                                                res.json({
-                                                    status: 401,
-                                                    error_code: "unauthorized_user",
-                                                    message: "Unauthorized"
-                                                });
-
-                                                return;
-
-                                            } else {
-                                                // compare password to hash in database
-                                                bcrypt.compare(req.body.password, results[0].password).then(hash_res => {
-                                                    if (!hash_res) {
-                                                        res.status(401);
-                                                        res.json({
-                                                            status: 401,
-                                                            error_code: "unauthorized_user",
-                                                            message: "Unauthorized"
-                                                        });
-
-                                                        return;
-
-                                                    } else {
-                                                        // get access scope(s) or permission
-                                                        custom_utils.assignAPIPrivileges(req, (err, assign_scopes) => {
-                                                            if (err) {
-                                                                if (err.errorCode == 'invalid_scope_definition') {
-                                                                    res.status(400);
-                                                                    res.json({
-                                                                        status: 400,
-                                                                        error_code: "invalid_scope_definition",
-                                                                        message: "Bad request"
-                                                                    });
-
-                                                                    return;
-
-                                                                } else if (err.errorCode == 'internal_error') {
-                                                                    res.status(500);
-                                                                    res.json({
-                                                                        status: 500,
-                                                                        error_code: "internal_error",
-                                                                        message: "Internal error"
-                                                                    });
-
-                                                                    // log the error to log file
-                                                                    //code here
-
-                                                                    return;
-                                                                }
-
-                                                            } else {
-                                                                let role = req.body.scope.trim().split(' ')[0].split('.')[0];
-                                                                let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
-
-                                                                jwt.sign({
-                                                                        iss: gConfig.JWT_ISSUER,
-                                                                        exp: expires_in,
-                                                                        role: role,
-                                                                        user_id: results[0].userID,
-                                                                        scopes: assign_scopes
-                                                                    },
-
-                                                                    gConfig.JWT_ENCRYPT_SECRET,
-
-                                                                    {
-                                                                        algorithm: 'HS256'
-                                                                    },
-
-                                                                    (err, token) => { // call back function
-                                                                        if (err) {
-                                                                            res.status(500);
-                                                                            res.json({
-                                                                                status: 500,
-                                                                                error_code: "internal_error",
-                                                                                message: "Internal error"
-                                                                            });
-
-                                                                            // log the error to log file
-                                                                            //code here
-
-                                                                            return;
-
-                                                                        } else {
-                                                                            // generate refresh token
-                                                                            let refresh_token = rand_token.generate(32);
-
-                                                                            try {
-                                                                                // encrypt the refresh token
-                                                                                const cipher = crypto.createCipher('sha256', gConfig.REFRESH_TOKEN_ENCRYPT_SECRET);
-                                                                                let encrypted_token = cipher.update(refresh_token, 'utf8', 'hex');
-                                                                                encrypted_token += cipher.final('hex');
-
-                                                                                // store refresh token to database
-                                                                                gDB.query(
-                                                                                    'INSERT INTO apirefreshtoken (clientID, userID, role, refreshToken, assignedScopes) VALUES (?, ?, ?, ?, ?)',
-                                                                                    [req.body.client_id, results[0].userID, role, refresh_token, assign_scopes.join(' ')]
-                                                                                ).then(results => {
-                                                                                    // send the JWT token to requester
-                                                                                    res.json({
-                                                                                        token_type: 'Bearer',
-                                                                                        expires_in: expires_in,
-                                                                                        access_token: token,
-                                                                                        refresh_token: encrypted_token
-                                                                                    });
-
-                                                                                    return;
-
-                                                                                }).catch(reason => {
-                                                                                    res.status(500);
-                                                                                    res.json({
-                                                                                        status: 500,
-                                                                                        error_code: "internal_error",
-                                                                                        message: "Internal error"
-                                                                                    });
-
-                                                                                    // log the error to log file
-                                                                                    //code here
-
-                                                                                    return;
-                                                                                });
-
-                                                                            } catch (er) { // catch the error just in case the crypto fail
-                                                                                res.status(500);
-                                                                                res.json({
-                                                                                    status: 500,
-                                                                                    error_code: "internal_error",
-                                                                                    message: "Internal error"
-                                                                                });
-
-                                                                                // log the error to log file
-                                                                                //code here
-
-                                                                                return;
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                );
-                                                            }
-                                                        });
-                                                    }
-
-                                                }).catch(reason => {
-                                                    res.status(500);
-                                                    res.json({
-                                                        status: 500,
-                                                        error_code: "internal_error",
-                                                        message: "Internal error"
-                                                    });
-
-                                                    // log the error to log file
-                                                    //code here
-
-                                                    return;
-                                                });
-                                            }
-
-                                        }).catch(reason => {
-                                            res.status(500);
-                                            res.json({
-                                                status: 500,
-                                                error_code: "internal_error",
-                                                message: "Internal error"
-                                            });
-
-                                            // log the error to log file
-                                            //code here
-
-                                            return;
-                                        });
-                                    }
-                                }
-
-                            }).catch(reason => {
-                                res.status(500);
-                                res.json({
-                                    status: 500,
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                //code here
-
-                                return;
-                            });
-                        }
-
-                    }).catch(reason => {
-                        res.status(500);
-                        res.json({
-                            status: 500,
-                            error_code: "internal_error",
-                            message: "Internal error"
-                        });
-
-                        // log the error to log file
-                        //code here
-
-                        return;
-                    });
-                }
-            });
-
-        } else if (req.body.grant_type == 'client_credentials') {
-            // issue JWT token to user using "Client credentials grant"
-            custom_utils.checkOAuth2TokenCrendentials(req.body.grant_type, req.body, err => {
-                if (err) {
-                    res.status(401);
-                    res.json({
-                        status: 401,
-                        error_code: "incomplete_credentials",
-                        message: "Unauthorized"
-                    });
-
-                    return;
-
-                } else {
-                    // get client credentials
-                    gDB.query(
-                        'SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1', 
-                        [req.body.client_id]
-                    ).then(results => {
-                        if (results.length < 1) {
-                            res.status(401);
-                            res.json({
-                                status: 401,
-                                error_code: "unauthorized_client",
-                                message: "Unauthorized"
-                            });
-
-                            return;
-
-                        } else {
-                            // compare client_secret to hash in database
-                            bcrypt.compare(req.body.client_secret, results[0].clientSecret).then(hash_res => {
-                                if (!hash_res) {
-                                    res.status(401);
-                                    res.json({
-                                        status: 401,
-                                        error_code: "unauthorized_client",
-                                        message: "Unauthorized"
-                                    });
-
-                                    return;
-
-                                } else {
-                                    // check if client is allow to use this authorization process
-                                    if (!results[0].permittedGrants.trim().split(' ').find(g => g == 'client_credentials')) {
-                                        res.status(401);
-                                        res.json({
-                                            status: 401,
-                                            error_code: "authorization_not_allowed",
-                                            message: "Unauthorized"
-                                        });
-
-                                        return;
-
-                                    } else {
-                                        // get access scope(s) or permission
-                                        custom_utils.assignAPIPrivileges(req, (err, assign_scopes) => {
-                                            if (err) {
-                                                if (err.errorCode == 'invalid_scope_definition') {
-                                                    res.status(400);
-                                                    res.json({
-                                                        status: 400,
-                                                        error_code: "invalid_scope_definition",
-                                                        message: "Bad request"
-                                                    });
-
-                                                    return;
-
-                                                } else if (err.errorCode == 'internal_error') {
-                                                    res.status(500);
-                                                    res.json({
-                                                        status: 500,
-                                                        error_code: "internal_error",
-                                                        message: "Internal error"
-                                                    });
-
-                                                    // log the error to log file
-                                                    //code here
-
-                                                    return;
-                                                }
-
-                                            } else {
-                                                let role = req.body.scope.trim().split(' ')[0].split('.')[0];
-                                                let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
-
-                                                jwt.sign({
-                                                        iss: gConfig.JWT_ISSUER,
-                                                        exp: expires_in,
-                                                        role: role,
-                                                        user_id: req.body.client_id,
-                                                        scopes: assign_scopes
-                                                    },
-
-                                                    gConfig.JWT_ENCRYPT_SECRET,
-
-                                                    {
-                                                        algorithm: 'HS256'
-                                                    },
-
-                                                    (err, token) => { // call back function
-                                                        if (err) {
-                                                            res.status(500);
-                                                            res.json({
-                                                                status: 500,
-                                                                error_code: "internal_error",
-                                                                message: "Internal error"
-                                                            });
-
-                                                            // log the error to log file
-                                                            //code here
-
-                                                            return;
-
-                                                        } else {
-                                                            // send the JWT token to requester
-                                                            res.json({
-                                                                token_type: 'Bearer',
-                                                                expires_in: expires_in,
-                                                                access_token: token
-                                                            });
-
-                                                            return;
-                                                        }
-                                                    }
-                                                );
-                                            }
-                                        });
-                                    }
-                                }
-
-                            }).catch(reason => {
-                                res.status(500);
-                                res.json({
-                                    status: 500,
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                //code here
-
-                                return;
-                            });
-                        }
-
-                    }).catch(reason => {
-                        res.status(500);
-                        res.json({
-                            status: 500,
-                            error_code: "internal_error",
-                            message: "Internal error"
-                        });
-
-                        // log the error to log file
-                        //code here
-
-                        return;
-                    });
-                }
-            });
-
-        } else {
-            res.status(404);
-            res.json({
-                status: 404,
-                error_code: "unsupported_grant",
-                message: "Authorization flow not supported"
-            });
-
-            return;
-        }
+                });
+            }
+        });
+
+    } else {
+        res.status(404);
+        res.json({
+            status: 404,
+            error_code: "unsupported_grant",
+            message: "Authorization flow not supported"
+        });
+
+        return;
     }
 });
 
