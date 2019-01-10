@@ -115,92 +115,101 @@ router.post('/token', urlencoded_parser, (req, res) => {
                         // get refresh token from database
                         gDB.query(
                             'SELECT * FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
-                            [decrypted_rf_token, req.body.client_id],
-                            (err, results) => {
-                                if (err || results.length < 1) {
+                            [decrypted_rf_token, req.body.client_id]
+                        ).then(results => {
+                            if (results.length < 1) {
+                                res.status(401);
+                                res.json({
+                                    status: 401,
+                                    error_code: "authentication_required",
+                                    message: "Unauthorized"
+                                });
+
+                                return;
+
+                            } else {
+                                // check if refresh token hasn't expired
+                                let lasted_days = (Date.now() / 1000 - results[0].time) / 86400;
+
+                                if (lasted_days > gConfig.REFRESH_TOKEN_EXPIRE_IN) {
                                     res.status(401);
                                     res.json({
                                         status: 401,
-                                        error_code: "authentication_required",
+                                        error_code: "refresh_token_expired",
                                         message: "Unauthorized"
                                     });
 
-                                    return;
+                                    // Refresh token has expired. Remove from database
+                                    gDB.query(
+                                        'DELETE FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
+                                        [decrypted_rf_token, req.body.client_id]
+                                    ).catch(reason => {
+                                        // log the error to log file
+                                        //code here
+
+                                        return;
+                                    });
 
                                 } else {
-                                    // check if refresh token hasn't expired
-                                    let lasted_days = (Date.now() / 1000 - results[0].time) / 86400;
+                                    // generate new access token
+                                    let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
 
-                                    if (lasted_days > gConfig.REFRESH_TOKEN_EXPIRE_IN) {
-                                        res.status(401);
-                                        res.json({
-                                            status: 401,
-                                            error_code: "refresh_token_expired",
-                                            message: "Unauthorized"
-                                        });
+                                    jwt.sign({
+                                            iss: gConfig.JWT_ISSUER,
+                                            exp: expires_in,
+                                            role: results[0].role,
+                                            user_id: results[0].userID,
+                                            scopes: results[0].assignedScopes.trim().split(' ')
+                                        },
 
-                                        // Refresh token has expired. Remove from database
-                                        gDB.query(
-                                            'DELETE FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
-                                            [decrypted_rf_token, req.body.client_id],
-                                            (err, results) => {
-                                                if (err) {
-                                                    // log the error to log file
-                                                    //code here
+                                        gConfig.JWT_ENCRYPT_SECRET,
 
-                                                    return;
-                                                }
+                                        {
+                                            algorithm: 'HS256'
+                                        },
+
+                                        (err, token) => { // call back function
+                                            if (err) {
+                                                res.status(500);
+                                                res.json({
+                                                    status: 500,
+                                                    error_code: "internal_error",
+                                                    message: "Internal error"
+                                                });
+
+                                                // log the error to log file
+                                                //code here
+
+                                                return;
+
+                                            } else {
+                                                // send the JWT token to requester
+                                                res.json({
+                                                    token_type: 'Bearer',
+                                                    expires_in: expires_in,
+                                                    access_token: token
+                                                });
+
+                                                return;
                                             }
-                                        );
-
-                                    } else {
-                                        // generate new access token
-                                        let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
-
-                                        jwt.sign({
-                                                iss: gConfig.JWT_ISSUER,
-                                                exp: expires_in,
-                                                role: results[0].role,
-                                                user_id: results[0].userID,
-                                                scopes: results[0].assignedScopes.trim().split(' ')
-                                            },
-
-                                            gConfig.JWT_ENCRYPT_SECRET,
-
-                                            {
-                                                algorithm: 'HS256'
-                                            },
-
-                                            (err, token) => { // call back function
-                                                if (err) {
-                                                    res.status(500);
-                                                    res.json({
-                                                        status: 500,
-                                                        error_code: "internal_error",
-                                                        message: "Internal error"
-                                                    });
-
-                                                    // log the error to log file
-                                                    //code here
-
-                                                    return;
-
-                                                } else {
-                                                    // send the JWT token to requester
-                                                    res.json({
-                                                        token_type: 'Bearer',
-                                                        expires_in: expires_in,
-                                                        access_token: token
-                                                    });
-
-                                                    return;
-                                                }
-                                            }
-                                        );
-                                    }
+                                        }
+                                    );
                                 }
                             }
-                        );
+
+                        }).catch(reason => {
+                            res.status(500);
+                            res.json({
+                                status: 500,
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            //code here
+
+                            return;
+                        });
 
                     } catch (er) {
                         if (er.message == 'Bad input string') {
@@ -248,8 +257,11 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                 } else {
                     // get client credentials
-                    gDB.query('SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1', [req.body.client_id], (err, results) => {
-                        if (err || results.length < 1) {
+                    gDB.query(
+                        'SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1',
+                        [req.body.client_id]
+                    ).then(results => {
+                        if (results.length < 1) {
                             res.status(401);
                             res.json({
                                 status: 401,
@@ -286,8 +298,11 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                     } else {
                                         // validate user credentials
-                                        gDB.query('SELECT userID, password FROM userauthentication WHERE emailAddress = ? LIMIT 1', [req.body.username], (err, results) => {
-                                            if (err || results.length < 1) {
+                                        gDB.query(
+                                            'SELECT userID, password FROM userauthentication WHERE emailAddress = ? LIMIT 1',
+                                            [req.body.username]
+                                        ).then(results => {
+                                            if (results.length < 1) {
                                                 res.status(401);
                                                 res.json({
                                                     status: 401,
@@ -382,35 +397,32 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                                                                 // store refresh token to database
                                                                                 gDB.query(
-                                                                                    'INSERT INTO apirefreshtoken (clientID, userID, role, refreshToken, assignedScopes) VALUE (?, ?, ?, ?, ?)',
-                                                                                    [req.body.client_id, results[0].userID, role, refresh_token, assign_scopes.join(' ')],
-                                                                                    err => {
-                                                                                        if (err) {
-                                                                                            res.status(500);
-                                                                                            res.json({
-                                                                                                status: 500,
-                                                                                                error_code: "internal_error",
-                                                                                                message: "Internal error"
-                                                                                            });
+                                                                                    'INSERT INTO apirefreshtoken (clientID, userID, role, refreshToken, assignedScopes) VALUES (?, ?, ?, ?, ?)',
+                                                                                    [req.body.client_id, results[0].userID, role, refresh_token, assign_scopes.join(' ')]
+                                                                                ).then(results => {
+                                                                                    // send the JWT token to requester
+                                                                                    res.json({
+                                                                                        token_type: 'Bearer',
+                                                                                        expires_in: expires_in,
+                                                                                        access_token: token,
+                                                                                        refresh_token: encrypted_token
+                                                                                    });
 
-                                                                                            // log the error to log file
-                                                                                            //code here
+                                                                                    return;
 
-                                                                                            return;
+                                                                                }).catch(reason => {
+                                                                                    res.status(500);
+                                                                                    res.json({
+                                                                                        status: 500,
+                                                                                        error_code: "internal_error",
+                                                                                        message: "Internal error"
+                                                                                    });
 
-                                                                                        } else {
-                                                                                            // send the JWT token to requester
-                                                                                            res.json({
-                                                                                                token_type: 'Bearer',
-                                                                                                expires_in: expires_in,
-                                                                                                access_token: token,
-                                                                                                refresh_token: encrypted_token
-                                                                                            });
+                                                                                    // log the error to log file
+                                                                                    //code here
 
-                                                                                            return;
-                                                                                        }
-                                                                                    }
-                                                                                );
+                                                                                    return;
+                                                                                });
 
                                                                             } catch (er) { // catch the error just in case the crypto fail
                                                                                 res.status(500);
@@ -446,6 +458,19 @@ router.post('/token', urlencoded_parser, (req, res) => {
                                                     return;
                                                 });
                                             }
+
+                                        }).catch(reason => {
+                                            res.status(500);
+                                            res.json({
+                                                status: 500,
+                                                error_code: "internal_error",
+                                                message: "Internal error"
+                                            });
+
+                                            // log the error to log file
+                                            //code here
+
+                                            return;
                                         });
                                     }
                                 }
@@ -464,6 +489,19 @@ router.post('/token', urlencoded_parser, (req, res) => {
                                 return;
                             });
                         }
+
+                    }).catch(reason => {
+                        res.status(500);
+                        res.json({
+                            status: 500,
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        //code here
+
+                        return;
                     });
                 }
             });
@@ -483,8 +521,11 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                 } else {
                     // get client credentials
-                    gDB.query('SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1', [req.body.client_id], (err, results) => {
-                        if (err || results.length < 1) {
+                    gDB.query(
+                        'SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1', 
+                        [req.body.client_id]
+                    ).then(results => {
+                        if (results.length < 1) {
                             res.status(401);
                             res.json({
                                 status: 401,
@@ -610,6 +651,19 @@ router.post('/token', urlencoded_parser, (req, res) => {
                                 return;
                             });
                         }
+
+                    }).catch(reason => {
+                        res.status(500);
+                        res.json({
+                            status: 500,
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        //code here
+
+                        return;
                     });
                 }
             });

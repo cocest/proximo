@@ -21,48 +21,42 @@ const pool = mysql.createPool({
 // Class that contains MySQL's query helper function
 class MySQL {
     static query(sql, ...args) {
-        // get connection from pool
-        pool.getConnection((err, conn) => {
-            if (err) throw err; // not connected
+        return new Promise((resolve, reject) => {
+            // get connection from pool
+            pool.getConnection((err, conn) => {
+                if (err) return reject(err); // not connected
 
-            if (args.length < 2) { // no binding
-                conn.query(sql, (error, results, fileds) => {
-                    // when done with the connection, release it.
-                    conn.release();
+                if (args.length > 0) { // bind values to sql
+                    conn.query(sql, args[0], (err, results) => {
+                        // when done with the connection, release it.
+                        conn.release();
 
-                    // handle error after the release.
-                    if (error) {
-                        // return error to caller
-                        args[0](error, results);
+                        // handle error after the release.
+                        if (err) return reject(err);
 
-                    } else {
                         // reformat the result to recommended format if necessary
                         // code here
 
-                        // return result to caller
-                        args[0](null, results);
-                    }
-                });
+                        // result
+                        return resolve(results);
+                    });
 
-            } else { // bind values to sql
-                conn.query(sql, args[0], (error, results, fileds) => {
-                    // when done with the connection, release it.
-                    conn.release();
+                } else { // no binding
+                    conn.query(sql, (err, results) => {
+                        // when done with the connection, release it.
+                        conn.release();
 
-                    // handle error after the release.
-                    if (error) {
-                        // return error to caller
-                        args[1](error, results);
+                        // handle error after the release.
+                        if (err) return reject(err);
 
-                    } else {
                         // reformat the result to recommended format if necessary
                         // code here
 
-                        // return result to caller
-                        args[1](null, results);
-                    }
-                });
-            }
+                        // result
+                        return resolve(results);
+                    });
+                }
+            });
         });
     }
 
@@ -70,15 +64,9 @@ class MySQL {
         return new Promise((resolve, reject) => {
             // get connection from pool
             pool.getConnection((err, conn) => {
-                if (err) {
-                    reject(err); // not connected
-                    return;
-                }
+                if (err) return reject(err); // not connected
 
-                if (queries.length < 1) {
-                    reject(new Error('No query pass as an argument'));
-                    return;
-                }
+                if (queries.length < 1) return reject(new Error('No query pass as an argument'));
 
                 // start transaction
                 conn.beginTransaction(err => {
@@ -92,7 +80,7 @@ class MySQL {
                     executeQueries(0);
 
                     function executeQueries(counter) {
-                        conn.query(queries[counter].query, queries[counter].post, (err, results) => {
+                        conn.query(queries[counter].query, queries[counter].post, err => {
                             if (err) {
                                 return conn.rollback(function () {
                                     reject(err);
@@ -103,11 +91,11 @@ class MySQL {
                             if (counter + 1 == queries.length) {
                                 conn.commit(err => {
                                     if (err) {
-                                        return conn.rollback(function() {
+                                        return conn.rollback(function () {
                                             reject(err);
                                         });
                                     }
-                
+
                                     resolve();
                                 });
 

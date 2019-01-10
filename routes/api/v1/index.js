@@ -115,103 +115,101 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
 
         } else if (validator.isEmail(req.body.email)) {
             // check if email doesn't exist
-            gDB.query('SELECT 1 FROM user WHERE emailAddress = ? LIMIT 1', [req.body.email], (err, results) => {
-                if (err) {
-                    res.status(500);
-                    res.json({
-                        status: 500,
-                        error_code: "internal_error",
-                        message: "Internal error"
+            gDB.query('SELECT 1 FROM user WHERE emailAddress = ? LIMIT 1', [req.body.email]).then(results => {
+                if (results.length > 0) { // the SQL query is fast enough
+                    // email has been used by another user
+                    invalid_inputs.push({
+                        error_code: "input_exist",
+                        field: "email",
+                        message: "Email address has been claimed"
                     });
+                }
 
-                    // log the error to log file
-                    //code here
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        status: 406,
+                        error_code: "invalid_field",
+                        errors: invalid_inputs,
+                        message: "Field(s) value not acceptable"
+                    });
 
                     return;
 
                 } else {
-                    if (results.length > 0) { // the SQL query is fast enough
-                        // email has been used by another user
-                        invalid_inputs.push({
-                            error_code: "input_exist",
-                            field: "email",
-                            message: "Email address has been claimed"
-                        });
-                    }
-
-                    // check if any input is invalid
-                    if (invalid_inputs.length > 0) {
-                        // send json error message to client
-                        res.status(406);
-                        res.json({
-                            status: 406,
-                            error_code: "invalid_field",
-                            errors: invalid_inputs,
-                            message: "Field(s) value not acceptable"
-                        });
-
-                        return;
-
-                    } else {
-                        // hash user's password before storing to database
-                        bcrypt.hash(req.body.password, 10).then(hash => {
-                            // store user's information to database
-                            gDB.transaction({
-                                    query: 'INSERT INTO user (firstName, lastName, emailAddress, gender) VALUES (?, ?, ?, ?)',
-                                    post: [
-                                        req.body.firstName,
-                                        req.body.lastName,
-                                        req.body.email,
-                                        req.body.gender
-                                    ]
-                                }, {
-                                    query: 'SELECT @user_id:=userID FROM user WHERE emailAddress = ?',
-                                    post: [req.body.email]
-                                }, {
-                                    query: 'INSERT INTO userauthentication (userID, emailAddress, password) VALUES (@user_id, ?, ?)',
-                                    post: [
-                                        req.body.email,
-                                        hash
-                                    ]
-                                })
-                                .then(results => {
-                                    res.status(201);
-                                    res.json({
-                                        status: 201,
-                                        message: "New user created successfully"
-                                    });
-
-                                    return;
-                                })
-                                .catch(reason => {
-                                    res.status(500);
-                                    res.json({
-                                        status: 500,
-                                        error_code: "internal_error",
-                                        message: "Internal error"
-                                    });
-
-                                    // log the error to log file
-                                    //code here
-
-                                    return;
+                    // hash user's password before storing to database
+                    bcrypt.hash(req.body.password, 10).then(hash => {
+                        // store user's information to database
+                        gDB.transaction({
+                                query: 'INSERT INTO user (firstName, lastName, emailAddress, gender) VALUES (?, ?, ?, ?)',
+                                post: [
+                                    req.body.firstName,
+                                    req.body.lastName,
+                                    req.body.email,
+                                    req.body.gender
+                                ]
+                            }, {
+                                query: 'SELECT @user_id:=userID FROM user WHERE emailAddress = ?',
+                                post: [req.body.email]
+                            }, {
+                                query: 'INSERT INTO userauthentication (userID, emailAddress, password) VALUES (@user_id, ?, ?)',
+                                post: [
+                                    req.body.email,
+                                    hash
+                                ]
+                            })
+                            .then(results => {
+                                res.status(201);
+                                res.json({
+                                    status: 201,
+                                    message: "New user created successfully"
                                 });
 
-                        }).catch(reason => {
-                            res.status(500);
-                            res.json({
-                                status: 500,
-                                error_code: "internal_error",
-                                message: "Internal error"
+                                return;
+                            })
+                            .catch(reason => {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                //code here
+
+                                return;
                             });
 
-                            // log the error to log file
-                            //code here
-
-                            return;
+                    }).catch(reason => {
+                        res.status(500);
+                        res.json({
+                            status: 500,
+                            error_code: "internal_error",
+                            message: "Internal error"
                         });
-                    }
+
+                        // log the error to log file
+                        //code here
+
+                        return;
+                    });
                 }
+
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    status: 500,
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                //code here
+
+                return;
             });
 
         } else { // not valid

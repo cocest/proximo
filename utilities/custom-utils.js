@@ -13,23 +13,6 @@ const model = require('../models/custom-model');
 
 class Utilities {
 
-    /*
-     * //
-     */
-    static compareToHashDataInDB(tableName, tableColumn, searches, ...args) {
-        //get hash password
-        let hash_password = model.get(tableName, [tableColumn], a);
-
-        return new Promise((resolve) => {
-            //iterate through the searches
-
-            //executed successfully
-            resolve();
-
-            //throw new Error('Error occured');
-        });
-    }
-
     static allowOnlyBodyFormatOf(body_format) {
         return (req, res, next) => {
             if (!req.is(body_format)) {
@@ -197,9 +180,8 @@ class Utilities {
                 }, []);
 
             } else {
-                gDB.query('SELECT scopes FROM apiprivileges WHERE role = ? LIMIT 1', [role[0]], (err, results) => {
-                    // internal error
-                    if (err || results.length < 1) {
+                gDB.query('SELECT scopes FROM apiprivileges WHERE role = ? LIMIT 1', [role[0]]).then(results => {
+                    if (results.length < 1) {
                         return call({
                             errorCode: 'internal_error'
                         }, []);
@@ -223,6 +205,11 @@ class Utilities {
                             return call(null, granted_scopes);
                         }
                     }
+
+                }).catch(reason => {
+                    return call({
+                        errorCode: 'internal_error'
+                    }, []);
                 });
             }
 
