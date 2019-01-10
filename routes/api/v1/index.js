@@ -86,7 +86,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 field: "gender",
                 message: "Gender has to be defined"
             });
-            
+
         } else if (!/^(male|female|others)$/.test(req.body.gender)) {
             invalid_inputs.push({
                 error_code: "invalid_input",
@@ -156,38 +156,46 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                         // hash user's password before storing to database
                         bcrypt.hash(req.body.password, 10).then(hash => {
                             // store user's information to database
-                            gDB.query(
-                                'START TRANSACTION;' +
-                                'INSERT INTO user (firstName, lastName, emailAddress, gender) VALUE (?, ?, ?, ?);' +
-                                'SELECT @user_id:=MAX(userID) FROM user;' +
-                                'INSERT INTO userauthentication (userID, emailAddress, password) VALUE (@user_id, ?, ?);' +
-                                'COMMIT;',
-                                [req.body.firstName, req.body.lastName, req.body.email, req.body.gender, req.body.email, hash],
-                                err => {
-                                    if (err) {
-                                        res.status(500);
-                                        res.json({
-                                            status: 500,
-                                            error_code: "internal_error",
-                                            message: "Internal error"
-                                        });
+                            gDB.transaction({
+                                    query: 'INSERT INTO user (firstName, lastName, emailAddress, gender) VALUES (?, ?, ?, ?)',
+                                    post: [
+                                        req.body.firstName,
+                                        req.body.lastName,
+                                        req.body.email,
+                                        req.body.gender
+                                    ]
+                                }, {
+                                    query: 'SELECT @user_id:=userID FROM user WHERE emailAddress = ?',
+                                    post: [req.body.email]
+                                }, {
+                                    query: 'INSERT INTO userauthentication (userID, emailAddress, password) VALUES (@user_id, ?, ?)',
+                                    post: [
+                                        req.body.email,
+                                        hash
+                                    ]
+                                })
+                                .then(results => {
+                                    res.status(201);
+                                    res.json({
+                                        status: 201,
+                                        message: "New user created successfully"
+                                    });
 
-                                        // log the error to log file
-                                        //code here
+                                    return;
+                                })
+                                .catch(reason => {
+                                    res.status(500);
+                                    res.json({
+                                        status: 500,
+                                        error_code: "internal_error",
+                                        message: "Internal error"
+                                    });
 
-                                        return;
+                                    // log the error to log file
+                                    //code here
 
-                                    } else {
-                                        res.status(201);
-                                        res.json({
-                                            status: 201,
-                                            message: "New user created successfully"
-                                        });
-
-                                        return;
-                                    }
-                                }
-                            );
+                                    return;
+                                });
 
                         }).catch(reason => {
                             res.status(500);

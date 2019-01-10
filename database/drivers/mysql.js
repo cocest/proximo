@@ -10,15 +10,13 @@
 const mysql = require('mysql');
 
 // initialise mysql connection
-const pool = mysql.createPool(
-    {
-        connectionLimit: global.gConfig.db.connection_limit,
-        database: global.gConfig.db.database,
-        host: global.gConfig.db.host,
-        user: global.gConfig.db.username,
-        password: global.gConfig.db.password
-    }
-);
+const pool = mysql.createPool({
+    connectionLimit: global.gConfig.db.connection_limit,
+    database: global.gConfig.db.database,
+    host: global.gConfig.db.host,
+    user: global.gConfig.db.username,
+    password: global.gConfig.db.password
+});
 
 // Class that contains MySQL's query helper function
 class MySQL {
@@ -65,6 +63,61 @@ class MySQL {
                     }
                 });
             }
+        });
+    }
+
+    static transaction(...queries) {
+        return new Promise((resolve, reject) => {
+            // get connection from pool
+            pool.getConnection((err, conn) => {
+                if (err) {
+                    reject(err); // not connected
+                    return;
+                }
+
+                if (queries.length < 1) {
+                    reject(new Error('No query pass as an argument'));
+                    return;
+                }
+
+                // start transaction
+                conn.beginTransaction(err => {
+                    if (err) {
+                        return conn.rollback(function () {
+                            reject(error);
+                        });
+                    }
+
+                    //start the execution
+                    executeQueries(0);
+
+                    function executeQueries(counter) {
+                        conn.query(queries[counter].query, queries[counter].post, (err, results) => {
+                            if (err) {
+                                return conn.rollback(function () {
+                                    reject(err);
+                                });
+                            }
+
+                            // check if is last executed query
+                            if (counter + 1 == queries.length) {
+                                conn.commit(err => {
+                                    if (err) {
+                                        return conn.rollback(function() {
+                                            reject(err);
+                                        });
+                                    }
+                
+                                    resolve();
+                                });
+
+                            } else { // there still queries to be executed
+                                executeQueries(counter + 1);
+                            }
+                        });
+                    }
+                });
+            });
         });
     }
 }
