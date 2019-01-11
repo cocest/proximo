@@ -41,7 +41,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
 
     } else {
         // check if these fields are provided and valid: 
-        // firstName, lastName, email, password and gender.
+        // firstName, lastName, email, dateOfBirth, password and gender.
 
         const invalid_inputs = [];
 
@@ -88,7 +88,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         } else if (!(dob.length == 3 && custom_utils.validateDate({year: dob[0], month: dob[1], day: dob[3]}))) {
             invalid_inputs.push({
                 error_code: "invalid_input",
-                field: "DateOfBirth",
+                field: "dateOfBirth",
                 message: "Date of birth is invalid"
             });
         }
