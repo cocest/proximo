@@ -13,6 +13,43 @@ const model = require('../models/custom-model');
 
 class Utilities {
 
+    static daysInMonth(m, y) { // m is 0 indexed: 0-11
+        switch (m) {
+            case 1:
+                return (y % 4 == 0 && y % 100) || y % 400 == 0 ? 29 : 28;
+
+            case 8: 
+            case 3: 
+            case 5: 
+            case 10:
+                return 30;
+
+            default :
+                return 31;
+        }
+    }
+
+    static validateDate(date) {
+        if (!(/^[1-9][0-9]{3}$/.test(date.year) &&
+                parseInt(date.year) <= (new Date()).getFullYear())) {
+
+            return false;
+        }
+
+        if (!/^([1-9]|[1][0-2])$/.test(date.month)) {
+            return false;
+        }
+
+        if (!/^([1-9]|[1-2][0-9]|[3][0-1])$/.test(date.day)) {
+            return false;
+
+        } else if (parseInt(data.day) <= this.daysInMonth(parseInt(date.month), parseInt(date.year))) {
+            return false;
+        }
+
+        return true;
+    }
+
     static allowOnlyBodyFormatOf(body_format) {
         return (req, res, next) => {
             if (!req.is(body_format)) {
@@ -120,7 +157,9 @@ class Utilities {
                     } else { // token validated successfully
                         // attach decoded JWT token to request
                         if (!req.user) {
-                            req.user = {access_token: decoded};
+                            req.user = {
+                                access_token: decoded
+                            };
 
                         } else {
                             req.user.access_token = decoded;

@@ -18,6 +18,17 @@ router.use(body_parser.json());
 
 // create new user
 router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res) => {
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
     if (!req.is('application/json')) { // check if content type is supported
         res.status(415);
         res.json({
@@ -62,6 +73,23 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 error_code: "invalid_input",
                 field: "lastName",
                 message: "Lastname is not acceptable"
+            });
+        }
+
+        const dob = typeof req.body.dateOfBirth == 'undefined' ?  null : req.body.dateOfBirth.split('-');
+
+        if (!req.body.dateOfBirth) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "dateOfBirth",
+                message: "Date of birth has to be defined"
+            });
+
+        } else if (!(dob.length == 3 && custom_utils.validateDate({year: dob[0], month: dob[1], day: dob[3]}))) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "DateOfBirth",
+                message: "Date of birth is invalid"
             });
         }
 
@@ -143,11 +171,12 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                     bcrypt.hash(req.body.password, 10).then(hash => {
                         // store user's information to database
                         gDB.transaction({
-                                query: 'INSERT INTO user (firstName, lastName, emailAddress, gender) VALUES (?, ?, ?, ?)',
+                                query: 'INSERT INTO user (firstName, lastName, emailAddress, dateOfBirth, gender) VALUES (?, ?, ?, ?, ?)',
                                 post: [
                                     req.body.firstName,
                                     req.body.lastName,
                                     req.body.email,
+                                    req.body.dateOfBirth,
                                     req.body.gender
                                 ]
                             }, {
@@ -232,6 +261,34 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         }
     }
 });
+
+// validate registration fields or inputs
+router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:users:all'], (req, res) => {
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            status: 415,
+            error_code: "unsupported_format",
+            message: "Unsupported media type"
+        });
+
+        return;
+
+    } else {
+        // start here
+    }
+}));
 
 router.get('/hellos', custom_utils.allowedScopes(['read:hellos:all']), (req, res) => {
     res.status(200);
