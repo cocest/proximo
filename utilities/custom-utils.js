@@ -24,7 +24,7 @@ class Utilities {
             case 10:
                 return 30;
 
-            default :
+            default:
                 return 31;
         }
     }
@@ -43,29 +43,11 @@ class Utilities {
         if (!/^([1-9]|[1-2][0-9]|[3][0-1])$/.test(date.day)) {
             return false;
 
-        } else if (parseInt(data.day) <= this.daysInMonth(parseInt(date.month), parseInt(date.year))) {
+        } else if (parseInt(date.day) > Utilities.daysInMonth(parseInt(date.month) - 1, parseInt(date.year))) {
             return false;
         }
 
         return true;
-    }
-
-    static allowOnlyBodyFormatOf(body_format) {
-        return (req, res, next) => {
-            if (!req.is(body_format)) {
-                res.status(415);
-                res.json({
-                    status: 415,
-                    error_code: "unsupported_format",
-                    message: "Unsupported body type"
-                });
-
-                return;
-
-            } else {
-                return next();
-            }
-        };
     }
 
     static checkOAuth2TokenCrendentials(grantType, body, call) {

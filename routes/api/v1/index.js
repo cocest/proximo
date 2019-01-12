@@ -13,6 +13,9 @@ const router = express.Router();
 // check and validate access token (JWT)
 router.use(custom_utils.validateToken);
 
+// parse application/x-www-form-urlencoded parser
+router.use(body_parser.urlencoded({extended: false}));
+
 // parse application/json
 router.use(body_parser.json());
 
@@ -33,8 +36,8 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         res.status(415);
         res.json({
             status: 415,
-            error_code: "unsupported_format",
-            message: "Unsupported media type"
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
         });
 
         return;
@@ -85,7 +88,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 message: "Date of birth has to be defined"
             });
 
-        } else if (!(dob.length == 3 && custom_utils.validateDate({year: dob[0], month: dob[1], day: dob[3]}))) {
+        } else if (!(dob.length == 3 && custom_utils.validateDate({year: dob[0], month: dob[1], day: dob[2]}))) {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "dateOfBirth",
@@ -279,8 +282,8 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
         res.status(415);
         res.json({
             status: 415,
-            error_code: "unsupported_format",
-            message: "Unsupported media type"
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
         });
 
         return;

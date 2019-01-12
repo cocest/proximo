@@ -20,10 +20,8 @@ const jwt = require('jsonwebtoken');
 const custom_utils = require('../utilities/custom-utils');
 const router = express.Router();
 
-// create application/x-www-form-urlencoded parser
-let urlencoded_parser = body_parser.urlencoded({
-    extended: false
-});
+// parse application/x-www-form-urlencoded parser
+router.use(body_parser.urlencoded({extended: false}));
 
 // check if body is empty
 router.use((req, res, next) => {
@@ -43,10 +41,24 @@ router.use((req, res, next) => {
 });
 
 // check if contents in http body is url encoded
-router.use(custom_utils.allowOnlyBodyFormatOf('application/x-www-form-urlencoded'));
+router.use((req, res, next) => {
+    if (req.is('application/x-www-form-urlencoded')) {
+        return next();
+
+    } else {
+        res.status(415);
+        res.json({
+            status: 415,
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+});
 
 // handle authorization code flow part one
-router.post('/authorize', urlencoded_parser, (req, res) => {
+router.post('/authorize', (req, res) => {
     // determine authorization
     if (!req.body.response_type) {
         res.status(400);
@@ -65,7 +77,7 @@ router.post('/authorize', urlencoded_parser, (req, res) => {
         res.status(404);
         res.json({
             status: 404,
-            error_code: "unsupported_response_type",
+            error_code: "unsupported_authentication",
             message: "Authorization flow not supported"
         });
 
@@ -74,7 +86,7 @@ router.post('/authorize', urlencoded_parser, (req, res) => {
 });
 
 // handle request for access token
-router.post('/token', urlencoded_parser, (req, res) => {
+router.post('/token', (req, res) => {
     // determine authorization flow or type
     if (!req.body.grant_type) {
         res.status(400);
@@ -178,6 +190,7 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                         } else {
                                             // send the JWT token to requester
+                                            res.status(200);
                                             res.json({
                                                 token_type: 'Bearer',
                                                 expires_in: expires_in,
@@ -395,6 +408,7 @@ router.post('/token', urlencoded_parser, (req, res) => {
                                                                                 [req.body.client_id, results[0].userID, role, refresh_token, assign_scopes.join(' ')]
                                                                             ).then(results => {
                                                                                 // send the JWT token to requester
+                                                                                res.status(200);
                                                                                 res.json({
                                                                                     token_type: 'Bearer',
                                                                                     expires_in: expires_in,
@@ -616,6 +630,7 @@ router.post('/token', urlencoded_parser, (req, res) => {
 
                                                     } else {
                                                         // send the JWT token to requester
+                                                        res.status(200);
                                                         res.json({
                                                             token_type: 'Bearer',
                                                             expires_in: expires_in,
@@ -666,7 +681,7 @@ router.post('/token', urlencoded_parser, (req, res) => {
         res.status(404);
         res.json({
             status: 404,
-            error_code: "unsupported_grant",
+            error_code: "unsupported_authentication",
             message: "Authorization flow not supported"
         });
 
