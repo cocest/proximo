@@ -266,7 +266,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
 });
 
 // validate registration fields or inputs
-router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:users:all'], (req, res) => {
+router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:users:all']), (req, res) => {
     if (!req.body) { // check if body contain data
         res.status(400);
         res.json({
@@ -289,9 +289,129 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
         return;
 
     } else {
-        // start here
+        const invalid_inputs = [];
+
+        if (req.body.firstName && !/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.firstName)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "firstName",
+                message: "Firstname is not acceptable"
+            });
+        }
+
+        if (req.body.lastName && !/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.lastName)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "lastName",
+                message: "Lastname is not acceptable"
+            });
+        }
+
+        if (req.body.dateOfBirth) {
+            let dob = req.body.dateOfBirth.split('-');
+            
+            if (!(dob.length == 3 && custom_utils.validateDate({year: dob[0], month: dob[1], day: dob[2]}))) {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "dateOfBirth",
+                    message: "Date of birth is invalid"
+                });
+            }
+        }
+
+        if (req.body.password && zxcvbn(req.body.password).score < 2) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "password",
+                message: "Password is too weak"
+            });
+        }
+
+        if (req.body.email && validator.isEmail(req.body.email)) {
+            // check if email has been claimed
+            gDB.query(
+                'SELECT 1 FROM user WHERE emailAddress = ? LIMIT 1', 
+                [req.body.email]
+            ).then(results => {
+                if (results.length > 0) { // the SQL query is fast enough
+                    // email has been used by another user
+                    invalid_inputs.push({
+                        error_code: "input_exist",
+                        field: "email",
+                        message: "Email address has been claimed"
+                    });
+                }
+
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        status: 406,
+                        error_code: "invalid_field",
+                        errors: invalid_inputs,
+                        message: "Field(s) value not acceptable"
+                    });
+
+                    return;
+
+                } else {
+                    return res.status(200).send();
+                }
+
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    status: 500,
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                //code here
+
+                return;
+            });
+
+        } else if (req.body.email) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "email",
+                message: "Email is not acceptable"
+            });
+
+            // send json error message to client
+            res.status(406);
+            res.json({
+                status: 406,
+                error_code: "invalid_field",
+                errors: invalid_inputs,
+                message: "Field(s) value not acceptable"
+            });
+
+            return;
+
+        } else {
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    status: 406,
+                    error_code: "invalid_field",
+                    errors: invalid_inputs,
+                    message: "Field(s) value not acceptable"
+                });
+
+                return;
+
+            } else {
+                return res.status(200).send();
+            }
+        }
+
     }
-}));
+});
 
 router.get('/hellos', custom_utils.allowedScopes(['read:hellos:all']), (req, res) => {
     res.status(200);
