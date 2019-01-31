@@ -149,6 +149,7 @@ router.post('/token', (req, res) => {
                                 gDB.query(
                                     'DELETE FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
                                     [decrypted_rf_token, req.body.client_id]
+
                                 ).catch(reason => {
                                     // log the error to log file
                                     //code here
@@ -304,10 +305,14 @@ router.post('/token', (req, res) => {
                                     return;
 
                                 } else {
+                                    // generate hash of 40 characters length from user's email address 
+                                    let search_email_hash = crypto.createHash("sha1").update(req.body.username, "binary").digest("hex");
+
                                     // validate user credentials
                                     gDB.query(
-                                        'SELECT userID, password FROM userauthentication WHERE emailAddress = ? LIMIT 1',
-                                        [req.body.username]
+                                        'SELECT userID, password FROM userauthentication WHERE searchEmailHash = ? LIMIT 1',
+                                        [search_email_hash]
+
                                     ).then(results => {
                                         if (results.length < 1) {
                                             res.status(401);

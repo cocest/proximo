@@ -15,7 +15,8 @@ const pool = mysql.createPool({
     database: global.gConfig.db.database,
     host: global.gConfig.db.host,
     user: global.gConfig.db.username,
-    password: global.gConfig.db.password
+    password: global.gConfig.db.password,
+    supportBigNumbers: true
 });
 
 // Class that contains MySQL's query helper function
@@ -80,7 +81,7 @@ class MySQL {
                     executeQueries(0);
 
                     function executeQueries(counter) {
-                        conn.query(queries[counter].query, queries[counter].post, err => {
+                        conn.query(queries[counter].query, queries[counter].post, err, results => {
                             if (err) {
                                 return conn.rollback(function () {
                                     reject(err);
@@ -96,7 +97,7 @@ class MySQL {
                                         });
                                     }
 
-                                    resolve();
+                                    resolve(results);
                                 });
 
                             } else { // there still queries to be executed

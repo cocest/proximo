@@ -5,16 +5,23 @@
 const express = require('express');
 const custom_utils = require('../../../utilities/custom-utils');
 const body_parser = require('body-parser');
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
+const rand_token = require('rand-token');
 const zxcvbn = require('zxcvbn');
+const node_mailer = require('nodemailer');
 const validator = require('validator');
+const ejs = require('ejs');
+
 const router = express.Router();
 
 // check and validate access token (JWT)
 router.use(custom_utils.validateToken);
 
 // parse application/x-www-form-urlencoded parser
-router.use(body_parser.urlencoded({extended: false}));
+router.use(body_parser.urlencoded({
+    extended: false
+}));
 
 // parse application/json
 router.use(body_parser.json());
@@ -79,7 +86,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
             });
         }
 
-        const dob = typeof req.body.dateOfBirth == 'undefined' ?  null : req.body.dateOfBirth.split('-');
+        const dob = typeof req.body.dateOfBirth == 'undefined' ? null : req.body.dateOfBirth.split('-');
 
         if (!req.body.dateOfBirth) {
             invalid_inputs.push({
@@ -88,7 +95,11 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 message: "Date of birth has to be defined"
             });
 
-        } else if (!(dob.length == 3 && custom_utils.validateDate({year: dob[0], month: dob[1], day: dob[2]}))) {
+        } else if (!(dob.length == 3 && custom_utils.validateDate({
+                year: dob[0],
+                month: dob[1],
+                day: dob[2]
+            }))) {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "dateOfBirth",
@@ -145,8 +156,11 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
             return;
 
         } else if (validator.isEmail(req.body.email)) {
+            // generate hash of 40 characters length from user's email address 
+            let search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
+
             // check if email doesn't exist
-            gDB.query('SELECT 1 FROM user WHERE emailAddress = ? LIMIT 1', [req.body.email]).then(results => {
+            gDB.query('SELECT 1 FROM user WHERE searchEmailHash = ? LIMIT 1', [search_email_hash]).then(results => {
                 if (results.length > 0) { // the SQL query is fast enough
                     // email has been used by another user
                     invalid_inputs.push({
@@ -172,34 +186,41 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 } else {
                     // hash user's password before storing to database
                     bcrypt.hash(req.body.password, 10).then(hash => {
+                        // generate hash of 40 characters length from user's email address 
+                        let search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
+
                         // store user's information to database
                         gDB.transaction({
-                                query: 'INSERT INTO user (firstName, lastName, emailAddress, dateOfBirth, gender) VALUES (?, ?, ?, ?, ?)',
+                                query: 'INSERT INTO user (firstName, lastName, emailAddress, searchEmailHash, dateOfBirth, gender) VALUES (?, ?, ?, ?, ?, ?)',
                                 post: [
                                     req.body.firstName,
                                     req.body.lastName,
                                     req.body.email,
+                                    search_email_hash,
                                     req.body.dateOfBirth,
                                     req.body.gender
                                 ]
                             }, {
-                                query: 'SELECT @user_id:=userID FROM user WHERE emailAddress = ?',
-                                post: [req.body.email]
+                                query: 'SELECT @user_id:=userID FROM user WHERE searchEmailHash = ?',
+                                post: [search_email_hash]
                             }, {
-                                query: 'INSERT INTO userauthentication (userID, emailAddress, password) VALUES (@user_id, ?, ?)',
+                                query: 'INSERT INTO userauthentication (userID, searchEmailHash, password) VALUES (@user_id, ?, ?)',
                                 post: [
                                     req.body.email,
                                     hash
                                 ]
                             })
                             .then(results => {
-                                res.status(201);
-                                res.json({
-                                    status: 201,
-                                    message: "New user created successfully"
-                                });
+                                gDB.query('SELECT userID FROM user WHERE searchEmailHash = ? LIMIT 1', [search_email_hash]).then(results => {
+                                    res.status(201);
+                                    res.json({
+                                        status: 201,
+                                        user_id: results[0].userID,
+                                        message: "New user created successfully"
+                                    });
 
-                                return;
+                                    return;
+                                });
                             })
                             .catch(reason => {
                                 res.status(500);
@@ -309,8 +330,12 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
 
         if (req.body.dateOfBirth) {
             let dob = req.body.dateOfBirth.split('-');
-            
-            if (!(dob.length == 3 && custom_utils.validateDate({year: dob[0], month: dob[1], day: dob[2]}))) {
+
+            if (!(dob.length == 3 && custom_utils.validateDate({
+                    year: dob[0],
+                    month: dob[1],
+                    day: dob[2]
+                }))) {
                 invalid_inputs.push({
                     error_code: "invalid_input",
                     field: "dateOfBirth",
@@ -328,10 +353,13 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
         }
 
         if (req.body.email && validator.isEmail(req.body.email)) {
+            // generate hash of 40 characters length from user's email address 
+            let search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
+
             // check if email has been claimed
             gDB.query(
-                'SELECT 1 FROM user WHERE emailAddress = ? LIMIT 1', 
-                [req.body.email]
+                'SELECT 1 FROM user WHERE searchEmailHash = ? LIMIT 1',
+                [search_email_hash]
             ).then(results => {
                 if (results.length > 0) { // the SQL query is fast enough
                     // email has been used by another user
@@ -410,6 +438,293 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
             }
         }
 
+    }
+});
+
+// send verification code to user's email address
+router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['write:users:all']), (req, res) => {
+    // check if id is interger
+    if (/^\d+$/.test(req.params.id)) {
+        // get user email address
+        gDB.query('SELECT firstName, emailAddress, accountActivated FROM user WHERE userID = ? LIMIT 1', [req.params.id]).then(results => {
+            if (results.length < 0) {
+                res.status(404);
+                res.json({
+                    status: 404,
+                    error_code: "match_not_found",
+                    message: "User id doesn't match any"
+                });
+
+                return;
+
+            } else if (results[0].accountActivated == 0) { // check if account is not activated
+                let access_key = 'emailverification:' + req.params.id;
+
+                // check if key does not exist or has been expired
+                gRedisClient.get(access_key, (err, reply) => {
+                    if (err) {
+                        res.status(500);
+                        res.json({
+                            status: 500,
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        //code here
+
+                        return;
+                    }
+
+                    // reply is null when the key is missing
+                    if (reply) { // key exist
+                        res.status(425);
+                        res.json({
+                            status: 425,
+                            error_code: "too_early",
+                            message: "Activation code still exist"
+                        });
+
+                        return;
+
+                    } else { // key doesn't exist
+                        // generate six digit verification code
+                        let verification_code = rand_token.generate(6, '0123456789');
+
+                        // set up the mailer
+                        let transporter = node_mailer.createTransport({
+                            host: gConfig.SMTP_SERVER,
+                            port: gConfig.SMTP_PORT,
+                            secure: true,
+                            auth: {
+                                user: gConfig.SMTP_USERNAME,
+                                pass: gConfig.SMTP_PASSWORD
+                            }
+                        });
+
+                        let mail_options = {
+                            from: gConfig.SMTP_FROM,
+                            to: results[0].emailAddress,
+                            subject: 'Email Verification',
+                            html: ejs.render(
+                                `<%- include("../views/email_verification", 
+                                     {username: ${results[0].firstName},
+                                      code: ${verification_code},
+                                      year: ${(new Date()).getFullYear()}}) %>`
+                            )
+                        };
+
+                        transporter.sendMail(mail_options, (err, info) => {
+                            if (err) {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Message can't be sent"
+                                });
+
+                                // log the error to log file
+                                //code here
+
+                                return;
+
+                            } else {
+                                // check if email is rejected
+                                if (info.rejected.length > 0) {
+                                    res.status(500);
+                                    res.json({
+                                        status: 500,
+                                        error_code: "internal_error",
+                                        message: "Email was rejected by the server"
+                                    });
+
+                                    return;
+
+                                } else { // email sent successfully
+                                    // expiration set to 10 minutes
+                                    let code_expiration = 60 * 10;
+
+                                    // store the verification code to database (redis) with
+                                    gRedisClient.set(access_key, verification_code, 'EX', 60 * 10, (err, replay) => {
+                                        if (err) {
+                                            res.status(500);
+                                            res.json({
+                                                status: 500,
+                                                error_code: "internal_error",
+                                                message: "Internal error"
+                                            });
+
+                                            // log the error to log file
+                                            //code here
+
+                                            return;
+
+                                        } else {
+                                            res.status(200);
+                                            res.json({
+                                                status: 200,
+                                                code_expiration: code_expiration
+                                            });
+
+                                            return;
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+
+            } else { // account is already activated
+                res.status(409);
+                res.json({
+                    status: 409,
+                    error_code: "already_processed",
+                    message: "Action has been performed"
+                });
+
+                return;
+            }
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                status: 500,
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            //code here
+
+            return;
+        });
+
+    } else { // invalid id
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_user_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+});
+
+// confirm verification entered by the user
+router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes(['write:users:all']), (req, res) => {
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            status: 415,
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+
+    } else {
+        // check if id is interger
+        if (/^\d+$/.test(req.params.id)) {
+            if (!req.body.code) {
+                res.status(400);
+                res.json({
+                    status: 400,
+                    error_code: "invalid_request",
+                    message: "Bad request"
+                });
+
+                return;
+            }
+
+            let access_key = 'emailverification:' + req.params.id;
+
+            // get stored verification code
+            gRedisClient.get(access_key, (err, reply) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        status: 500,
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    //code here
+
+                    return;
+                }
+
+                // reply is null when the key is missing
+                if (!reply) { // key doesn't exist
+                    res.status(404);
+                    res.json({
+                        status: 404,
+                        error_code: "data_not_found",
+                        message: "Activation code not defined or expired"
+                    });
+
+                    return;
+
+                } else { // key exist
+                    // check if code match
+                    if (reply == req.body.code.trim()) {
+                        // activate user account
+                        gDB.query(
+                            'UPDATE user SET accountActivated = 1 WHERE userID = ? LIMIT 1',
+                            [req.params.id]
+                        ).then(results => {
+                            return res.status(200).send();
+
+                        }).catch(reason => {
+                            res.status(500);
+                            res.json({
+                                status: 500,
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            //code here
+
+                            return;
+                        });
+
+                    } else { // activation code supplied by user is wrong
+                        res.status(406);
+                        res.json({
+                            status: 406,
+                            error_code: "invalid_code_match",
+                            message: "Invalid activation code"
+                        });
+
+                        return;
+                    }
+                }
+            });
+
+        } else { // invalid id
+            res.status(400);
+            res.json({
+                status: 400,
+                error_code: "invalid_user_id",
+                message: "Bad request"
+            });
+
+            return;
+        }
     }
 });
 

@@ -3,3 +3,6 @@ node_modules/
 
 # ignore contents in test folder
 test/
+
+# ignore enviromental variables (.env)
+.env

@@ -9,8 +9,10 @@
  * 
  */
 
+//require('dotenv').config(); // don't commit this to github repository
 require('./config/config'); // configure the server and load environmental variables
-require('./database/DB'); // load DBMS driver
+require('./database/rdbms/DB'); // load DBMS driver
+require('./database/nosql/REDIS'); // load Redis client
 const fs = require('fs');
 const http = require('http');
 const express = require('express');

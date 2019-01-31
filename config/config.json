@@ -4,10 +4,15 @@
     },
 
     "environment": {
-        "JWT_ENCRYPT_SECRET": "ECyJJ2ls8WKI8fvKBSk8WHSrYO4lVlsZd8mxXUuOazO4viBbZquESCVWbYkdiEvK",
-        "REFRESH_TOKEN_ENCRYPT_SECRET": "A9ggdYC4NUzq2op12uP8WclIouuwyk1GUlB1rih8cMm1IvqytriRcUCrhIooyQsm",
-        "REFRESH_TOKEN_EXPIRE_IN": 30,
-        "JWT_ISSUER": "proximo.com",
+        "JWT_ENCRYPT_SECRET": "$env:JWT_ENCRYPT_SECRET",
+        "REFRESH_TOKEN_ENCRYPT_SECRET": "$env:REFRESH_TOKEN_ENCRYPT_SECRET",
+        "REFRESH_TOKEN_EXPIRE_IN": "$env:REFRESH_TOKEN_EXPIRE_IN",
+        "JWT_ISSUER": "$env:JWT_ISSUER",
+        "SMTP_SERVER": "$env:SMTP_SERVER",
+        "SMTP_PORT": "$env:SMTP_PORT",
+        "SMTP_USERNAME": "$env:SMTP_USERNAME",
+        "SMTP_PASSWORD": "$env:SMTP_PASSWORD",
+        "SMTP_FROM": "$env:SMTP_FROM",
         "MORE_HERE": "add global variables here"
     },
 
@@ -21,6 +26,9 @@
             "database": "proximo",
             "username": "root",
             "password": ""
+        },
+        "redis": {
+            "connection_url": "$env:REDISCLOUD_URL"
         }
     },
 
@@ -34,6 +42,9 @@
             "database": "$env:DB_DATABASE",
             "username": "$env:DB_USERNAME",
             "password": "$env:DB_PASSWORD"
+        },
+        "redis": {
+            "connection_url": "$env:REDISCLOUD_URL"
         }
     },
 
