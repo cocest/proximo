@@ -16,7 +16,7 @@ let loaded_driver;
 // load DBMS abstraction layer or driver
 switch (global.gConfig.db.driver_name) {
     case 'mysql':
-        loaded_driver = require('../drivers/mysql');
+        loaded_driver = require('./drivers/mysql');
         break;
 
     // load other abstraction or drivers here
