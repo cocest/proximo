@@ -418,7 +418,8 @@ router.post('/token', (req, res) => {
                                                                                     token_type: 'Bearer',
                                                                                     expires_in: expires_in,
                                                                                     access_token: token,
-                                                                                    refresh_token: encrypted_token
+                                                                                    refresh_token: encrypted_token,
+                                                                                    user_id: results[0].userID
                                                                                 });
 
                                                                                 return;
