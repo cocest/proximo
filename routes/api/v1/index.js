@@ -447,7 +447,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
     if (/^\d+$/.test(req.params.id)) {
         // get user email address
         gDB.query('SELECT firstName, emailAddress, accountActivated FROM user WHERE userID = ? LIMIT 1', [req.params.id]).then(results => {
-            if (results.length < 0) {
+            if (results.length < 1) {
                 res.status(404);
                 res.json({
                     status: 404,
