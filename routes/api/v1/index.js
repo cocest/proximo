@@ -493,7 +493,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                         // generate six digit verification code
                         let verification_code = rand_token.generate(6, '0123456789');
 
-                        // set up public path
+                        // set up the relative path
                         let file_path = path.resolve(__dirname, '../views/emailVerification.ejs');
 
                         let rendered_file_str;
