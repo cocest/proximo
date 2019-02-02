@@ -4,6 +4,7 @@
 
 const express = require('express');
 const custom_utils = require('../../../utilities/custom-utils');
+const path = require('path');
 const body_parser = require('body-parser');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
@@ -206,7 +207,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                             }, {
                                 query: 'INSERT INTO userauthentication (userID, searchEmailHash, password) VALUES (@user_id, ?, ?)',
                                 post: [
-                                    req.body.email,
+                                    search_email_hash,
                                     hash
                                 ]
                             })
@@ -472,6 +473,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
 
                         // log the error to log file
                         //code here
+                        console.log(err);
 
                         return;
                     }
@@ -491,6 +493,21 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                         // generate six digit verification code
                         let verification_code = rand_token.generate(6, '0123456789');
 
+                        // set up public path
+                        let file_path = path.resolve(__dirname, '../views/emailVerification.ejs');
+
+                        let rendered_file_str;
+
+                        ejs.renderFile(
+                            file_path, {
+                                username: results[0].firstName,
+                                code: verification_code,
+                                year: (new Date()).getFullYear()
+                            }, (err, str) => {
+                                rendered_file_str = str;
+                            }
+                        );
+
                         // set up the mailer
                         let transporter = node_mailer.createTransport({
                             host: gConfig.SMTP_SERVER,
@@ -506,12 +523,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                             from: gConfig.SMTP_FROM,
                             to: results[0].emailAddress,
                             subject: 'Email Verification',
-                            html: ejs.render(
-                                `<%- include("../views/email_verification", 
-                                     {username: ${results[0].firstName},
-                                      code: ${verification_code},
-                                      year: ${(new Date()).getFullYear()}}) %>`
-                            )
+                            html: rendered_file_str
                         };
 
                         transporter.sendMail(mail_options, (err, info) => {
@@ -680,7 +692,7 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
 
                 } else { // key exist
                     // check if code match
-                    if (reply == req.body.code.trim()) {
+                    if (reply == req.body.code) {
                         // activate user account
                         gDB.query(
                             'UPDATE user SET accountActivated = 1 WHERE userID = ? LIMIT 1',

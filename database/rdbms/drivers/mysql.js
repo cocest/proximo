@@ -81,7 +81,7 @@ class MySQL {
                     executeQueries(0);
 
                     function executeQueries(counter) {
-                        conn.query(queries[counter].query, queries[counter].post, err, results => {
+                        conn.query(queries[counter].query, queries[counter].post, (err, results) => {
                             if (err) {
                                 return conn.rollback(function () {
                                     reject(err);
