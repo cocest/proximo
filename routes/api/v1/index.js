@@ -520,7 +520,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                         });
 
                         let mail_options = {
-                            from: gConfig.SMTP_FROM,
+                            from: `"Proximonet" <${gConfig.SMTP_FROM}>`,
                             to: results[0].emailAddress,
                             subject: 'Email Verification',
                             html: rendered_file_str
