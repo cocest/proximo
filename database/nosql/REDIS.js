@@ -20,7 +20,7 @@ let client = redis.createClient(
 // connection error
 client.on('error', function (err) {
     // log the error to log file
-    console.log("Redis connection error: " + err); // remove this later
+    gLogger.log('error', err.message, {stack: err.stack});
 });
 
 // add to global variables

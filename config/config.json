@@ -4,6 +4,7 @@
     },
 
     "environment": {
+        "DEBUG_MODE": "$env:SERVER_DEBUG_MODE",
         "JWT_ENCRYPT_SECRET": "$env:JWT_ENCRYPT_SECRET",
         "REFRESH_TOKEN_ENCRYPT_SECRET": "$env:REFRESH_TOKEN_ENCRYPT_SECRET",
         "REFRESH_TOKEN_EXPIRE_IN": "$env:REFRESH_TOKEN_EXPIRE_IN",

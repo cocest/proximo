@@ -152,7 +152,7 @@ router.post('/token', (req, res) => {
 
                                 ).catch(reason => {
                                     // log the error to log file
-                                    //code here
+                                    gLogger.log('error', reason.message, {stack: reason.stack});
 
                                     return;
                                 });
@@ -185,7 +185,7 @@ router.post('/token', (req, res) => {
                                             });
 
                                             // log the error to log file
-                                            //code here
+                                            gLogger.log('error', err.message, {stack: err.stack});
 
                                             return;
 
@@ -214,7 +214,7 @@ router.post('/token', (req, res) => {
                         });
 
                         // log the error to log file
-                        //code here
+                        gLogger.log('error', reason.message, {stack: reason.stack});
 
                         return;
                     });
@@ -239,7 +239,7 @@ router.post('/token', (req, res) => {
                         });
 
                         // log the error to log file
-                        //code here
+                        gLogger.log('error', er.message, {stack: er.stack});
 
                         return;
                     }
@@ -360,7 +360,7 @@ router.post('/token', (req, res) => {
                                                                 });
 
                                                                 // log the error to log file
-                                                                //code here
+                                                                gLogger.log('error', err.message, {stack: err.stack});
 
                                                                 return;
                                                             }
@@ -393,7 +393,7 @@ router.post('/token', (req, res) => {
                                                                         });
 
                                                                         // log the error to log file
-                                                                        //code here
+                                                                        gLogger.log('error', err.message, {stack: err.stack})
 
                                                                         return;
 
@@ -433,7 +433,7 @@ router.post('/token', (req, res) => {
                                                                                 });
 
                                                                                 // log the error to log file
-                                                                                //code here
+                                                                                gLogger.log('error', reason.message, {stack: reason.stack});
 
                                                                                 return;
                                                                             });
@@ -447,7 +447,7 @@ router.post('/token', (req, res) => {
                                                                             });
 
                                                                             // log the error to log file
-                                                                            //code here
+                                                                            gLogger.log('error', er.message, {stack: er.stack});
 
                                                                             return;
                                                                         }
@@ -467,7 +467,7 @@ router.post('/token', (req, res) => {
                                                 });
 
                                                 // log the error to log file
-                                                //code here
+                                                gLogger.log('error', reason.message, {stack: reason.stack});
 
                                                 return;
                                             });
@@ -482,7 +482,7 @@ router.post('/token', (req, res) => {
                                         });
 
                                         // log the error to log file
-                                        //code here
+                                        gLogger.log('error', reason.message, {stack: reason.stack});
 
                                         return;
                                     });
@@ -498,7 +498,7 @@ router.post('/token', (req, res) => {
                             });
 
                             // log the error to log file
-                            //code here
+                            gLogger.log('error', reason.message, {stack: reason.stack});
 
                             return;
                         });
@@ -513,7 +513,7 @@ router.post('/token', (req, res) => {
                     });
 
                     // log the error to log file
-                    //code here
+                    gLogger.log('error', reason.message, {stack: reason.stack});
 
                     return;
                 });
@@ -597,7 +597,7 @@ router.post('/token', (req, res) => {
                                                 });
 
                                                 // log the error to log file
-                                                //code here
+                                                gLogger.log('error', err.message, {stack: err.stack});
 
                                                 return;
                                             }
@@ -630,7 +630,7 @@ router.post('/token', (req, res) => {
                                                         });
 
                                                         // log the error to log file
-                                                        //code here
+                                                        gLogger.log('error', err.message, {stack: err.stack})
 
                                                         return;
 
@@ -661,7 +661,7 @@ router.post('/token', (req, res) => {
                             });
 
                             // log the error to log file
-                            //code here
+                            gLogger.log('error', reason.message, {stack: reason.stack});
 
                             return;
                         });
@@ -676,7 +676,7 @@ router.post('/token', (req, res) => {
                     });
 
                     // log the error to log file
-                    //code here
+                    gLogger.log('error', reason.message, {stack: reason.stack});
 
                     return;
                 });

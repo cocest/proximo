@@ -26,6 +26,7 @@
     "redis": "^2.8.0",
     "url-parse": "^1.4.4",
     "validator": "^10.9.0",
+    "winston": "^3.2.1",
     "zxcvbn": "^4.4.2"
   },
   "devDependencies": {

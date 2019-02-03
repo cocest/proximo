@@ -2,7 +2,7 @@
  * Response server that handle almost all request from client.
  * It's the middle man between client and resources at server end.
  * 
- * Server configuration is in a file "config.json"
+ * Server configuration is in a folder "config"
  * 
  * Author: Attamah Celestine .C.
  * Date: 12/18/2018
@@ -11,6 +11,7 @@
 
 //require('dotenv').config(); // don't commit this to github repository
 require('./config/config'); // configure the server and load environmental variables
+require('./config/logger'); // add logger to global
 require('./database/rdbms/DB'); // load DBMS driver
 require('./database/nosql/REDIS'); // load Redis client
 const fs = require('fs');
@@ -26,10 +27,12 @@ const oauth2 = require('./routes/oauth2');
 const app = express();
 
 // create application/x-www-form-urlencoded parser
-let urlencoded_parser = body_parser.urlencoded({ extended: false });
+let urlencoded_parser = body_parser.urlencoded({extended: false});
 
-// middleware that log incoming request etc
-app.use(logger('short'));
+// only on production mode
+if (process.env.NODE_ENV != 'production') {
+    app.use(logger('short')); // middleware that log incoming request etc
+}
 
 // set up public path
 let public_path = path.resolve(__dirname, 'public');
@@ -42,17 +45,9 @@ app.use('/oauth2/v1', oauth2);
 app.use('/api/v1', api_route_v1);
 
 // logs error
-app.use((error, req, res, next) => {
-    console.error(error.toString() + '\n'); // log error to console
-
-    // write the error to file
-    let file = fs.appendFile('./logs/error_log.txt', error.toString() + '\n', err => {
-        if (err != null) {
-            next(err);
-        } else {
-            next();
-        }
-    });
+app.use((err, req, res, next) => {
+    gLogger.log('error', err.message, {stack: err.stack});
+    next(err);
 });
 
 // handle server error
