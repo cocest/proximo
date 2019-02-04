@@ -246,7 +246,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                         });
 
                         // log the error to log file
-                        gLogger.log(gLogger.log('error', reason.message, {stack: reason.stack}));
+                        gLogger.log('error', reason.message, {stack: reason.stack});
 
                         return;
                     });
@@ -261,7 +261,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 });
 
                 // log the error to log file
-                gLogger.log(gLogger.log('error', reason.message, {stack: reason.stack}));
+                gLogger.log('error', reason.message, {stack: reason.stack});
 
                 return;
             });
@@ -397,7 +397,7 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
                 });
 
                 // log the error to log file
-                gLogger.log(gLogger.log('error', reason.message, {stack: reason.stack}));
+                gLogger.log('error', reason.message, {stack: reason.stack});
 
                 return;
             });
@@ -472,7 +472,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                         });
 
                         // log the error to log file
-                        gLogger.log(gLogger.log('error', err.message, {stack: err.stack}));
+                        gLogger.log('error', err.message, {stack: err.stack});
 
                         return;
                     }
@@ -535,7 +535,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                                 });
 
                                 // log the error to log file
-                                gLogger.log(gLogger.log('error', err.message, {stack: err.stack}));
+                                gLogger.log('error', err.message, {stack: err.stack});
 
                                 return;
 
@@ -566,7 +566,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                                             });
 
                                             // log the error to log file
-                                            gLogger.log(gLogger.log('error', err.message, {stack: err.stack}));
+                                            gLogger.log('error', err.message, {stack: err.stack});
 
                                             return;
 
@@ -676,7 +676,7 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
                     });
 
                     // log the error to log file
-                    gLogger.log(gLogger.log('error', err.message, {stack: err.stack}));
+                    gLogger.log('error', err.message, {stack: err.stack});
 
                     return;
                 }
@@ -711,7 +711,7 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
                             });
 
                             // log the error to log file
-                            gLogger.log(gLogger.log('error', reason.message, {stack: reason.stack}));
+                            gLogger.log('error', reason.message, {stack: reason.stack});
 
                             return;
                         });

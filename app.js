@@ -14,7 +14,6 @@ require('./config/config'); // configure the server and load environmental varia
 require('./config/logger'); // add logger to global
 require('./database/rdbms/DB'); // load DBMS driver
 require('./database/nosql/REDIS'); // load Redis client
-const fs = require('fs');
 const http = require('http');
 const express = require('express');
 const body_parser = require('body-parser');
@@ -61,11 +60,6 @@ app.use((req, res) => {
     res.status(404);
     res.send('File not found');
 });
-
-// validate user credentials
-/*gDB.query('SELECT MAX(categoryID) AS maxUserID FROM newscategories', (err, results) => {
-    console.log(results);
-});*/
 
 //start listening on provided port
 http.createServer(app).listen(gConfig.port, () => {
