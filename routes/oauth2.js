@@ -604,7 +604,7 @@ router.post('/token', (req, res) => {
 
                                         } else {
                                             let role = req.body.scope.trim().split(' ')[0].split('.')[0];
-                                            let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
+                                            let expires_in = Math.floor(Date.now() / 1000) + (60 * 60); //valid for 10 minutes
 
                                             jwt.sign({
                                                     iss: gConfig.JWT_ISSUER,

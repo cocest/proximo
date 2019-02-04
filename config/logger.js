@@ -30,7 +30,7 @@ let logger = winston.createLogger({
     transports: [
         // Write all logs error (and below) to `app.log`.
         new winston.transports.File({
-            filename: '../logs/app.log',
+            filename: './logs/app.log',
             level: 'error'
         })
     ]

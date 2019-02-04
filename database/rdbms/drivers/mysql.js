@@ -72,7 +72,7 @@ class MySQL {
                 // start transaction
                 conn.beginTransaction(err => {
                     if (err) {
-                        return conn.rollback(function () {
+                        return conn.rollback(() => {
                             reject(error);
                         });
                     }
@@ -83,7 +83,7 @@ class MySQL {
                     function executeQueries(counter) {
                         conn.query(queries[counter].query, queries[counter].post, (err, results) => {
                             if (err) {
-                                return conn.rollback(function () {
+                                return conn.rollback(() => {
                                     reject(err);
                                 });
                             }
@@ -92,7 +92,7 @@ class MySQL {
                             if (counter + 1 == queries.length) {
                                 conn.commit(err => {
                                     if (err) {
-                                        return conn.rollback(function () {
+                                        return conn.rollback(() => {
                                             reject(err);
                                         });
                                     }

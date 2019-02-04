@@ -29,7 +29,7 @@ const app = express();
 // create application/x-www-form-urlencoded parser
 let urlencoded_parser = body_parser.urlencoded({extended: false});
 
-// only on production mode
+// only on development mode
 if (process.env.NODE_ENV != 'production') {
     app.use(logger('short')); // middleware that log incoming request etc
 }

@@ -18,9 +18,9 @@ let client = redis.createClient(
 );
 
 // connection error
-client.on('error', function (err) {
+client.on('error', err => {
     // log the error to log file
-    gLogger.log('error', err.message, {stack: err.stack});
+    global.gLogger.log('error', err.message, {stack: err.stack});
 });
 
 // add to global variables
