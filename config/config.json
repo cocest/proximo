@@ -19,6 +19,9 @@
 
     "development": {
         "config_id": "development",
+        "rate_limit_enabled": true,
+        "rate_limit_time_window": 60000,
+        "rate_limit": 15,
         "port": "$env:PORT|8080",
         "db": {
             "driver_name": "mysql",
@@ -35,6 +38,9 @@
 
     "production": {
         "config_id": "production",
+        "rate_limit_enabled": true,
+        "rate_limit_time_window": 60000,
+        "rate_limit": 15,
         "port": "$env:PORT",
         "db": {
             "driver_name": "mysql",

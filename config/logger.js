@@ -28,7 +28,7 @@ let logger = winston.createLogger({
         service: 'Proximo-server'
     },
     transports: [
-        // Write all logs error (and below) to `app.log`.
+        // Write all logs error to `app.log`.
         new winston.transports.File({
             filename: './logs/app.log',
             level: 'error'

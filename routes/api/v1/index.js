@@ -19,6 +19,147 @@ const router = express.Router();
 // check and validate access token (JWT)
 router.use(custom_utils.validateToken);
 
+// rate limit incomming request
+router.use((req, res, next) => {
+    // check if rate limiting for each user request is enable
+    if (gConfig.rate_limit_enabled) { // is on
+        // check if the key is set, if not create new key
+        gRedisClient.mget(
+            [
+                'ratest:' + req.user.access_token.user_id,
+                'ratect:' + req.user.access_token.user_id
+            ],
+            (err, replies) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        status: 500,
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                }
+
+                if (replies[0]) { // first key exist
+                    let start_time = parseInt(replies[0]);
+                    let counter = parseInt(replies[1]);
+                    let duration = Date.now() - start_time; // in milliseconds
+
+                    // rate limit request
+                    if (duration >= gConfig.rate_limit_time_window) { // check if time window has been reached
+                        // reset start time and request counter
+                        let multi = gRedisClient.multi();
+                        multi.set('ratest:' + req.user.access_token.user_id, Date.now(), 'EX', req.user.access_token.exp);
+                        multi.set('ratect:' + req.user.access_token.user_id, 1, 'EX', req.user.access_token.exp);
+                        multi.exec((err, replies) => {
+                            if (err) {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+
+                                return;
+                            }
+
+                            // set the response header
+                            res.setHeader('X-RateLimit-Limit', gConfig.rate_limit);
+                            res.setHeader('X-RateLimit-Remaining', gConfig.rate_limit - 1);
+                            res.setHeader('X-RateLimit-Reset', Date.now() + gConfig.rate_limit_time_window); // UTC milliseconds since epoch time
+
+                            next(); // move to next process
+                        });
+
+                    } else if (counter % (gConfig.rate_limit + 1) == 0) { // number of request per time window frame reached
+                        let wait = gConfig.rate_limit_time_window - duration;
+
+                        // send json error message to client
+                        res.writeHead(429, {
+                            'Retry-After': wait // in milliseconds
+                        });
+                        res.json({
+                            status: 429,
+                            error_code: "limit_exceeded",
+                            message: "API rate limit exceeded"
+                        });
+
+                        return;
+
+                    } else { // increment request counter by one
+                        gRedisClient.incr('ratect:' + req.user.access_token.user_id, (err, reply) => {
+                            if (err) {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+
+                                return;
+                            }
+
+                            // set the response header
+                            res.setHeader('X-RateLimit-Limit', gConfig.rate_limit);
+                            res.setHeader('X-RateLimit-Remaining', gConfig.rate_limit - counter);
+                            res.setHeader('X-RateLimit-Reset', gConfig.rate_limit_time_window - (Date.now() - start_time)); // UTC milliseconds since epoch time
+
+                            next(); // move to next process
+                        });
+                    }
+
+                } else { // set new key
+                    let multi = gRedisClient.multi();
+                    multi.set('ratest:' + req.user.access_token.user_id, Date.now(), 'EX', req.user.access_token.exp);
+                    multi.set('ratect:' + req.user.access_token.user_id, 1, 'EX', req.user.access_token.exp);
+                    multi.exec((err, replies) => {
+                        if (err) {
+                            res.status(500);
+                            res.json({
+                                status: 500,
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
+
+                            return;
+                        }
+
+                        // set the response header
+                        res.setHeader('X-RateLimit-Limit', gConfig.rate_limit);
+                        res.setHeader('X-RateLimit-Remaining', gConfig.rate_limit - 1);
+                        res.setHeader('X-RateLimit-Reset', Date.now() + gConfig.rate_limit_time_window); // UTC milliseconds since epoch time
+
+                        next(); // move to next process
+                    });
+                }
+            });
+
+    } else { // is off
+        next(); // move to next
+    }
+});
+
 // parse application/x-www-form-urlencoded parser
 router.use(body_parser.urlencoded({
     extended: false
@@ -232,7 +373,9 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                                 });
 
                                 // log the error to log file
-                                gLogger.log('error', reason.message, {stack: reason.stack});
+                                gLogger.log('error', reason.message, {
+                                    stack: reason.stack
+                                });
 
                                 return;
                             });
@@ -246,7 +389,9 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                         });
 
                         // log the error to log file
-                        gLogger.log('error', reason.message, {stack: reason.stack});
+                        gLogger.log('error', reason.message, {
+                            stack: reason.stack
+                        });
 
                         return;
                     });
@@ -261,7 +406,9 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 });
 
                 // log the error to log file
-                gLogger.log('error', reason.message, {stack: reason.stack});
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
 
                 return;
             });
@@ -397,7 +544,9 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
                 });
 
                 // log the error to log file
-                gLogger.log('error', reason.message, {stack: reason.stack});
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
 
                 return;
             });
@@ -472,7 +621,9 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                         });
 
                         // log the error to log file
-                        gLogger.log('error', err.message, {stack: err.stack});
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
 
                         return;
                     }
@@ -535,7 +686,9 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                                 });
 
                                 // log the error to log file
-                                gLogger.log('error', err.message, {stack: err.stack});
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
 
                                 return;
 
@@ -556,7 +709,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                                     let code_expiration = 60 * 10;
 
                                     // store the verification code to database (redis) with
-                                    gRedisClient.set(access_key, verification_code, 'EX', 60 * 10, (err, replay) => {
+                                    gRedisClient.set(access_key, verification_code, 'EX', code_expiration, (err, replay) => {
                                         if (err) {
                                             res.status(500);
                                             res.json({
@@ -566,7 +719,9 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                                             });
 
                                             // log the error to log file
-                                            gLogger.log('error', err.message, {stack: err.stack});
+                                            gLogger.log('error', err.message, {
+                                                stack: err.stack
+                                            });
 
                                             return;
 
@@ -676,7 +831,9 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
                     });
 
                     // log the error to log file
-                    gLogger.log('error', err.message, {stack: err.stack});
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
 
                     return;
                 }
@@ -711,7 +868,9 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
                             });
 
                             // log the error to log file
-                            gLogger.log('error', reason.message, {stack: reason.stack});
+                            gLogger.log('error', reason.message, {
+                                stack: reason.stack
+                            });
 
                             return;
                         });
