@@ -86,9 +86,8 @@ router.use((req, res, next) => {
                         let wait = gConfig.rate_limit_time_window - duration;
 
                         // send json error message to client
-                        res.writeHead(429, {
-                            'Retry-After': wait // in milliseconds
-                        });
+                        res.status(429);
+                        res.setHeader('Retry-After', wait); // in milliseconds
                         res.json({
                             status: 429,
                             error_code: "limit_exceeded",
@@ -118,7 +117,7 @@ router.use((req, res, next) => {
                             // set the response header
                             res.setHeader('X-RateLimit-Limit', gConfig.rate_limit);
                             res.setHeader('X-RateLimit-Remaining', gConfig.rate_limit - counter);
-                            res.setHeader('X-RateLimit-Reset', gConfig.rate_limit_time_window - (Date.now() - start_time)); // UTC milliseconds since epoch time
+                            res.setHeader('X-RateLimit-Reset', start_time + gConfig.rate_limit_time_window); // UTC milliseconds since epoch time
 
                             next(); // move to next process
                         });
