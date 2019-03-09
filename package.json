@@ -4,6 +4,7 @@
   "description": "Proximo project",
   "main": "app.js",
   "dependencies": {
+    "aws-sdk": "^2.416.0",
     "bcrypt": "^3.0.2",
     "body-parser": "^1.18.3",
     "connect-ratelimit": "0.0.7",

@@ -802,102 +802,590 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
         });
 
         return;
+    }
 
-    } else {
-        // check if id is interger
-        if (/^\d+$/.test(req.params.id)) {
-            if (!req.body.code) {
-                res.status(400);
-                res.json({
-                    status: 400,
-                    error_code: "invalid_request",
-                    message: "Bad request"
-                });
-
-                return;
-            }
-
-            let access_key = 'emailverification:' + req.params.id;
-
-            // get stored verification code
-            gRedisClient.get(access_key, (err, reply) => {
-                if (err) {
-                    res.status(500);
-                    res.json({
-                        status: 500,
-                        error_code: "internal_error",
-                        message: "Internal error"
-                    });
-
-                    // log the error to log file
-                    gLogger.log('error', err.message, {
-                        stack: err.stack
-                    });
-
-                    return;
-                }
-
-                // reply is null when the key is missing
-                if (!reply) { // key doesn't exist
-                    res.status(404);
-                    res.json({
-                        status: 404,
-                        error_code: "data_not_found",
-                        message: "Activation code not defined or expired"
-                    });
-
-                    return;
-
-                } else { // key exist
-                    // check if code match
-                    if (reply == req.body.code) {
-                        // activate user account
-                        gDB.query(
-                            'UPDATE user SET accountActivated = 1 WHERE userID = ? LIMIT 1',
-                            [req.params.id]
-                        ).then(results => {
-                            return res.status(200).send();
-
-                        }).catch(reason => {
-                            res.status(500);
-                            res.json({
-                                status: 500,
-                                error_code: "internal_error",
-                                message: "Internal error"
-                            });
-
-                            // log the error to log file
-                            gLogger.log('error', reason.message, {
-                                stack: reason.stack
-                            });
-
-                            return;
-                        });
-
-                    } else { // activation code supplied by user is wrong
-                        res.status(406);
-                        res.json({
-                            status: 406,
-                            error_code: "invalid_code_match",
-                            message: "Invalid activation code"
-                        });
-
-                        return;
-                    }
-                }
-            });
-
-        } else { // invalid id
+    // check if id is interger
+    if (/^\d+$/.test(req.params.id)) {
+        if (!req.body.code) {
             res.status(400);
             res.json({
                 status: 400,
-                error_code: "invalid_user_id",
+                error_code: "invalid_request",
                 message: "Bad request"
             });
 
             return;
         }
+
+        let access_key = 'emailverification:' + req.params.id;
+
+        // get stored verification code
+        gRedisClient.get(access_key, (err, reply) => {
+            if (err) {
+                res.status(500);
+                res.json({
+                    status: 500,
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            }
+
+            // reply is null when the key is missing
+            if (!reply) { // key doesn't exist
+                res.status(404);
+                res.json({
+                    status: 404,
+                    error_code: "data_not_found",
+                    message: "Activation code not defined or expired"
+                });
+
+                return;
+
+            } else { // key exist
+                // check if code match
+                if (reply == req.body.code) {
+                    // activate user account
+                    gDB.query(
+                        'UPDATE user SET accountActivated = 1 WHERE userID = ? LIMIT 1',
+                        [req.params.id]
+                    ).then(results => {
+                        return res.status(200).send();
+
+                    }).catch(reason => {
+                        res.status(500);
+                        res.json({
+                            status: 500,
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', reason.message, {
+                            stack: reason.stack
+                        });
+
+                        return;
+                    });
+
+                } else { // activation code supplied by user is wrong
+                    res.status(406);
+                    res.json({
+                        status: 406,
+                        error_code: "invalid_code_match",
+                        message: "Invalid activation code"
+                    });
+
+                    return;
+                }
+            }
+        });
+
+    } else { // invalid id
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_user_id",
+            message: "Bad request"
+        });
+
+        return;
     }
+});
+
+/*
+ * save newly created or edited article to draft and return a 
+ * unique id that identified the article stored in draft
+ */
+router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is integer
+    if (/^\d+$/.test(req.params.user_id)) {
+        // check if is accessing the right user or as a logged in user
+        if (!req.params.user_id == req.user.access_token.user_id) {
+            res.status(401);
+            res.json({
+                status: 401,
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        if (!req.body) { // check if body contain data
+            res.status(400);
+            res.json({
+                status: 400,
+                error_code: "invalid_request",
+                message: "Bad request"
+            });
+
+            return;
+        }
+
+        if (!req.is('application/json')) { // check if content type is supported
+            res.status(415);
+            res.json({
+                status: 415,
+                error_code: "invalid_request_body",
+                message: "Unsupported body format"
+            });
+
+            return;
+        }
+
+        // check if some field contain valid data
+        const invalid_inputs = [];
+
+        // utility function to save article to draft
+        const saveToDraft = () => {
+            // create sixten digit unique id
+            const draft_id = rand_token.generate(16);
+
+            // save article to user's draft
+            gDB.query(
+                'INSERT INTO article_draft (draftID, categoryID, featuredImageURL, title, body) VALUES (?, ?, ?, ?, ?)',
+                [
+                    draft_id,
+                    req.body.category ? req.body.category : -1,
+                    req.body.featuredImageURL ? req.body.featuredImageURL : '',
+                    req.body.title ? req.body.title : '',
+                    req.body.body ? req.body.body : ''
+                ]
+            ).then(results => {
+                res.status(201);
+                res.json({
+                    status: 201,
+                    draft_id: draft_id,
+                    message: "draft created successfully for article"
+                });
+
+                return;
+
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    status: 500,
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
+
+                return;
+            });
+        };
+
+        // check body data type if is provided
+        if (req.body.title && typeof req.body.title != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "title",
+                message: "title is not acceptable"
+            });
+        }
+
+        // check body data type if is provided
+        if (req.body.body && typeof req.body.body != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "body",
+                message: "body is not acceptable"
+            });
+        }
+
+        // check category data type if is provided
+        if (req.body.category && !/^\d+$/.test(req.body.category)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "category",
+                message: "category is not acceptable"
+            });
+
+        } else if (req.body.category) {
+            // check if category id exist
+            gDB.query('SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1', [req.body.category]).then(results => {
+                if (results.length < 1) { // the SQL query is fast enough
+                    // category does not exist
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "category",
+                        message: "category doesn't exist"
+                    });
+                }
+
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        status: 406,
+                        error_code: "invalid_field",
+                        errors: invalid_inputs,
+                        message: "Field(s) value not acceptable"
+                    });
+
+                    return;
+                }
+
+                // save article to draft
+                saveToDraft();
+
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    status: 500,
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
+
+                return;
+            });
+
+        } else {
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    status: 406,
+                    error_code: "invalid_field",
+                    errors: invalid_inputs,
+                    message: "Field(s) value not acceptable"
+                });
+
+                return;
+            }
+
+            // save article to draft
+            saveToDraft();
+        }
+
+    } else { // invalid id
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_user_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+});
+
+/*
+ * add article to draft for edit and 
+ * unique id that identified the article stored in draft
+ */
+router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // start here
+});
+
+// update content save to draft
+router.put('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is integer
+    if (/^\d+$/.test(req.params.user_id)) {
+        // check if is accessing the right user or as a logged in user
+        if (!req.params.user_id == req.user.access_token.user_id) {
+            res.status(401);
+            res.json({
+                status: 401,
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        if (!req.body) { // check if body contain data
+            res.status(400);
+            res.json({
+                status: 400,
+                error_code: "invalid_request",
+                message: "Bad request"
+            });
+
+            return;
+        }
+
+        if (!req.is('application/json')) { // check if content type is supported
+            res.status(415);
+            res.json({
+                status: 415,
+                error_code: "invalid_request_body",
+                message: "Unsupported body format"
+            });
+
+            return;
+        }
+
+        // check if some field contain valid data
+        const invalid_inputs = [];
+
+        // utility function to save article to draft
+        const saveToDraft = () => {
+            // save article to user's draft
+            gDB.query(
+                'UPDATE article_draft SET categoryID = ?, featuredImageURL = ?, title = ?, body = ? WHERE draftID = ?',
+                [
+                    req.body.category ? req.body.category : -1,
+                    req.body.featuredImageURL ? req.body.featuredImageURL : '',
+                    req.body.title ? req.body.title : '',
+                    req.body.body ? req.body.body : '',
+                    req.params.draft_id
+                ]
+            ).then(results => {
+                res.status(200);
+                res.json({
+                    status: 200
+                });
+
+                return;
+
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    status: 500,
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
+
+                return;
+            });
+        };
+
+        // check body data type if is provided
+        if (req.body.title && typeof req.body.title != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "title",
+                message: "title is not acceptable"
+            });
+        }
+
+        // check body data type if is provided
+        if (req.body.body && typeof req.body.body != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "body",
+                message: "body is not acceptable"
+            });
+        }
+
+        // check category data type if is provided
+        if (req.body.category && !/^\d+$/.test(req.body.category)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "category",
+                message: "category is not acceptable"
+            });
+
+        } else if (req.body.category) {
+            // check if category id exist
+            gDB.query('SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1', [req.body.category]).then(results => {
+                if (results.length < 1) { // the SQL query is fast enough
+                    // category does not exist
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "category",
+                        message: "category doesn't exist"
+                    });
+                }
+
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        status: 406,
+                        error_code: "invalid_field",
+                        errors: invalid_inputs,
+                        message: "Field(s) value not acceptable"
+                    });
+
+                    return;
+                }
+
+                // save article to draft
+                saveToDraft();
+
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    status: 500,
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
+
+                return;
+            });
+
+        } else {
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    status: 406,
+                    error_code: "invalid_field",
+                    errors: invalid_inputs,
+                    message: "Field(s) value not acceptable"
+                });
+
+                return;
+            }
+
+            // save article to draft
+            saveToDraft();
+        }
+
+    } else { // invalid id
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_user_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+});
+
+// publish article save to draft and return the article id
+router.put('/users/:user_id/draft/:draft_id/article/publish', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is integer
+    if (/^\d+$/.test(req.params.user_id)) {
+        // check if is accessing the right user or as a logged in user
+        if (!req.params.user_id == req.user.access_token.user_id) {
+            res.status(401);
+            res.json({
+                status: 401,
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        // start here
+
+    } else { // invalid id
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_user_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+});
+
+// retrieve an article saved to user's draft
+router.get('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is integer
+    if (/^\d+$/.test(req.params.user_id)) {
+        // check if is accessing the right user or as a logged in user
+        if (!req.params.user_id == req.user.access_token.user_id) {
+            res.status(401);
+            res.json({
+                status: 401,
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        // start here
+
+    } else { // invalid id
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_user_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+});
+
+// retrieve all article saved to user's draft
+router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is integer
+    if (/^\d+$/.test(req.params.user_id)) {
+        // check if is accessing the right user or as a logged in user
+        if (!req.params.user_id == req.user.access_token.user_id) {
+            res.status(401);
+            res.json({
+                status: 401,
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        // start here
+
+    } else { // invalid id
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_user_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+});
+
+// retrieve an article
+router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    // check if id is integer
+    if (/^\d+$/.test(req.params.id)) {
+        // start here
+
+    } else { // invalid id
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_user_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+});
+
+// search article(s)
+router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    // start here
 });
 
 router.get('/hellos', custom_utils.allowedScopes(['read:hellos:all']), (req, res) => {
@@ -909,7 +1397,7 @@ router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read
     const token_user_id = parseInt(req.user.access_token.user_id, 10);
     const user_id = parseInt(req.params[0], 10);
 
-    // check if is accessing the right user or logged in user
+    // check if is accessing the right user or as a logged in user
     if (!user_id == token_user_id) {
         res.status(401);
         res.json({

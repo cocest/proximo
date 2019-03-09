@@ -178,7 +178,7 @@ class Utilities {
                 }
             }
 
-            // the scopes doesn't have the needed privilege(s)
+            // the client doesn't have the needed privilege(s)
             res.status(403);
             res.json({
                 status: 403,

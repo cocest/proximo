@@ -1,0 +1,12 @@
+2019-02-15 13:23:16 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-15 13:23:17 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-15 13:23:19 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-15 13:23:20 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-15 13:23:22 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-15 13:23:25 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-15 13:23:29 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-15 13:23:35 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-15 13:23:44 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-15 13:23:59 [31merror[39m: Redis connection to 127.0.0.1:6379 failed - connect ECONNREFUSED 127.0.0.1:6379
+2019-02-16 09:18:32 [31merror[39m: Redis connection to redis-17904.c74.us-east-1-4.ec2.cloud.redislabs.com:17904 failed - getaddrinfo ENOTFOUND redis-17904.c74.us-east-1-4.ec2.cloud.redislabs.com redis-17904.c74.us-east-1-4.ec2.cloud.redislabs.com:17904
+2019-02-16 09:18:44 [31merror[39m: Redis connection to redis-17904.c74.us-east-1-4.ec2.cloud.redislabs.com:17904 failed - getaddrinfo ENOTFOUND redis-17904.c74.us-east-1-4.ec2.cloud.redislabs.com redis-17904.c74.us-east-1-4.ec2.cloud.redislabs.com:17904
