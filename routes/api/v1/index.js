@@ -189,247 +189,246 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         });
 
         return;
+    }
 
-    } else {
-        // check if these fields are provided and valid: 
-        // firstName, lastName, email, dateOfBirth, password and gender.
+    // check if these fields are provided and valid: 
+    // firstName, lastName, email, dateOfBirth, password and gender.
 
-        const invalid_inputs = [];
+    const invalid_inputs = [];
 
-        // allow name of this format "O'Reiley" and "Proximo"
-        if (!req.body.firstName) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "firstName",
-                message: "Firstname has to be defined"
-            });
+    // allow name of this format "O'Reiley" and "Proximo"
+    if (!req.body.firstName) {
+        invalid_inputs.push({
+            error_code: "undefined_input",
+            field: "firstName",
+            message: "Firstname has to be defined"
+        });
 
-        } else if (!/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.firstName)) {
-            invalid_inputs.push({
-                error_code: "invalid_input",
-                field: "firstName",
-                message: "Firstname is not acceptable"
-            });
-        }
+    } else if (!/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.firstName)) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "firstName",
+            message: "Firstname is not acceptable"
+        });
+    }
 
-        if (!req.body.lastName) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "lastName",
-                message: "Lastname has to be defined"
-            });
+    if (!req.body.lastName) {
+        invalid_inputs.push({
+            error_code: "undefined_input",
+            field: "lastName",
+            message: "Lastname has to be defined"
+        });
 
-        } else if (!/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.lastName)) {
-            invalid_inputs.push({
-                error_code: "invalid_input",
-                field: "lastName",
-                message: "Lastname is not acceptable"
-            });
-        }
+    } else if (!/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.lastName)) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "lastName",
+            message: "Lastname is not acceptable"
+        });
+    }
 
-        const dob = typeof req.body.dateOfBirth == 'undefined' ? null : req.body.dateOfBirth.split('-');
+    const dob = typeof req.body.dateOfBirth == 'undefined' ? null : req.body.dateOfBirth.split('-');
 
-        if (!req.body.dateOfBirth) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "dateOfBirth",
-                message: "Date of birth has to be defined"
-            });
+    if (!req.body.dateOfBirth) {
+        invalid_inputs.push({
+            error_code: "undefined_input",
+            field: "dateOfBirth",
+            message: "Date of birth has to be defined"
+        });
 
-        } else if (!(dob.length == 3 && custom_utils.validateDate({
-                year: dob[0],
-                month: dob[1],
-                day: dob[2]
-            }))) {
-            invalid_inputs.push({
-                error_code: "invalid_input",
-                field: "dateOfBirth",
-                message: "Date of birth is invalid"
-            });
-        }
+    } else if (!(dob.length == 3 && custom_utils.validateDate({
+            year: dob[0],
+            month: dob[1],
+            day: dob[2]
+        }))) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "dateOfBirth",
+            message: "Date of birth is invalid"
+        });
+    }
 
-        if (!req.body.password) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "password",
-                message: "Password has to be defined"
-            });
+    if (!req.body.password) {
+        invalid_inputs.push({
+            error_code: "undefined_input",
+            field: "password",
+            message: "Password has to be defined"
+        });
 
-        } else if (zxcvbn(req.body.password).score < 2) {
-            invalid_inputs.push({
-                error_code: "invalid_input",
-                field: "password",
-                message: "Password is too weak"
-            });
-        }
+    } else if (zxcvbn(req.body.password).score < 2) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "password",
+            message: "Password is too weak"
+        });
+    }
 
-        if (!req.body.gender) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "gender",
-                message: "Gender has to be defined"
-            });
+    if (!req.body.gender) {
+        invalid_inputs.push({
+            error_code: "undefined_input",
+            field: "gender",
+            message: "Gender has to be defined"
+        });
 
-        } else if (!/^(male|female|others)$/.test(req.body.gender)) {
-            invalid_inputs.push({
-                error_code: "invalid_input",
-                field: "gender",
-                message: "Invalid gender"
-            });
-        }
+    } else if (!/^(male|female|others)$/.test(req.body.gender)) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "gender",
+            message: "Invalid gender"
+        });
+    }
 
-        if (!req.body.email) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "email",
-                message: "Email has to be defined"
-            });
+    if (!req.body.email) {
+        invalid_inputs.push({
+            error_code: "undefined_input",
+            field: "email",
+            message: "Email has to be defined"
+        });
 
-            // send json error message to client
-            res.status(406);
-            res.json({
-                status: 406,
-                error_code: "invalid_field",
-                errors: invalid_inputs,
-                message: "Field(s) value not acceptable"
-            });
+        // send json error message to client
+        res.status(406);
+        res.json({
+            status: 406,
+            error_code: "invalid_field",
+            errors: invalid_inputs,
+            message: "Field(s) value not acceptable"
+        });
 
-            return;
+        return;
 
-        } else if (validator.isEmail(req.body.email)) {
-            // generate hash of 40 characters length from user's email address 
-            let search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
+    } else if (validator.isEmail(req.body.email)) {
+        // generate hash of 40 characters length from user's email address 
+        let search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
 
-            // check if email doesn't exist
-            gDB.query('SELECT 1 FROM user WHERE searchEmailHash = ? LIMIT 1', [search_email_hash]).then(results => {
-                if (results.length > 0) { // the SQL query is fast enough
-                    // email has been used by another user
-                    invalid_inputs.push({
-                        error_code: "input_exist",
-                        field: "email",
-                        message: "Email address has been claimed"
-                    });
-                }
+        // check if email doesn't exist
+        gDB.query('SELECT 1 FROM user WHERE searchEmailHash = ? LIMIT 1', [search_email_hash]).then(results => {
+            if (results.length > 0) { // the SQL query is fast enough
+                // email has been used by another user
+                invalid_inputs.push({
+                    error_code: "input_exist",
+                    field: "email",
+                    message: "Email address has been claimed"
+                });
+            }
 
-                // check if any input is invalid
-                if (invalid_inputs.length > 0) {
-                    // send json error message to client
-                    res.status(406);
-                    res.json({
-                        status: 406,
-                        error_code: "invalid_field",
-                        errors: invalid_inputs,
-                        message: "Field(s) value not acceptable"
-                    });
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    status: 406,
+                    error_code: "invalid_field",
+                    errors: invalid_inputs,
+                    message: "Field(s) value not acceptable"
+                });
 
-                    return;
+                return;
 
-                } else {
-                    // hash user's password before storing to database
-                    bcrypt.hash(req.body.password, 10).then(hash => {
-                        // generate hash of 40 characters length from user's email address 
-                        let search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
+            } else {
+                // hash user's password before storing to database
+                bcrypt.hash(req.body.password, 10).then(hash => {
+                    // generate hash of 40 characters length from user's email address 
+                    let search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
 
-                        // store user's information to database
-                        gDB.transaction({
-                                query: 'INSERT INTO user (firstName, lastName, emailAddress, searchEmailHash, dateOfBirth, gender) VALUES (?, ?, ?, ?, ?, ?)',
-                                post: [
-                                    req.body.firstName,
-                                    req.body.lastName,
-                                    req.body.email,
-                                    search_email_hash,
-                                    req.body.dateOfBirth,
-                                    req.body.gender
-                                ]
-                            }, {
-                                query: 'SELECT @user_id:=userID FROM user WHERE searchEmailHash = ?',
-                                post: [search_email_hash]
-                            }, {
-                                query: 'INSERT INTO userauthentication (userID, searchEmailHash, password) VALUES (@user_id, ?, ?)',
-                                post: [
-                                    search_email_hash,
-                                    hash
-                                ]
-                            })
-                            .then(results => {
-                                gDB.query('SELECT userID FROM user WHERE searchEmailHash = ? LIMIT 1', [search_email_hash]).then(results => {
-                                    res.status(201);
-                                    res.json({
-                                        status: 201,
-                                        user_id: results[0].userID,
-                                        message: "New user created successfully"
-                                    });
-
-                                    return;
-                                });
-                            })
-                            .catch(reason => {
-                                res.status(500);
+                    // store user's information to database
+                    gDB.transaction({
+                            query: 'INSERT INTO user (firstName, lastName, emailAddress, searchEmailHash, dateOfBirth, gender) VALUES (?, ?, ?, ?, ?, ?)',
+                            post: [
+                                req.body.firstName,
+                                req.body.lastName,
+                                req.body.email,
+                                search_email_hash,
+                                req.body.dateOfBirth,
+                                req.body.gender
+                            ]
+                        }, {
+                            query: 'SELECT @user_id:=userID FROM user WHERE searchEmailHash = ?',
+                            post: [search_email_hash]
+                        }, {
+                            query: 'INSERT INTO userauthentication (userID, searchEmailHash, password) VALUES (@user_id, ?, ?)',
+                            post: [
+                                search_email_hash,
+                                hash
+                            ]
+                        })
+                        .then(results => {
+                            gDB.query('SELECT userID FROM user WHERE searchEmailHash = ? LIMIT 1', [search_email_hash]).then(results => {
+                                res.status(201);
                                 res.json({
-                                    status: 500,
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                gLogger.log('error', reason.message, {
-                                    stack: reason.stack
+                                    status: 201,
+                                    user_id: results[0].userID,
+                                    message: "New user created successfully"
                                 });
 
                                 return;
                             });
+                        })
+                        .catch(reason => {
+                            res.status(500);
+                            res.json({
+                                status: 500,
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
 
-                    }).catch(reason => {
-                        res.status(500);
-                        res.json({
-                            status: 500,
-                            error_code: "internal_error",
-                            message: "Internal error"
+                            // log the error to log file
+                            gLogger.log('error', reason.message, {
+                                stack: reason.stack
+                            });
+
+                            return;
                         });
 
-                        // log the error to log file
-                        gLogger.log('error', reason.message, {
-                            stack: reason.stack
-                        });
-
-                        return;
+                }).catch(reason => {
+                    res.status(500);
+                    res.json({
+                        status: 500,
+                        error_code: "internal_error",
+                        message: "Internal error"
                     });
-                }
 
-            }).catch(reason => {
-                res.status(500);
-                res.json({
-                    status: 500,
-                    error_code: "internal_error",
-                    message: "Internal error"
+                    // log the error to log file
+                    gLogger.log('error', reason.message, {
+                        stack: reason.stack
+                    });
+
+                    return;
                 });
+            }
 
-                // log the error to log file
-                gLogger.log('error', reason.message, {
-                    stack: reason.stack
-                });
-
-                return;
-            });
-
-        } else { // not valid
-            invalid_inputs.push({
-                error_code: "invalid_input",
-                field: "email",
-                message: "Email is not acceptable"
-            });
-
-            // send json error message to client
-            res.status(406);
+        }).catch(reason => {
+            res.status(500);
             res.json({
-                status: 406,
-                error_code: "invalid_field",
-                errors: invalid_inputs,
-                message: "Field(s) value not acceptable"
+                status: 500,
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, {
+                stack: reason.stack
             });
 
             return;
-        }
+        });
+
+    } else { // not valid
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "email",
+            message: "Email is not acceptable"
+        });
+
+        // send json error message to client
+        res.status(406);
+        res.json({
+            status: 406,
+            error_code: "invalid_field",
+            errors: invalid_inputs,
+            message: "Field(s) value not acceptable"
+        });
+
+        return;
     }
 });
 
@@ -950,13 +949,13 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
 
             // save article to user's draft
             gDB.query(
-                'INSERT INTO article_draft (draftID, categoryID, featuredImageURL, title, body) VALUES (?, ?, ?, ?, ?)',
+                'INSERT INTO article_draft (draftID, categoryID, featuredImageURL, title, content) VALUES (?, ?, ?, ?, ?)',
                 [
                     draft_id,
-                    req.body.category ? req.body.category : -1,
+                    req.body.categoryID ? req.body.categoryID : -1,
                     req.body.featuredImageURL ? req.body.featuredImageURL : '',
                     req.body.title ? req.body.title : '',
-                    req.body.body ? req.body.body : ''
+                    req.body.content ? req.body.content : ''
                 ]
             ).then(results => {
                 res.status(201);
@@ -988,37 +987,37 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
         // check body data type if is provided
         if (req.body.title && typeof req.body.title != 'string') {
             invalid_inputs.push({
-                error_code: "invalid_input",
+                error_code: "invalid_data",
                 field: "title",
                 message: "title is not acceptable"
             });
         }
 
         // check body data type if is provided
-        if (req.body.body && typeof req.body.body != 'string') {
+        if (req.body.content && typeof req.body.content != 'string') {
             invalid_inputs.push({
-                error_code: "invalid_input",
+                error_code: "invalid_data",
                 field: "body",
                 message: "body is not acceptable"
             });
         }
 
         // check category data type if is provided
-        if (req.body.category && !/^\d+$/.test(req.body.category)) {
+        if (req.body.categoryID && !/^\d+$/.test(req.body.categoryID)) {
             invalid_inputs.push({
-                error_code: "invalid_input",
-                field: "category",
+                error_code: "invalid_data",
+                field: "categoryID",
                 message: "category is not acceptable"
             });
 
-        } else if (req.body.category) {
+        } else if (req.body.categoryID) {
             // check if category id exist
-            gDB.query('SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1', [req.body.category]).then(results => {
+            gDB.query('SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1', [req.body.categoryID]).then(results => {
                 if (results.length < 1) { // the SQL query is fast enough
                     // category does not exist
                     invalid_inputs.push({
-                        error_code: "invalid_input",
-                        field: "category",
+                        error_code: "invalid_data",
+                        field: "categoryID",
                         message: "category doesn't exist"
                     });
                 }
@@ -1088,7 +1087,7 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
 });
 
 /*
- * add article to draft for edit and 
+ * add article to draft for edit and return
  * unique id that identified the article stored in draft
  */
 router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScopes(['write:users']), (req, res) => {
@@ -1140,21 +1139,22 @@ router.put('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes
         const saveToDraft = () => {
             // save article to user's draft
             gDB.query(
-                'UPDATE article_draft SET categoryID = ?, featuredImageURL = ?, title = ?, body = ? WHERE draftID = ?',
+                'UPDATE article_draft SET categoryID = ?, featuredImageURL = ?, title = ?, content = ? WHERE draftID = ? LIMIT 1',
                 [
-                    req.body.category ? req.body.category : -1,
+                    req.body.categoryID ? req.body.categoryID : -1,
                     req.body.featuredImageURL ? req.body.featuredImageURL : '',
                     req.body.title ? req.body.title : '',
-                    req.body.body ? req.body.body : '',
+                    req.body.content ? req.body.content : '',
                     req.params.draft_id
                 ]
             ).then(results => {
-                res.status(200);
-                res.json({
-                    status: 200
-                });
+                // check if updated is successfully
+                if (results.affectedRows < 1) {
+                    return res.status(204).send(); // draft doesn't exist
 
-                return;
+                } else {
+                    return res.status(200).send();
+                }
 
             }).catch(reason => {
                 res.status(500);
@@ -1176,7 +1176,7 @@ router.put('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes
         // check body data type if is provided
         if (req.body.title && typeof req.body.title != 'string') {
             invalid_inputs.push({
-                error_code: "invalid_input",
+                error_code: "invalid_data",
                 field: "title",
                 message: "title is not acceptable"
             });
@@ -1185,17 +1185,17 @@ router.put('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes
         // check body data type if is provided
         if (req.body.body && typeof req.body.body != 'string') {
             invalid_inputs.push({
-                error_code: "invalid_input",
+                error_code: "invalid_data",
                 field: "body",
                 message: "body is not acceptable"
             });
         }
 
         // check category data type if is provided
-        if (req.body.category && !/^\d+$/.test(req.body.category)) {
+        if (req.body.categoryID && !/^\d+$/.test(req.body.categoryID)) {
             invalid_inputs.push({
-                error_code: "invalid_input",
-                field: "category",
+                error_code: "invalid_data",
+                field: "categoryID",
                 message: "category is not acceptable"
             });
 
@@ -1205,8 +1205,8 @@ router.put('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes
                 if (results.length < 1) { // the SQL query is fast enough
                     // category does not exist
                     invalid_inputs.push({
-                        error_code: "invalid_input",
-                        field: "category",
+                        error_code: "invalid_data",
+                        field: "categoryID",
                         message: "category doesn't exist"
                     });
                 }
@@ -1291,7 +1291,207 @@ router.put('/users/:user_id/draft/:draft_id/article/publish', custom_utils.allow
             return;
         }
 
-        // start here
+        if (!req.body) { // check if body contains data
+            res.status(400);
+            res.json({
+                status: 400,
+                error_code: "invalid_request",
+                message: "Bad request"
+            });
+
+            return;
+        }
+
+        if (!req.is('application/json')) { // check if content type is supported
+            res.status(415);
+            res.json({
+                status: 415,
+                error_code: "invalid_request_body",
+                message: "Unsupported body format"
+            });
+
+            return;
+        }
+
+        // check if field(s) contain valid data
+        const invalid_inputs = [];
+
+        if (!req.body.restrict) {
+            invalid_inputs.push({
+                error_code: "undefined_data",
+                field: "restrict",
+                message: "restrict has to be defined"
+            });
+
+        } else if (!/^(0|1)+$/.test(req.body.restrict)) {
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "restrict",
+                message: "restrict is not valid"
+            });
+        }
+
+        if (!req.body.locationID) {
+            invalid_inputs.push({
+                error_code: "undefined_data",
+                field: "locationID",
+                message: "locationID has to be defined"
+            });
+
+            // send json error message to client
+            res.status(406);
+            res.json({
+                status: 406,
+                error_code: "invalid_field",
+                errors: invalid_inputs,
+                message: "Field(s) value not acceptable"
+            });
+
+            return;
+
+        } else if (!/^\d+$/.test(req.body.locationID)) {
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "locationID",
+                message: "locationID is not valid"
+            });
+
+            // send json error message to client
+            res.status(406);
+            res.json({
+                status: 406,
+                error_code: "invalid_field",
+                errors: invalid_inputs,
+                message: "Field(s) value not acceptable"
+            });
+
+            return;
+
+        } else {
+            // check if location id exist and retrieve countryID and continentID
+            gDB.query(
+                'SELECT countryID, continentID FROM regions WHERE regionID = ? LIMIT 1', [req.body.locationID]
+            ).then(region_results => {
+                if (region_results.length < 1) { // the SQL query is fast enough
+                    // location id does not exist
+                    invalid_inputs.push({
+                        error_code: "invalid_data",
+                        field: "locationID",
+                        message: "locationID doesn't exist"
+                    });
+                }
+
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        status: 406,
+                        error_code: "invalid_field",
+                        errors: invalid_inputs,
+                        message: "Field(s) value not acceptable"
+                    });
+
+                    return;
+                }
+
+                // fetch article stored in draft
+                gDB.query(
+                    'SELECT categoryID, featuredImageURL, title, content, published FROM article_draft WHERE draftID = ? LIMIT 1',
+                    [req.params.draft_id]
+                ).then(draft_results => {
+                    // check if draft exist 
+                    if (draft_results.length < 1) {
+                        return res.status(204).send(); // draft doesn't exist
+                    }
+
+                    // generate highlight or description from article content
+                    let article_highlight = 'sample sample sample'; // still debating on how it will be generated
+
+                    // check if this article is published first time
+                    if (draft_results[0].published == 0) { // has not been published
+                        gDB.transaction(
+                            {
+                                //
+                            }
+                        ).then(results => {});
+                        
+                        gDB.query(
+                            'INSERT INTO articles (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
+                            'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                            [
+                                req.params.user_id,
+                                results[0].categoryID,
+                                region_results[0].continentID,
+                                region_results[0].countryID,
+                                req.body.locationID,
+                                draft_results[0].featuredImageURL,
+                                draft_results[0].title,
+                                article_highlight,
+                                draft_results[0].content
+                            ]
+                        ).then(results => {
+                            res.status(201);
+                            res.json({
+                                status: 201,
+                                article_id: results.insertId,
+                                message: "article published successfully"
+                            });
+
+                            return;
+
+                        }).catch(reason => {
+                            res.status(500);
+                            res.json({
+                                status: 500,
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', reason.message, {
+                                stack: reason.stack
+                            });
+
+                            return;
+                        });
+
+                    } else { // article has been published
+                        //
+                    }
+
+                }).catch(reason => {
+                    res.status(500);
+                    res.json({
+                        status: 500,
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', reason.message, {
+                        stack: reason.stack
+                    });
+
+                    return;
+                });
+
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    status: 500,
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
+
+                return;
+            });
+        }
 
     } else { // invalid id
         res.status(400);
