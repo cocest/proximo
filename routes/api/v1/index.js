@@ -5,6 +5,7 @@
 const express = require('express');
 const custom_utils = require('../../../utilities/custom-utils');
 const path = require('path');
+const url_parse = require('url-parse');
 const body_parser = require('body-parser');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
@@ -899,7 +900,7 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
 });
 
 /*
- * save newly created or edited article to draft and return a 
+ * save newly created or to draft and return a 
  * unique id that identified the article stored in draft
  */
 router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
@@ -944,18 +945,20 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
 
         // utility function to save article to draft
         const saveToDraft = () => {
-            // create sixten digit unique id
+            // generate sixten digit unique id
             const draft_id = rand_token.generate(16);
 
             // save article to user's draft
             gDB.query(
-                'INSERT INTO article_draft (draftID, categoryID, featuredImageURL, title, content) VALUES (?, ?, ?, ?, ?)',
+                'INSERT INTO draft (draftID, categoryID, featuredImageURL, title, content, ' + 
+                'draftContentTypeID) VALUES (?, ?, ?, ?, ?, ?)',
                 [
                     draft_id,
-                    req.body.categoryID ? req.body.categoryID : -1,
+                    req.body.categoryID,
                     req.body.featuredImageURL ? req.body.featuredImageURL : '',
                     req.body.title ? req.body.title : '',
-                    req.body.content ? req.body.content : ''
+                    req.body.content ? req.body.content : '',
+                    0
                 ]
             ).then(results => {
                 res.status(201);
@@ -1002,8 +1005,15 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
             });
         }
 
-        // check category data type if is provided
-        if (req.body.categoryID && !/^\d+$/.test(req.body.categoryID)) {
+        //category id must be provided
+        if (!req.body.categoryID) {
+            invalid_inputs.push({
+                error_code: "undefined_data",
+                field: "categoryID",
+                message: "categoryID has to be defined"
+            });
+
+        } else if (!/^\d+$/.test(req.body.categoryID)) {
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "categoryID",
@@ -1095,7 +1105,7 @@ router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScop
 });
 
 // update content save to draft
-router.put('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
     if (/^\d+$/.test(req.params.user_id)) {
         // check if is accessing the right user or as a logged in user
@@ -1137,17 +1147,43 @@ router.put('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes
 
         // utility function to save article to draft
         const saveToDraft = () => {
+            let query = 'UPDATE draft SET ';
+            let post = [];
+
+            // check if category id is provided
+            if (req.body.categoryID) {
+                query += 'categoryID = ?, ';
+                post.push(req.body.categoryID);
+
+            }
+
+            // check if featuredImageURL is provided
+            if (req.body.featuredImageURL) {
+                query += 'featuredImageURL = ?, ';
+                post.push(req.body.featuredImageURL);
+
+            }
+
+            // check if title is provided
+            if (req.body.title) {
+                query += 'title = ?, ';
+                post.push(req.body.title);
+
+            }
+
+            // check if content is provided
+            if (req.body.content) {
+                query += 'content = ? ';
+                post.push(req.body.content);
+
+            }
+
+            //last part of query
+            query += 'WHERE draftID = ? LIMIT 1';
+            post.push(req.params.draft_id);
+
             // save article to user's draft
-            gDB.query(
-                'UPDATE article_draft SET categoryID = ?, featuredImageURL = ?, title = ?, content = ? WHERE draftID = ? LIMIT 1',
-                [
-                    req.body.categoryID ? req.body.categoryID : -1,
-                    req.body.featuredImageURL ? req.body.featuredImageURL : '',
-                    req.body.title ? req.body.title : '',
-                    req.body.content ? req.body.content : '',
-                    req.params.draft_id
-                ]
-            ).then(results => {
+            gDB.query(query, post).then(results => {
                 // check if updated is successfully
                 if (results.affectedRows < 1) {
                     return res.status(204).send(); // draft doesn't exist
@@ -1275,8 +1311,8 @@ router.put('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes
     }
 });
 
-// publish article save to draft and return the article id
-router.put('/users/:user_id/draft/:draft_id/article/publish', custom_utils.allowedScopes(['write:users']), (req, res) => {
+// publish article or news save to draft and return the id
+router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
     if (/^\d+$/.test(req.params.user_id)) {
         // check if is accessing the right user or as a logged in user
@@ -1372,7 +1408,7 @@ router.put('/users/:user_id/draft/:draft_id/article/publish', custom_utils.allow
             gDB.query(
                 'SELECT countryID, continentID FROM regions WHERE regionID = ? LIMIT 1', [req.body.locationID]
             ).then(region_results => {
-                if (region_results.length < 1) { // the SQL query is fast enough
+                if (region_results.length < 1) {
                     // location id does not exist
                     invalid_inputs.push({
                         error_code: "invalid_data",
@@ -1397,8 +1433,9 @@ router.put('/users/:user_id/draft/:draft_id/article/publish', custom_utils.allow
 
                 // fetch article stored in draft
                 gDB.query(
-                    'SELECT categoryID, featuredImageURL, title, content, published FROM article_draft WHERE draftID = ? LIMIT 1',
-                    [req.params.draft_id]
+                    'SELECT categoryID, featuredImageURL, title, content, published, ' +
+                    'publishedContentID FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                    [req.params.draft_id, req.params.user_id]
                 ).then(draft_results => {
                     // check if draft exist 
                     if (draft_results.length < 1) {
@@ -1410,16 +1447,13 @@ router.put('/users/:user_id/draft/:draft_id/article/publish', custom_utils.allow
 
                     // check if this article is published first time
                     if (draft_results[0].published == 0) { // has not been published
-                        gDB.transaction(
-                            {
-                                //
-                            }
-                        ).then(results => {});
-                        
-                        gDB.query(
-                            'INSERT INTO articles (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
-                            'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                            [
+                        gDB.transaction({
+                            query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                            post: [req.params.draft_id, req.params.user_id]
+                        }, {
+                            query: 'INSERT INTO articles (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
+                                'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                            post: [
                                 req.params.user_id,
                                 results[0].categoryID,
                                 region_results[0].continentID,
@@ -1430,7 +1464,7 @@ router.put('/users/:user_id/draft/:draft_id/article/publish', custom_utils.allow
                                 article_highlight,
                                 draft_results[0].content
                             ]
-                        ).then(results => {
+                        }).then(results => {
                             res.status(201);
                             res.json({
                                 status: 201,
@@ -1457,7 +1491,45 @@ router.put('/users/:user_id/draft/:draft_id/article/publish', custom_utils.allow
                         });
 
                     } else { // article has been published
-                        //
+                        gDB.transaction({
+                            query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                            post: [req.params.draft_id, req.params.user_id]
+                        }, {
+                            query: 'UPDATE articles SET categoryID = ?, featuredImageURL = ?, ' +
+                                'title = ?, highlight = ?, content = ? WHERE articleID = ?',
+                            post: [
+                                results[0].categoryID,
+                                draft_results[0].featuredImageURL,
+                                draft_results[0].title,
+                                article_highlight,
+                                draft_results[0].content,
+                                draft_results[0].publishedContentID
+                            ]
+                        }).then(results => {
+                            res.status(201);
+                            res.json({
+                                status: 201,
+                                article_id: draft_results[0].publishedContentID,
+                                message: "published successfully"
+                            });
+
+                            return;
+
+                        }).catch(reason => {
+                            res.status(500);
+                            res.json({
+                                status: 500,
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', reason.message, {
+                                stack: reason.stack
+                            });
+
+                            return;
+                        });
                     }
 
                 }).catch(reason => {
@@ -1505,8 +1577,8 @@ router.put('/users/:user_id/draft/:draft_id/article/publish', custom_utils.allow
     }
 });
 
-// retrieve an article saved to user's draft
-router.get('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
+// retrieve a publication saved to user's draft
+router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
     if (/^\d+$/.test(req.params.user_id)) {
         // check if is accessing the right user or as a logged in user
@@ -1521,7 +1593,86 @@ router.get('/users/:user_id/draft/:draft_id/article', custom_utils.allowedScopes
             return;
         }
 
-        // start here
+        const permitted_fields = [
+            'categoryID',
+            'featuredImageURL',
+            'title',
+            'highlight',
+            'content',
+            'time'
+        ];
+        let query = 'SELECT ';
+
+        // check if required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            let req_fields = req.query.fields.split(',');
+            let permitted_field_count = 0;
+            let field_already_exist = [];
+            const req_field_count = req_fields.length - 1;
+
+            req_fields.forEach((elem, index) => {
+                if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
+                    if (index == req_field_count) {
+                        query += `${elem} `;
+
+                    } else {
+                        query += `${elem}, `;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1) {
+                query = 'SELECT categoryID, featuredImageURL, title, highlight, content, time ' +
+                    'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
+
+            } else {
+                query += 'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
+            }
+
+        } else { // no fields selection
+            query += 'categoryID, featuredImageURL, title, highlight, content, time ' +
+                'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1'
+        }
+
+        // get publication saved to draft
+        gDB.query(query, [req.params.draft_id, req.params.user_id]).then(results => {
+            // check if there is result
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    status: 404,
+                    error_code: "file_not_found",
+                    message: "draft can't be found"
+                });
+
+                return;
+            }
+
+            // send result to client
+            res.status(200);
+            res.json(results[0]);
+
+            return;
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                status: 500,
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, {
+                stack: reason.stack
+            });
+
+            return;
+        });
 
     } else { // invalid id
         res.status(400);
@@ -1551,7 +1702,86 @@ router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:u
             return;
         }
 
-        // start here
+        const permitted_fields = [
+            'categoryID',
+            'featuredImageURL',
+            'title',
+            'highlight',
+            'content',
+            'time'
+        ];
+        let query = 'SELECT ';
+
+        // check if required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            let req_fields = req.query.fields.split(',');
+            let permitted_field_count = 0;
+            let field_already_exist = [];
+            const req_field_count = req_fields.length - 1;
+
+            req_fields.forEach((elem, index) => {
+                if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
+                    if (index == req_field_count) {
+                        query += `${elem} `;
+
+                    } else {
+                        query += `${elem}, `;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1) {
+                query = 'SELECT categoryID, featuredImageURL, title, highlight, content, time ' +
+                    'FROM draft WHERE userID = ? AND draftContentTypeID = 0';
+
+            } else {
+                query += 'FROM draft WHERE userID = ? AND draftContentTypeID = 0';
+            }
+
+        } else { // no fields selection
+            query += 'categoryID, featuredImageURL, title, highlight, content, time ' +
+                'FROM draft WHERE userID = ? AND draftContentTypeID = 0'
+        }
+
+        // get publication saved to draft
+        gDB.query(query, [req.params.draft_id, req.params.user_id]).then(results => {
+            // check if there is result
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    status: 404,
+                    error_code: "file_not_found",
+                    message: "draft can't be found"
+                });
+
+                return;
+            }
+
+            // send result to client
+            res.status(200);
+            res.json(results);
+
+            return;
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                status: 500,
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, {
+                stack: reason.stack
+            });
+
+            return;
+        });
 
     } else { // invalid id
         res.status(400);
