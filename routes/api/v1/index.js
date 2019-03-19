@@ -900,7 +900,7 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
 });
 
 /*
- * save newly created or to draft and return a 
+ * save newly created article to draft and return a 
  * unique id that identified the article stored in draft
  */
 router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
@@ -950,7 +950,7 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
 
             // save article to user's draft
             gDB.query(
-                'INSERT INTO draft (draftID, categoryID, featuredImageURL, title, content, ' + 
+                'INSERT INTO draft (draftID, categoryID, featuredImageURL, title, content, ' +
                 'draftContentTypeID) VALUES (?, ?, ?, ?, ?, ?)',
                 [
                     draft_id,
@@ -965,7 +965,7 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
                 res.json({
                     status: 201,
                     draft_id: draft_id,
-                    message: "draft created successfully for article"
+                    message: "Draft created successfully for article"
                 });
 
                 return;
@@ -1017,7 +1017,7 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "categoryID",
-                message: "category is not acceptable"
+                message: "categoryID is not acceptable"
             });
 
         } else if (req.body.categoryID) {
@@ -1028,7 +1028,7 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
                     invalid_inputs.push({
                         error_code: "invalid_data",
                         field: "categoryID",
-                        message: "category doesn't exist"
+                        message: "categoryID doesn't exist"
                     });
                 }
 
@@ -1097,11 +1097,107 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
 });
 
 /*
- * add article to draft for edit and return
+ * Add article to draft for edit and return
  * unique id that identified the article stored in draft
+ * 
+ * For already published articles, you can't change it location
  */
 router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScopes(['write:users']), (req, res) => {
-    // start here
+    // check if id is integer
+    if (/^\d+$/.test(req.params.user_id)) {
+        // check if is accessing the right user or as a logged in user
+        if (!req.params.user_id == req.user.access_token.user_id) {
+            res.status(401);
+            res.json({
+                status: 401,
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        // generate sixten digit unique id
+        const draft_id = rand_token.generate(16);
+
+        gDB.query(
+            'SELECT articleID, categoryID, featuredImageURL, title, ' +
+            'highlight, content FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
+            [req.params.article_id, req.params.user_id]
+        ).then(results => {
+            // check if article exist 
+            if (results.length < 1) {
+                return res.status(204).send(); // article doesn't exist
+            }
+
+            // copy data to draft
+            gDB.query(
+                'INSERT INTO draft (draftID, userID, draftContentTypeID, categoryID, featuredImageURL, ' +
+                'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    draft_id,
+                    req.params.user_id,
+                    0, // article
+                    results[0].category,
+                    results[0].featuredImageURL,
+                    results[0].title,
+                    results[0].highlight,
+                    results[0].content,
+                    1, // already published
+                    results[0].articleID
+                ]
+            ).then(results => {
+                res.status(201);
+                res.json({
+                    status: 201,
+                    draft_id: draft_id,
+                    message: "Article added to draft successfully"
+                });
+
+                return;
+
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    status: 500,
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
+
+                return;
+            });
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                status: 500,
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, {
+                stack: reason.stack
+            });
+
+            return;
+        });
+
+    } else { // invalid id
+        res.status(400);
+        res.json({
+            status: 400,
+            error_code: "invalid_user_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
 });
 
 // update content save to draft
@@ -1232,7 +1328,7 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "categoryID",
-                message: "category is not acceptable"
+                message: "categoryID is not acceptable"
             });
 
         } else if (req.body.category) {
@@ -1243,7 +1339,7 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
                     invalid_inputs.push({
                         error_code: "invalid_data",
                         field: "categoryID",
-                        message: "category doesn't exist"
+                        message: "categoryID doesn't exist"
                     });
                 }
 
@@ -1442,94 +1538,189 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                         return res.status(204).send(); // draft doesn't exist
                     }
 
-                    // generate highlight or description from article content
-                    let article_highlight = 'sample sample sample'; // still debating on how it will be generated
+                    // check if is article or news
+                    if (draft_results[0].draftContentTypeID == 0) { // article
 
-                    // check if this article is published first time
-                    if (draft_results[0].published == 0) { // has not been published
-                        gDB.transaction({
-                            query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-                            post: [req.params.draft_id, req.params.user_id]
-                        }, {
-                            query: 'INSERT INTO articles (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
-                                'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                            post: [
-                                req.params.user_id,
-                                results[0].categoryID,
-                                region_results[0].continentID,
-                                region_results[0].countryID,
-                                req.body.locationID,
-                                draft_results[0].featuredImageURL,
-                                draft_results[0].title,
-                                article_highlight,
-                                draft_results[0].content
-                            ]
-                        }).then(results => {
-                            res.status(201);
-                            res.json({
-                                status: 201,
-                                article_id: results.insertId,
-                                message: "article published successfully"
+                        // generate highlight or description from article content
+                        let article_highlight = 'sample sample sample'; // still debating on how it will be generated
+
+                        // check if this article is published first time
+                        if (draft_results[0].published == 0) { // has not been published
+                            gDB.transaction({
+                                query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                                post: [req.params.draft_id, req.params.user_id]
+                            }, {
+                                query: 'INSERT INTO articles (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
+                                    'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                                post: [
+                                    req.params.user_id,
+                                    results[0].categoryID,
+                                    region_results[0].continentID,
+                                    region_results[0].countryID,
+                                    req.body.locationID,
+                                    draft_results[0].featuredImageURL,
+                                    draft_results[0].title,
+                                    article_highlight,
+                                    draft_results[0].content
+                                ]
+                            }).then(results => {
+                                res.status(201);
+                                res.json({
+                                    status: 201,
+                                    article_id: results.insertId,
+                                    message: "Article published successfully"
+                                });
+
+                                return;
+
+                            }).catch(reason => {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', reason.message, {
+                                    stack: reason.stack
+                                });
+
+                                return;
                             });
 
-                            return;
+                        } else { // article has been published
+                            gDB.transaction({
+                                query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                                post: [req.params.draft_id, req.params.user_id]
+                            }, {
+                                query: 'UPDATE articles SET categoryID = ?, featuredImageURL = ?, ' +
+                                    'title = ?, highlight = ?, content = ? WHERE articleID = ?',
+                                post: [
+                                    results[0].categoryID,
+                                    draft_results[0].featuredImageURL,
+                                    draft_results[0].title,
+                                    article_highlight,
+                                    draft_results[0].content,
+                                    draft_results[0].publishedContentID
+                                ]
+                            }).then(results => {
+                                res.status(201);
+                                res.json({
+                                    status: 201,
+                                    article_id: draft_results[0].publishedContentID,
+                                    message: "Published successfully"
+                                });
 
-                        }).catch(reason => {
-                            res.status(500);
-                            res.json({
-                                status: 500,
-                                error_code: "internal_error",
-                                message: "Internal error"
+                                return;
+
+                            }).catch(reason => {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', reason.message, {
+                                    stack: reason.stack
+                                });
+
+                                return;
+                            });
+                        }
+
+                    } else { // news
+                        // generate highlight or description from news content
+                        let news_highlight = 'sample sample sample'; // still debating on how it will be generated
+
+                        // check if this article is published first time
+                        if (draft_results[0].published == 0) { // has not been published
+                            gDB.transaction({
+                                query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                                post: [req.params.draft_id, req.params.user_id]
+                            }, {
+                                query: 'INSERT INTO news (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
+                                    'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                                post: [
+                                    req.params.user_id,
+                                    results[0].categoryID,
+                                    region_results[0].continentID,
+                                    region_results[0].countryID,
+                                    req.body.locationID,
+                                    draft_results[0].featuredImageURL,
+                                    draft_results[0].title,
+                                    news_highlight,
+                                    draft_results[0].content
+                                ]
+                            }).then(results => {
+                                res.status(201);
+                                res.json({
+                                    status: 201,
+                                    news_id: results.insertId,
+                                    message: "Article published successfully"
+                                });
+
+                                return;
+
+                            }).catch(reason => {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', reason.message, {
+                                    stack: reason.stack
+                                });
+
+                                return;
                             });
 
-                            // log the error to log file
-                            gLogger.log('error', reason.message, {
-                                stack: reason.stack
+                        } else { // news has been published
+                            gDB.transaction({
+                                query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                                post: [req.params.draft_id, req.params.user_id]
+                            }, {
+                                query: 'UPDATE news SET categoryID = ?, featuredImageURL = ?, ' +
+                                    'title = ?, highlight = ?, content = ? WHERE articleID = ?',
+                                post: [
+                                    results[0].categoryID,
+                                    draft_results[0].featuredImageURL,
+                                    draft_results[0].title,
+                                    article_highlight,
+                                    draft_results[0].content,
+                                    draft_results[0].publishedContentID
+                                ]
+                            }).then(results => {
+                                res.status(201);
+                                res.json({
+                                    status: 201,
+                                    news_id: draft_results[0].publishedContentID,
+                                    message: "Published successfully"
+                                });
+
+                                return;
+
+                            }).catch(reason => {
+                                res.status(500);
+                                res.json({
+                                    status: 500,
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', reason.message, {
+                                    stack: reason.stack
+                                });
+
+                                return;
                             });
-
-                            return;
-                        });
-
-                    } else { // article has been published
-                        gDB.transaction({
-                            query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-                            post: [req.params.draft_id, req.params.user_id]
-                        }, {
-                            query: 'UPDATE articles SET categoryID = ?, featuredImageURL = ?, ' +
-                                'title = ?, highlight = ?, content = ? WHERE articleID = ?',
-                            post: [
-                                results[0].categoryID,
-                                draft_results[0].featuredImageURL,
-                                draft_results[0].title,
-                                article_highlight,
-                                draft_results[0].content,
-                                draft_results[0].publishedContentID
-                            ]
-                        }).then(results => {
-                            res.status(201);
-                            res.json({
-                                status: 201,
-                                article_id: draft_results[0].publishedContentID,
-                                message: "published successfully"
-                            });
-
-                            return;
-
-                        }).catch(reason => {
-                            res.status(500);
-                            res.json({
-                                status: 500,
-                                error_code: "internal_error",
-                                message: "Internal error"
-                            });
-
-                            // log the error to log file
-                            gLogger.log('error', reason.message, {
-                                stack: reason.stack
-                            });
-
-                            return;
-                        });
+                        }
                     }
 
                 }).catch(reason => {
@@ -1603,7 +1794,7 @@ router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
         ];
         let query = 'SELECT ';
 
-        // check if required fields is given
+        // check if valid and required fields is given
         if (req.query.fields) {
             // split the provided fields
             let req_fields = req.query.fields.split(',');
@@ -1646,7 +1837,7 @@ router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
                 res.json({
                     status: 404,
                     error_code: "file_not_found",
-                    message: "draft can't be found"
+                    message: "Draft can't be found"
                 });
 
                 return;
@@ -1712,7 +1903,7 @@ router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:u
         ];
         let query = 'SELECT ';
 
-        // check if required fields is given
+        // check if valid and required fields is given
         if (req.query.fields) {
             // split the provided fields
             let req_fields = req.query.fields.split(',');
@@ -1755,7 +1946,7 @@ router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:u
                 res.json({
                     status: 404,
                     error_code: "file_not_found",
-                    message: "draft can't be found"
+                    message: "Draft can't be found"
                 });
 
                 return;
@@ -1795,17 +1986,105 @@ router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:u
     }
 });
 
+// get categories for article
+router.get('/article/categories', custom_utils.allowedScopes(['read:article', 'read:article:all']), (req, res) => {
+    // code here
+});
+
 // retrieve an article
 router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
     // check if id is integer
     if (/^\d+$/.test(req.params.id)) {
-        // start here
+
+        const permitted_fields = [
+            'categoryID',
+            'continentID',
+            'countryID',
+            'regionID',
+            'featuredImageURL',
+            'title',
+            'highlight',
+            'content',
+            'time'
+        ];
+        let query = 'SELECT ';
+
+        // check if valid and required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            let req_fields = req.query.fields.split(',');
+            let permitted_field_count = 0;
+            let field_already_exist = [];
+            const req_field_count = req_fields.length - 1;
+
+            req_fields.forEach((elem, index) => {
+                if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
+                    if (index == req_field_count) {
+                        query += `${elem} `;
+
+                    } else {
+                        query += `${elem}, `;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1) {
+                query = 'SELECT categoryID, continentID, countryID, regionID, featuredImageURL, ' + 
+                    'title, highlight, content, time FROM articles WHERE articleID = ?';
+
+            } else {
+                query += 'FROM articles WHERE articleID = ?';
+            }
+
+        } else { // no fields selection
+            query += 'categoryID, continentID, countryID, regionID, featuredImageURL, ' + 
+                'title, highlight, content, time FROM articles WHERE articleID = ?';
+        }
+
+        // get publication saved to draft
+        gDB.query(query, [req.params.id]).then(results => {
+            // check if there is result
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    status: 404,
+                    error_code: "file_not_found",
+                    message: "Article can't be found"
+                });
+
+                return;
+            }
+
+            // send result to client
+            res.status(200);
+            res.json(results[0]);
+
+            return;
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                status: 500,
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, {
+                stack: reason.stack
+            });
+
+            return;
+        });
 
     } else { // invalid id
         res.status(400);
         res.json({
             status: 400,
-            error_code: "invalid_user_id",
+            error_code: "invalid_id",
             message: "Bad request"
         });
 
