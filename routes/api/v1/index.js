@@ -34,7 +34,6 @@ router.use((req, res, next) => {
                 if (err) {
                     res.status(500);
                     res.json({
-                        status: 500,
                         error_code: "internal_error",
                         message: "Internal error"
                     });
@@ -62,7 +61,6 @@ router.use((req, res, next) => {
                             if (err) {
                                 res.status(500);
                                 res.json({
-                                    status: 500,
                                     error_code: "internal_error",
                                     message: "Internal error"
                                 });
@@ -90,7 +88,6 @@ router.use((req, res, next) => {
                         res.status(429);
                         res.setHeader('Retry-After', wait); // in milliseconds
                         res.json({
-                            status: 429,
                             error_code: "limit_exceeded",
                             message: "API rate limit exceeded"
                         });
@@ -102,7 +99,6 @@ router.use((req, res, next) => {
                             if (err) {
                                 res.status(500);
                                 res.json({
-                                    status: 500,
                                     error_code: "internal_error",
                                     message: "Internal error"
                                 });
@@ -132,7 +128,6 @@ router.use((req, res, next) => {
                         if (err) {
                             res.status(500);
                             res.json({
-                                status: 500,
                                 error_code: "internal_error",
                                 message: "Internal error"
                             });
@@ -173,7 +168,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
     if (!req.body) { // check if body contain data
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_request",
             message: "Bad request"
         });
@@ -184,7 +178,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
     if (!req.is('application/json')) { // check if content type is supported
         res.status(415);
         res.json({
-            status: 415,
             error_code: "invalid_request_body",
             message: "Unsupported body format"
         });
@@ -289,7 +282,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         // send json error message to client
         res.status(406);
         res.json({
-            status: 406,
             error_code: "invalid_field",
             errors: invalid_inputs,
             message: "Field(s) value not acceptable"
@@ -317,7 +309,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 // send json error message to client
                 res.status(406);
                 res.json({
-                    status: 406,
                     error_code: "invalid_field",
                     errors: invalid_inputs,
                     message: "Field(s) value not acceptable"
@@ -356,7 +347,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                             gDB.query('SELECT userID FROM user WHERE searchEmailHash = ? LIMIT 1', [search_email_hash]).then(results => {
                                 res.status(201);
                                 res.json({
-                                    status: 201,
                                     user_id: results[0].userID,
                                     message: "New user created successfully"
                                 });
@@ -367,7 +357,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                         .catch(reason => {
                             res.status(500);
                             res.json({
-                                status: 500,
                                 error_code: "internal_error",
                                 message: "Internal error"
                             });
@@ -383,7 +372,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 }).catch(reason => {
                     res.status(500);
                     res.json({
-                        status: 500,
                         error_code: "internal_error",
                         message: "Internal error"
                     });
@@ -400,7 +388,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         }).catch(reason => {
             res.status(500);
             res.json({
-                status: 500,
                 error_code: "internal_error",
                 message: "Internal error"
             });
@@ -423,7 +410,6 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         // send json error message to client
         res.status(406);
         res.json({
-            status: 406,
             error_code: "invalid_field",
             errors: invalid_inputs,
             message: "Field(s) value not acceptable"
@@ -438,7 +424,6 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
     if (!req.body) { // check if body contain data
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_request",
             message: "Bad request"
         });
@@ -449,7 +434,6 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
     if (!req.is('application/json')) { // check if content type is supported
         res.status(415);
         res.json({
-            status: 415,
             error_code: "invalid_request_body",
             message: "Unsupported body format"
         });
@@ -522,7 +506,6 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
                     // send json error message to client
                     res.status(406);
                     res.json({
-                        status: 406,
                         error_code: "invalid_field",
                         errors: invalid_inputs,
                         message: "Field(s) value not acceptable"
@@ -537,7 +520,6 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
             }).catch(reason => {
                 res.status(500);
                 res.json({
-                    status: 500,
                     error_code: "internal_error",
                     message: "Internal error"
                 });
@@ -560,7 +542,6 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
             // send json error message to client
             res.status(406);
             res.json({
-                status: 406,
                 error_code: "invalid_field",
                 errors: invalid_inputs,
                 message: "Field(s) value not acceptable"
@@ -574,7 +555,6 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
                 // send json error message to client
                 res.status(406);
                 res.json({
-                    status: 406,
                     error_code: "invalid_field",
                     errors: invalid_inputs,
                     message: "Field(s) value not acceptable"
@@ -599,7 +579,6 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
             if (results.length < 1) {
                 res.status(404);
                 res.json({
-                    status: 404,
                     error_code: "match_not_found",
                     message: "User id doesn't match any"
                 });
@@ -614,7 +593,6 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                     if (err) {
                         res.status(500);
                         res.json({
-                            status: 500,
                             error_code: "internal_error",
                             message: "Internal error"
                         });
@@ -631,7 +609,6 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                     if (reply) { // key exist
                         res.status(425);
                         res.json({
-                            status: 425,
                             error_code: "too_early",
                             message: "Activation code still exist"
                         });
@@ -679,7 +656,6 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                             if (err) {
                                 res.status(500);
                                 res.json({
-                                    status: 500,
                                     error_code: "internal_error",
                                     message: "Message can't be sent"
                                 });
@@ -690,51 +666,47 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                                 });
 
                                 return;
+                            }
 
-                            } else {
-                                // check if email is rejected
-                                if (info.rejected.length > 0) {
-                                    res.status(500);
-                                    res.json({
-                                        status: 500,
-                                        error_code: "internal_error",
-                                        message: "Email was rejected by the server"
-                                    });
+                            // check if email is rejected
+                            if (info.rejected.length > 0) {
+                                res.status(500);
+                                res.json({
+                                    error_code: "internal_error",
+                                    message: "Email was rejected by the server"
+                                });
 
-                                    return;
+                                return;
 
-                                } else { // email sent successfully
-                                    // expiration set to 10 minutes
-                                    let code_expiration = 60 * 10;
+                            } else { // email sent successfully
+                                // expiration set to 10 minutes
+                                let code_expiration = 60 * 10;
 
-                                    // store the verification code to database (redis) with
-                                    gRedisClient.set(access_key, verification_code, 'EX', code_expiration, (err, replay) => {
-                                        if (err) {
-                                            res.status(500);
-                                            res.json({
-                                                status: 500,
-                                                error_code: "internal_error",
-                                                message: "Internal error"
-                                            });
+                                // store the verification code to database (redis) with
+                                gRedisClient.set(access_key, verification_code, 'EX', code_expiration, (err, replay) => {
+                                    if (err) {
+                                        res.status(500);
+                                        res.json({
+                                            error_code: "internal_error",
+                                            message: "Internal error"
+                                        });
 
-                                            // log the error to log file
-                                            gLogger.log('error', err.message, {
-                                                stack: err.stack
-                                            });
+                                        // log the error to log file
+                                        gLogger.log('error', err.message, {
+                                            stack: err.stack
+                                        });
 
-                                            return;
+                                        return;
 
-                                        } else {
-                                            res.status(200);
-                                            res.json({
-                                                status: 200,
-                                                code_expiration: code_expiration
-                                            });
+                                    } else {
+                                        res.status(201);
+                                        res.json({
+                                            code_expiration: code_expiration
+                                        });
 
-                                            return;
-                                        }
-                                    });
-                                }
+                                        return;
+                                    }
+                                });
                             }
                         });
                     }
@@ -743,7 +715,6 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
             } else { // account is already activated
                 res.status(409);
                 res.json({
-                    status: 409,
                     error_code: "already_processed",
                     message: "Action has been performed"
                 });
@@ -754,7 +725,6 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
         }).catch(reason => {
             res.status(500);
             res.json({
-                status: 500,
                 error_code: "internal_error",
                 message: "Internal error"
             });
@@ -771,7 +741,6 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
     } else { // invalid id
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_user_id",
             message: "Bad request"
         });
@@ -785,7 +754,6 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
     if (!req.body) { // check if body contain data
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_request",
             message: "Bad request"
         });
@@ -796,7 +764,6 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
     if (!req.is('application/json')) { // check if content type is supported
         res.status(415);
         res.json({
-            status: 415,
             error_code: "invalid_request_body",
             message: "Unsupported body format"
         });
@@ -809,7 +776,6 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
         if (!req.body.code) {
             res.status(400);
             res.json({
-                status: 400,
                 error_code: "invalid_request",
                 message: "Bad request"
             });
@@ -824,7 +790,6 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
             if (err) {
                 res.status(500);
                 res.json({
-                    status: 500,
                     error_code: "internal_error",
                     message: "Internal error"
                 });
@@ -841,7 +806,6 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
             if (!reply) { // key doesn't exist
                 res.status(404);
                 res.json({
-                    status: 404,
                     error_code: "data_not_found",
                     message: "Activation code not defined or expired"
                 });
@@ -861,7 +825,6 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
                     }).catch(reason => {
                         res.status(500);
                         res.json({
-                            status: 500,
                             error_code: "internal_error",
                             message: "Internal error"
                         });
@@ -877,7 +840,6 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
                 } else { // activation code supplied by user is wrong
                     res.status(406);
                     res.json({
-                        status: 406,
                         error_code: "invalid_code_match",
                         message: "Invalid activation code"
                     });
@@ -890,12 +852,196 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
     } else { // invalid id
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_user_id",
             message: "Bad request"
         });
 
         return;
+    }
+});
+
+// unknown
+router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['write:user']), (req, res) => {
+    // code here
+});
+
+// unknown
+router.get('/users/:user_id/profile/picture', custom_utils.allowedScopes(['read:user']), (req, res) => {
+    // code here
+});
+
+// unknown
+router.post('/users/:user_id/profile/about', custom_utils.allowedScopes(['write:user']), (req, res) => {
+    // code here
+});
+
+// unknown
+router.get('/users/:user_id/profile/about', custom_utils.allowedScopes(['read:user']), (req, res) => {
+    // code here
+});
+
+// get categories for article or news
+router.get('/user/:publication_type/categories', custom_utils.allowedScopes(['read:user']), (req, res) => {
+    // check if publication_type is article or news
+    if (!/^(article|news)$/.test(req.params.publication_type)) {
+        res.status(404);
+        res.json({
+            error_code: "file_not_found",
+            message: "File not found"
+        });
+
+        return;
+    }
+
+    const table_name = publication_type + '_categories';
+
+    // retrieve categories from database
+    gDB.query('SELECT categoryID AS id, categoryTitle AS category FROM ??', [table_name]).then(results => {
+        res.status(200);
+        res.json({
+            categories: results
+        });
+
+        return;
+
+    }).catch(reason => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', reason.message, {
+            stack: reason.stack
+        });
+
+        return;
+    });
+});
+
+// get areas users can publish content
+router.get('/user/publishLocation/:location', custom_utils.allowedScopes(['read:user']), (req, res) => {
+    // check the location
+    if (!/^(countries|regions)$/.test(req.params.location)) {
+        res.status(404);
+        res.json({
+            error_code: "file_not_found",
+            message: "File not found"
+        });
+
+        return;
+    }
+
+    // set limit and offset
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    const invalid_inputs = [];
+
+    // check if query is valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any query is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs,
+            message: "Query(s) value is invalid"
+        });
+
+        return;
+    }
+
+    if (pass_limit && pass_limit < limit) {
+        limit = pass_limit;
+    }
+
+    if (pass_offset) {
+        offset = pass_offset;
+    }
+
+    if (req.params.location == 'countries') {
+        // select countries from database
+        gDB.query(
+            'SELECT countryID AS id, name FROM countries LIMIT ? OFFSET ?', [limit, offset]
+        ).then(results => {
+            res.status(200);
+            res.json({
+                countries: results
+            });
+
+            return;
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, {
+                stack: reason.stack
+            });
+
+            return;
+        });
+
+    } else { //regions
+        let query;
+        let post;
+
+        // get country to select regions from
+        if (req.params.countryID && /^\d+$/.test(req.params.countryID)) {
+            query = 'SELECT regionID AS id, name FROM regions WHERE countryID = ? LIMIT ? OFFSET ?';
+            post = [req.params.countryID, limit, offset];
+
+        } else {
+            query = 'SELECT regionID AS id, name FROM regions LIMIT ? OFFSET ?';
+            post = [limit, offset];
+        }
+
+        // select countries from database
+        gDB.query(query, post).then(results => {
+            res.status(200);
+            res.json({
+                regions: results
+            });
+
+            return;
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, {
+                stack: reason.stack
+            });
+
+            return;
+        });
     }
 });
 
@@ -910,7 +1056,6 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
         if (!req.params.user_id == req.user.access_token.user_id) {
             res.status(401);
             res.json({
-                status: 401,
                 error_code: "unauthorized_user",
                 message: "Unauthorized"
             });
@@ -921,7 +1066,6 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
         if (!req.body) { // check if body contain data
             res.status(400);
             res.json({
-                status: 400,
                 error_code: "invalid_request",
                 message: "Bad request"
             });
@@ -932,7 +1076,6 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
         if (!req.is('application/json')) { // check if content type is supported
             res.status(415);
             res.json({
-                status: 415,
                 error_code: "invalid_request_body",
                 message: "Unsupported body format"
             });
@@ -963,7 +1106,6 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
             ).then(results => {
                 res.status(201);
                 res.json({
-                    status: 201,
                     draft_id: draft_id,
                     message: "Draft created successfully for article"
                 });
@@ -973,7 +1115,6 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
             }).catch(reason => {
                 res.status(500);
                 res.json({
-                    status: 500,
                     error_code: "internal_error",
                     message: "Internal error"
                 });
@@ -1037,7 +1178,6 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
                     // send json error message to client
                     res.status(406);
                     res.json({
-                        status: 406,
                         error_code: "invalid_field",
                         errors: invalid_inputs,
                         message: "Field(s) value not acceptable"
@@ -1052,7 +1192,6 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
             }).catch(reason => {
                 res.status(500);
                 res.json({
-                    status: 500,
                     error_code: "internal_error",
                     message: "Internal error"
                 });
@@ -1071,7 +1210,6 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
                 // send json error message to client
                 res.status(406);
                 res.json({
-                    status: 406,
                     error_code: "invalid_field",
                     errors: invalid_inputs,
                     message: "Field(s) value not acceptable"
@@ -1087,7 +1225,6 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
     } else { // invalid id
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_user_id",
             message: "Bad request"
         });
@@ -1109,7 +1246,6 @@ router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScop
         if (!req.params.user_id == req.user.access_token.user_id) {
             res.status(401);
             res.json({
-                status: 401,
                 error_code: "unauthorized_user",
                 message: "Unauthorized"
             });
@@ -1149,7 +1285,6 @@ router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScop
             ).then(results => {
                 res.status(201);
                 res.json({
-                    status: 201,
                     draft_id: draft_id,
                     message: "Article added to draft successfully"
                 });
@@ -1159,7 +1294,6 @@ router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScop
             }).catch(reason => {
                 res.status(500);
                 res.json({
-                    status: 500,
                     error_code: "internal_error",
                     message: "Internal error"
                 });
@@ -1175,7 +1309,6 @@ router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScop
         }).catch(reason => {
             res.status(500);
             res.json({
-                status: 500,
                 error_code: "internal_error",
                 message: "Internal error"
             });
@@ -1191,7 +1324,6 @@ router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScop
     } else { // invalid id
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_user_id",
             message: "Bad request"
         });
@@ -1208,7 +1340,6 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
         if (!req.params.user_id == req.user.access_token.user_id) {
             res.status(401);
             res.json({
-                status: 401,
                 error_code: "unauthorized_user",
                 message: "Unauthorized"
             });
@@ -1219,7 +1350,6 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
         if (!req.body) { // check if body contain data
             res.status(400);
             res.json({
-                status: 400,
                 error_code: "invalid_request",
                 message: "Bad request"
             });
@@ -1230,7 +1360,6 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
         if (!req.is('application/json')) { // check if content type is supported
             res.status(415);
             res.json({
-                status: 415,
                 error_code: "invalid_request_body",
                 message: "Unsupported body format"
             });
@@ -1291,7 +1420,6 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
             }).catch(reason => {
                 res.status(500);
                 res.json({
-                    status: 500,
                     error_code: "internal_error",
                     message: "Internal error"
                 });
@@ -1348,7 +1476,6 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
                     // send json error message to client
                     res.status(406);
                     res.json({
-                        status: 406,
                         error_code: "invalid_field",
                         errors: invalid_inputs,
                         message: "Field(s) value not acceptable"
@@ -1363,7 +1490,6 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
             }).catch(reason => {
                 res.status(500);
                 res.json({
-                    status: 500,
                     error_code: "internal_error",
                     message: "Internal error"
                 });
@@ -1382,7 +1508,6 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
                 // send json error message to client
                 res.status(406);
                 res.json({
-                    status: 406,
                     error_code: "invalid_field",
                     errors: invalid_inputs,
                     message: "Field(s) value not acceptable"
@@ -1398,7 +1523,6 @@ router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
     } else { // invalid id
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_user_id",
             message: "Bad request"
         });
@@ -1415,7 +1539,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
         if (!req.params.user_id == req.user.access_token.user_id) {
             res.status(401);
             res.json({
-                status: 401,
                 error_code: "unauthorized_user",
                 message: "Unauthorized"
             });
@@ -1426,7 +1549,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
         if (!req.body) { // check if body contains data
             res.status(400);
             res.json({
-                status: 400,
                 error_code: "invalid_request",
                 message: "Bad request"
             });
@@ -1437,7 +1559,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
         if (!req.is('application/json')) { // check if content type is supported
             res.status(415);
             res.json({
-                status: 415,
                 error_code: "invalid_request_body",
                 message: "Unsupported body format"
             });
@@ -1473,7 +1594,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
             // send json error message to client
             res.status(406);
             res.json({
-                status: 406,
                 error_code: "invalid_field",
                 errors: invalid_inputs,
                 message: "Field(s) value not acceptable"
@@ -1491,7 +1611,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
             // send json error message to client
             res.status(406);
             res.json({
-                status: 406,
                 error_code: "invalid_field",
                 errors: invalid_inputs,
                 message: "Field(s) value not acceptable"
@@ -1518,7 +1637,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                     // send json error message to client
                     res.status(406);
                     res.json({
-                        status: 406,
                         error_code: "invalid_field",
                         errors: invalid_inputs,
                         message: "Field(s) value not acceptable"
@@ -1566,7 +1684,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                             }).then(results => {
                                 res.status(201);
                                 res.json({
-                                    status: 201,
                                     article_id: results.insertId,
                                     message: "Article published successfully"
                                 });
@@ -1576,7 +1693,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                             }).catch(reason => {
                                 res.status(500);
                                 res.json({
-                                    status: 500,
                                     error_code: "internal_error",
                                     message: "Internal error"
                                 });
@@ -1607,7 +1723,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                             }).then(results => {
                                 res.status(201);
                                 res.json({
-                                    status: 201,
                                     article_id: draft_results[0].publishedContentID,
                                     message: "Published successfully"
                                 });
@@ -1617,7 +1732,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                             }).catch(reason => {
                                 res.status(500);
                                 res.json({
-                                    status: 500,
                                     error_code: "internal_error",
                                     message: "Internal error"
                                 });
@@ -1657,7 +1771,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                             }).then(results => {
                                 res.status(201);
                                 res.json({
-                                    status: 201,
                                     news_id: results.insertId,
                                     message: "Article published successfully"
                                 });
@@ -1667,7 +1780,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                             }).catch(reason => {
                                 res.status(500);
                                 res.json({
-                                    status: 500,
                                     error_code: "internal_error",
                                     message: "Internal error"
                                 });
@@ -1698,7 +1810,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                             }).then(results => {
                                 res.status(201);
                                 res.json({
-                                    status: 201,
                                     news_id: draft_results[0].publishedContentID,
                                     message: "Published successfully"
                                 });
@@ -1708,7 +1819,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                             }).catch(reason => {
                                 res.status(500);
                                 res.json({
-                                    status: 500,
                                     error_code: "internal_error",
                                     message: "Internal error"
                                 });
@@ -1726,7 +1836,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                 }).catch(reason => {
                     res.status(500);
                     res.json({
-                        status: 500,
                         error_code: "internal_error",
                         message: "Internal error"
                     });
@@ -1742,7 +1851,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
             }).catch(reason => {
                 res.status(500);
                 res.json({
-                    status: 500,
                     error_code: "internal_error",
                     message: "Internal error"
                 });
@@ -1759,7 +1867,6 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
     } else { // invalid id
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_user_id",
             message: "Bad request"
         });
@@ -1769,14 +1876,13 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
 });
 
 // retrieve a publication saved to user's draft
-router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['read:users']), (req, res) => {
     // check if id is integer
     if (/^\d+$/.test(req.params.user_id)) {
         // check if is accessing the right user or as a logged in user
         if (!req.params.user_id == req.user.access_token.user_id) {
             res.status(401);
             res.json({
-                status: 401,
                 error_code: "unauthorized_user",
                 message: "Unauthorized"
             });
@@ -1835,7 +1941,6 @@ router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
             if (results.length < 1) {
                 res.status(404);
                 res.json({
-                    status: 404,
                     error_code: "file_not_found",
                     message: "Draft can't be found"
                 });
@@ -1852,7 +1957,6 @@ router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
         }).catch(reason => {
             res.status(500);
             res.json({
-                status: 500,
                 error_code: "internal_error",
                 message: "Internal error"
             });
@@ -1868,7 +1972,6 @@ router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
     } else { // invalid id
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_user_id",
             message: "Bad request"
         });
@@ -1878,14 +1981,13 @@ router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write
 });
 
 // retrieve all article saved to user's draft
-router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.get('/users/:user_id/draft/articles', custom_utils.allowedScopes(['read:users']), (req, res) => {
     // check if id is integer
     if (/^\d+$/.test(req.params.user_id)) {
         // check if is accessing the right user or as a logged in user
         if (!req.params.user_id == req.user.access_token.user_id) {
             res.status(401);
             res.json({
-                status: 401,
                 error_code: "unauthorized_user",
                 message: "Unauthorized"
             });
@@ -1944,7 +2046,6 @@ router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:u
             if (results.length < 1) {
                 res.status(404);
                 res.json({
-                    status: 404,
                     error_code: "file_not_found",
                     message: "Draft can't be found"
                 });
@@ -1954,14 +2055,15 @@ router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:u
 
             // send result to client
             res.status(200);
-            res.json(results);
+            res.json({
+                articles: results
+            });
 
             return;
 
         }).catch(reason => {
             res.status(500);
             res.json({
-                status: 500,
                 error_code: "internal_error",
                 message: "Internal error"
             });
@@ -1977,7 +2079,6 @@ router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:u
     } else { // invalid id
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_user_id",
             message: "Bad request"
         });
@@ -1986,8 +2087,8 @@ router.get('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:u
     }
 });
 
-// get categories for article
-router.get('/article/categories', custom_utils.allowedScopes(['read:article', 'read:article:all']), (req, res) => {
+// unknown
+router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // code here
 });
 
@@ -2032,7 +2133,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             });
 
             if (permitted_field_count < 1) {
-                query = 'SELECT categoryID, continentID, countryID, regionID, featuredImageURL, ' + 
+                query = 'SELECT categoryID, continentID, countryID, regionID, featuredImageURL, ' +
                     'title, highlight, content, time FROM articles WHERE articleID = ?';
 
             } else {
@@ -2040,7 +2141,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             }
 
         } else { // no fields selection
-            query += 'categoryID, continentID, countryID, regionID, featuredImageURL, ' + 
+            query += 'categoryID, continentID, countryID, regionID, featuredImageURL, ' +
                 'title, highlight, content, time FROM articles WHERE articleID = ?';
         }
 
@@ -2050,7 +2151,6 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             if (results.length < 1) {
                 res.status(404);
                 res.json({
-                    status: 404,
                     error_code: "file_not_found",
                     message: "Article can't be found"
                 });
@@ -2067,7 +2167,6 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         }).catch(reason => {
             res.status(500);
             res.json({
-                status: 500,
                 error_code: "internal_error",
                 message: "Internal error"
             });
@@ -2083,7 +2182,6 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
     } else { // invalid id
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_id",
             message: "Bad request"
         });
