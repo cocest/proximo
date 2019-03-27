@@ -5,6 +5,7 @@
 
     "environment": {
         "DEBUG_MODE": "$env:SERVER_DEBUG_MODE",
+        "TEMP_FILE_STORAGE_PATH": "$env:TEMP_STORAGE_PATH",
         "JWT_ENCRYPT_SECRET": "$env:JWT_ENCRYPT_SECRET",
         "REFRESH_TOKEN_ENCRYPT_SECRET": "$env:REFRESH_TOKEN_ENCRYPT_SECRET",
         "REFRESH_TOKEN_EXPIRE_IN": "$env:REFRESH_TOKEN_EXPIRE_IN",
@@ -14,6 +15,11 @@
         "SMTP_USERNAME": "$env:SMTP_USERNAME",
         "SMTP_PASSWORD": "$env:SMTP_PASSWORD",
         "SMTP_FROM": "$env:SMTP_FROM",
+        "AWS_ACCESS_ID": "$env:AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_KEY": "$env:AWS_SECRET_ACCESS_KEY",
+        "AWS_S3_BUCKET_REGION": "$env:AWS_S3_BUCKET_REGION",
+        "AWS_S3_BUCKET_NAME": "$env:AWS_S3_BUCKET_NAME",
+        "AWS_S3_BUCKET_PERMISSION": "$env:AWS_S3_BUCKET_PERMISSION",
         "MORE_HERE": "add global variables here"
     },
 

@@ -187,7 +187,7 @@ class Utilities {
             });
 
             return;
-        }
+        };
     }
 
     static assignAPIPrivileges(req, call) {
