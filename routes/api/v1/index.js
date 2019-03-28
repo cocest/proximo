@@ -2109,49 +2109,49 @@ router.get('/users/:user_id/draft/articles', custom_utils.allowedScopes(['read:u
 
 // upload media contents for an article
 router.post('/users/:user_id/articles/:article_id/medias', function (req, res) {
-    // check if user and article id is integer
-    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id))) {
-        res.status(400);
-        res.json({
-            error_code: "invalid_id",
-            message: "Bad request"
-        });
+    // check if user has needed scopes for this operation
+    let validate_scopes = custom_utils.allowedScopes(['write:users'])
 
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
-        });
-
-        return;
-    }
-
-    // check if article for the user exist
-    gDB.query(
-        'SELECT 1 FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
-        [req.params.article_id, req.params.user_id]
-    ).then(results => {
-        if (results.length < 1) {
-            res.status(404);
+    // call pass in function if user has needed scope(s)
+    validate_scopes(req, res, () => {
+        // check if user and article id is integer
+        if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id))) {
+            res.status(400);
             res.json({
-                error_code: "file_not_found",
-                message: "Article can't be found"
+                error_code: "invalid_id",
+                message: "Bad request"
             });
 
             return;
         }
 
-        upload(req, res, (err) => {
-            // check if user has needed scopes for this operation
-            let validate_scopes = custom_utils.allowedScopes(['write:users'])
+        // check if is accessing the right user or as a logged in user
+        if (!req.params.user_id == req.user.access_token.user_id) {
+            res.status(401);
+            res.json({
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
 
-            // call pass in function if user has needed scope(s)
-            validate_scopes(req, res, () => {
+            return;
+        }
+
+        // check if article for the user exist
+        gDB.query(
+            'SELECT 1 FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
+            [req.params.article_id, req.params.user_id]
+        ).then(results => {
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Article can't be found"
+                });
+
+                return;
+            }
+
+            upload(req, res, (err) => {
                 // check if enctype is multipart form data
                 if (!req.is('multipart/form-data')) {
                     res.status(415);
@@ -2303,16 +2303,16 @@ router.post('/users/:user_id/articles/:article_id/medias', function (req, res) {
 
                                 // save file metadata and location to database
                                 gDB.query(
-                                    'INSERT INTO article_media_contents (articleID, userID, mediaID, ' +
-                                    'mediaURL, mediaOriginalName, mediaType, mediaExt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                    'INSERT INTO article_media_contents (articleID, userID, mediaID, mediaRelativePath, ' +
+                                    'mediaOriginalName, mediaType, mediaExt) VALUES (?, ?, ?, ?, ?, ?, ?)',
                                     [
                                         req.params.article_id,
                                         req.params.user_id,
                                         image_id,
-                                        data.Location,
+                                        'article/images/large/' + object_unique_name,
                                         file_name,
                                         file_mime.mime.split('/')[0],
-                                        file_mime.ext
+                                        save_image_ext,
                                     ]
                                 ).then(results => {
                                     // send result to client
@@ -2373,21 +2373,21 @@ router.post('/users/:user_id/articles/:article_id/medias', function (req, res) {
                         return;
                     });
             });
-        });
 
-    }).catch(err => {
-        res.status(500);
-        res.json({
-            error_code: "internal_error",
-            message: "Internal error"
-        });
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
 
-        // log the error to log file
-        gLogger.log('error', err.message, {
-            stack: err.stack
-        });
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
 
-        return;
+            return;
+        });
     });
 });
 
