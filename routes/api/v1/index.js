@@ -2110,7 +2110,7 @@ router.get('/users/:user_id/draft/articles', custom_utils.allowedScopes(['read:u
 // upload media contents for an article
 router.post('/users/:user_id/articles/:article_id/medias', function (req, res) {
     // check if user has needed scopes for this operation
-    let validate_scopes = custom_utils.allowedScopes(['write:users'])
+    let validate_scopes = custom_utils.allowedScopes(['write:users']);
 
     // call pass in function if user has needed scope(s)
     validate_scopes(req, res, () => {
@@ -2180,7 +2180,7 @@ router.post('/users/:user_id/articles/:article_id/medias', function (req, res) {
                         res.status(400);
                         res.json({
                             error_code: "size_exceeded",
-                            message: "Image your uploading exeeded allowed size"
+                            message: "Image your uploading exceeded allowed size"
                         });
 
                         return;
@@ -2270,7 +2270,7 @@ router.post('/users/:user_id/articles/:article_id/medias', function (req, res) {
                         const s3 = new aws.S3();
                         const object_unique_name = rand_token.uid(34) + '.' + save_image_ext;
 
-                        let upload_params = {
+                        const upload_params = {
                             Bucket: gConfig.AWS_S3_BUCKET_NAME,
                             Body: outputBuffer,
                             Key: 'article/images/large/' + object_unique_name,
@@ -2392,9 +2392,140 @@ router.post('/users/:user_id/articles/:article_id/medias', function (req, res) {
 });
 
 // create the requested image size and store it to aws s3 bucket and redirect user to the source
-router.get('/resizeImages', (req, res) => {
-    // Move out of this router
-    // code here
+router.get('/resizeImage/:base_folder/images/:resize_size/:image_name', (req, res) => {
+    // check if parse base folder name is valid
+    if (!/^(article|news)$/.test(req.params.base_folder)) {
+        res.status(404);
+        res.json({
+            error_code: "file_not_found",
+            message: "Image does not exist"
+        });
+
+        return;
+    }
+
+    // fetch image from aws s3 bucket
+    // set aws s3 access credentials
+    aws.config.update({
+        apiVersion: '2006-03-01',
+        accessKeyId: gConfig.AWS_ACCESS_ID,
+        secretAccessKey: gConfig.AWS_SECRET_KEY,
+        region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+    });
+
+    const s3 = new AWS.S3();
+
+    const params = {
+        Bucket: gConfig.AWS_S3_BUCKET_NAME,
+        Key: req.params.base_folder + '/images/large/' + req.params.image_name
+    };
+
+    //check if file exist at s3 bucket
+    s3.headObject(params, (err, metadata) => {
+        if (err && err.code == 'NotFound') {
+            // handle object not found on cloud
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Image does not exist"
+            });
+
+            return;
+
+        } else { // object exist
+            const resize_sizes = new Map([
+                ['medium', 720],
+                ['small', 360],
+                ['tiny', 250]
+            ]);
+
+            const img_res_size = resize_sizes.get(req.params.resize_size);
+
+            // check if size to resize to is valid
+            if (!img_res_size) {
+                res.status(400);
+                res.json({
+                    error_code: "invalid_request",
+                    message: "Bad request"
+                });
+
+                return;
+            }
+
+            const s3_promise = s3.getObject(params).promise();
+
+            s3_promise.then((data) => {
+                // rezise the image to requested size and upload it back
+                sharp(data.Body)
+                    .resize({
+                        height: img_res_size, // resize image using the set height
+                        withoutEnlargement: true
+                    })
+                    .toFormat('png')
+                    .toBuffer()
+                    .then(outputBuffer => {
+                        // upload resize image to s3 bucket
+                        const upload_params = {
+                            Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                            Body: outputBuffer,
+                            Key: 'article/images/' + req.params.resize_size + '/' + req.params.image_name,
+                            ACL: gConfig.AWS_S3_BUCKET_PERMISSION
+                        };
+
+                        s3.upload(upload_params, function (err, data) {
+                            if (err) {
+                                res.status(500);
+                                res.json({
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+
+                                return;
+                            }
+
+                            if (data) { // file uploaded successfully
+                                // redirect client to aws s3 bucket
+                                res.set('location', data.Location);
+                                res.status(301).send();
+                                return;
+                            }
+                        });
+
+                    })
+                    .catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+
+            }).catch((err) => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+            });
+        }
+    });
 });
 
 // retrieve an article
