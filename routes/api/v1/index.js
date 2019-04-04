@@ -18,7 +18,7 @@ const fs = require('fs');
 const multer = require('multer');
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, gConfig.TEMP_FILE_STORAGE_PATH);
+        cb(null, path.resolve(__dirname, gConfig.TEMP_FILE_STORAGE_PATH));
     },
     filename: function (req, file, cb) {
         cb(null, file.fieldname + '-' + Date.now());
@@ -29,7 +29,7 @@ const upload = multer({
     limits: {
         fileSize: 2 * 1024 * 1024
     }
-});
+}).single('upload');
 const aws = require('aws-sdk');
 const sharp = require('sharp');
 const file_type = require('file-type');
