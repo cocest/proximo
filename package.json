@@ -28,6 +28,7 @@
     "nodemailer": "^4.7.0",
     "rand-token": "^0.4.0",
     "redis": "^2.8.0",
+    "smartcrop-sharp": "^2.0.3",
     "url-parse": "^1.4.4",
     "validator": "^10.9.0",
     "winston": "^3.2.1",
