@@ -904,6 +904,17 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
         return;
     }
 
+    //check if user pass area to crop and pass query is correct
+    if (!(req.query.crop && /^(\d+,\d+,\d+|auto)$/.test(req.query.crop))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_query",
+            message: "URL query is invalid"
+        });
+
+        return;
+    }
+
     upload(req, res, (err) => {
         // check if enctype is multipart form data
         if (!req.is('multipart/form-data')) {
@@ -998,15 +1009,18 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
             return;
         }
 
-        // return area to crop taking object or face into consideration
-        smart_crop.crop(image_buffer, {
-            width: 100,
-            height: 100,
-            minScale: 1,
-            ruleOfThirds: true
-        }).then(result => {
-            let crop = result.topCrop;
+        // set aws s3 access credentials
+        aws.config.update({
+            apiVersion: '2006-03-01',
+            accessKeyId: gConfig.AWS_ACCESS_ID,
+            secretAccessKey: gConfig.AWS_SECRET_KEY,
+            region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+        });
 
+        const s3 = new aws.S3();
+
+        // process the image
+        const processImage = crop => {
             //crop the image
             sharp(image_buffer)
                 .extract({
@@ -1031,7 +1045,10 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
                                 .toBuffer()
                                 .then(buffer => {
                                     // resolve the promise
-                                    resolve({size, buffer});
+                                    resolve({
+                                        size,
+                                        buffer
+                                    });
                                 })
                                 .catch(err => {
                                     rejected(err);
@@ -1041,16 +1058,6 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
 
                     Promise.all([280, 120, 50].map(resize)).then(datas => {
                         //save the resized image to aws s3 bucket
-                        // set aws s3 access credentials
-                        aws.config.update({
-                            apiVersion: '2006-03-01',
-                            accessKeyId: gConfig.AWS_ACCESS_ID,
-                            secretAccessKey: gConfig.AWS_SECRET_KEY,
-                            region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
-                        });
-
-                        const s3 = new aws.S3();
-
                         // upload each file
                         const uploadImage = pass_data => {
                             return new Promise((resolve, rejected) => {
@@ -1080,19 +1087,27 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
 
                             //store profile image position to database
                             gDB.query(
-                                'UPDATE user SET profilePictureSmallURL = ?, profilePictureMediumURL = ?, profilePictureBigURL = ? WHERE userID = ? LIMIT 1', 
+                                'UPDATE user SET profilePictureSmallURL = ?, profilePictureMediumURL = ?, profilePictureBigURL = ? WHERE userID = ? LIMIT 1',
                                 [
-                                    url_parse(dm.get(50).Location, true).pathname.replace(`/${gConfig.AWS_S3_BUCKET_NAME}`, ''),
-                                    url_parse(dm.get(120).Location, true).pathname.replace(`/${gConfig.AWS_S3_BUCKET_NAME}`, ''),
-                                    url_parse(dm.get(280).Location, true).pathname.replace(`/${gConfig.AWS_S3_BUCKET_NAME}`, ''),
+                                    url_parse(dm.get(50).Location, true).pathname.replace(`/${gConfig.AWS_S3_BUCKET_NAME}/`, ''),
+                                    url_parse(dm.get(120).Location, true).pathname.replace(`/${gConfig.AWS_S3_BUCKET_NAME}/`, ''),
+                                    url_parse(dm.get(280).Location, true).pathname.replace(`/${gConfig.AWS_S3_BUCKET_NAME}/`, ''),
                                     req.params.user_id
                                 ]
                             ).then(results => {
                                 res.json({
-                                    images: [
-                                        {url: dm.get(280).Location, size: 'big'},
-                                        {url: dm.get(120).Location, size: 'medium'},
-                                        {url: dm.get(50).Location, size: 'small'}
+                                    images: [{
+                                            url: dm.get(280).Location,
+                                            size: 'big'
+                                        },
+                                        {
+                                            url: dm.get(120).Location,
+                                            size: 'medium'
+                                        },
+                                        {
+                                            url: dm.get(50).Location,
+                                            size: 'small'
+                                        }
                                     ]
                                 });
 
@@ -1160,6 +1175,94 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
 
                     return;
                 });
+        };
+
+        // get crop rectangle for uploaded profile picture
+        const getCropRect = call => {
+            //check if user pass area to crop
+            if (req.query.crop && /^\d+,\d+,\d+$/.test()) {
+                let temp_crop = req.query.crop.split(',');
+
+                call({
+                    x: temp_crop[0],
+                    y: temp_crop[1],
+                    width: temp_crop[2],
+                    height: temp_crop[2]
+                });
+
+            } else { // user set crop to auto or crop not defined
+                // return area to crop taking object or face into consideration
+                smart_crop.crop(image_buffer, {
+                    width: 100,
+                    height: 100,
+                    minScale: 1,
+                    ruleOfThirds: true
+                }).then(result => {
+                    call(result.topCrop);
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            }
+        };
+
+        // check if profile pictures exist and delete them before new upload
+        gDB.query(
+            'SELECT profilePictureSmallURL, profilePictureMediumURL, profilePictureBigURL FROM user WHERE userID = ? LIMIT 1',
+            [req.params.user_id]).then(results => {
+            //check if it exist
+            if (results[0].profilePictureSmallURL) {
+                // initialise objects to delete
+                const deleteParam = {
+                    Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                    Delete: {
+                        Objects: [{
+                                Key: results[0].profilePictureSmallURL
+                            },
+                            {
+                                Key: results[0].profilePictureMediumURL
+                            },
+                            {
+                                Key: results[0].profilePictureBigURL
+                            }
+                        ]
+                    }
+                };
+
+                s3.deleteObjects(deleteParam, (err, data) => {
+                    if (err) {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+
+                    } else {
+                        getCropRect(processImage);
+                    }
+                });
+
+            } else { // doesn't exist
+                getCropRect(processImage);
+            }
 
         }).catch(err => {
             res.status(500);
