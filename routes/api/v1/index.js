@@ -905,7 +905,7 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
     }
 
     //check if user pass area to crop and pass query is correct
-    if (!(req.query.crop && /^(\d+,\d+,\d+|auto)$/.test(req.query.crop))) {
+    if (req.query.crop && !/^(\d+,\d+,\d+|auto)$/.test(req.query.crop)) {
         res.status(400);
         res.json({
             error_code: "invalid_query",
@@ -1057,7 +1057,7 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
                     };
 
                     Promise.all([280, 120, 50].map(resize)).then(datas => {
-                        //save the resized image to aws s3 bucket
+                        // save the resized image to aws s3 bucket
                         // upload each file
                         const uploadImage = pass_data => {
                             return new Promise((resolve, rejected) => {
@@ -1180,7 +1180,7 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
         // get crop rectangle for uploaded profile picture
         const getCropRect = call => {
             //check if user pass area to crop
-            if (req.query.crop && /^\d+,\d+,\d+$/.test()) {
+            if (req.query.crop && /^\d+,\d+,\d+$/.test(req.query.crop)) {
                 let temp_crop = req.query.crop.split(',');
 
                 call({
@@ -1281,9 +1281,93 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
     });
 });
 
-// unknown
+// get user's profile pictures
 router.get('/users/:user_id/profile/picture', custom_utils.allowedScopes(['read:user']), (req, res) => {
-    // code here
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if pass query is valid
+    if (req.query.size && !/^(big|medium|small)$/.test(req.query.size)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_query",
+            message: "URL query is invalid"
+        });
+
+        return;
+    }
+
+    // set image to retrieve
+    const image_size = req.query.size ? req.query.size : 'medium';
+
+    // mysql fields
+    const query_fields = {
+        'big': 'profilePictureBigURL',
+        'medium': 'profilePictureMediumURL',
+        'small': 'profilePictureSmallURL'
+    };
+
+    // get image relative path from database
+    gDB.query(
+        'SELECT ?? FROM user WHERE userID = ? LIMIT 1',
+        [query_fields[image_size], req.params.user_id]
+    ).then(results => {
+        // check if image exist
+        if (results[0][query_fields[image_size]]) {
+            res.status(200);
+            res.json({
+                image: {
+                    url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0][query_fields[image_size]],
+                    size: image_size
+                }
+            });
+
+            return;
+
+        } else {
+            res.status(200);
+            res.json({
+                image: null
+            });
+
+            return;
+        }
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+
+
 });
 
 // unknown
