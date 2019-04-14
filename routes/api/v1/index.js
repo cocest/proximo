@@ -251,10 +251,10 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         });
 
     } else if (!(dob.length == 3 && custom_utils.validateDate({
-            year: dob[0],
-            month: dob[1],
-            day: dob[2]
-        }))) {
+        year: dob[0],
+        month: dob[1],
+        day: dob[2]
+    }))) {
         invalid_inputs.push({
             error_code: "invalid_input",
             field: "dateOfBirth",
@@ -344,16 +344,16 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
 
                     // store user's information to database
                     gDB.transaction({
-                            query: 'INSERT INTO user (firstName, lastName, emailAddress, searchEmailHash, dateOfBirth, gender) VALUES (?, ?, ?, ?, ?, ?)',
-                            post: [
-                                req.body.firstName,
-                                req.body.lastName,
-                                req.body.email,
-                                search_email_hash,
-                                req.body.dateOfBirth,
-                                req.body.gender
-                            ]
-                        }, {
+                        query: 'INSERT INTO user (firstName, lastName, emailAddress, searchEmailHash, dateOfBirth, gender) VALUES (?, ?, ?, ?, ?, ?)',
+                        post: [
+                            req.body.firstName,
+                            req.body.lastName,
+                            req.body.email,
+                            search_email_hash,
+                            req.body.dateOfBirth,
+                            req.body.gender
+                        ]
+                    }, {
                             query: 'SELECT @user_id:=userID FROM user WHERE searchEmailHash = ?',
                             post: [search_email_hash]
                         }, {
@@ -483,10 +483,10 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
             let dob = req.body.dateOfBirth.split('-');
 
             if (!(dob.length == 3 && custom_utils.validateDate({
-                    year: dob[0],
-                    month: dob[1],
-                    day: dob[2]
-                }))) {
+                year: dob[0],
+                month: dob[1],
+                day: dob[2]
+            }))) {
                 invalid_inputs.push({
                     error_code: "invalid_input",
                     field: "dateOfBirth",
@@ -1097,17 +1097,17 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
                             ).then(results => {
                                 res.json({
                                     images: [{
-                                            url: dm.get(280).Location,
-                                            size: 'big'
-                                        },
-                                        {
-                                            url: dm.get(120).Location,
-                                            size: 'medium'
-                                        },
-                                        {
-                                            url: dm.get(50).Location,
-                                            size: 'small'
-                                        }
+                                        url: dm.get(280).Location,
+                                        size: 'big'
+                                    },
+                                    {
+                                        url: dm.get(120).Location,
+                                        size: 'medium'
+                                    },
+                                    {
+                                        url: dm.get(50).Location,
+                                        size: 'small'
+                                    }
                                     ]
                                 });
 
@@ -1221,13 +1221,13 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
         gDB.query(
             'SELECT profilePictureSmallURL, profilePictureMediumURL, profilePictureBigURL FROM user WHERE userID = ? LIMIT 1',
             [req.params.user_id]).then(results => {
-            //check if it exist
-            if (results[0].profilePictureSmallURL) {
-                // initialise objects to delete
-                const deleteParam = {
-                    Bucket: gConfig.AWS_S3_BUCKET_NAME,
-                    Delete: {
-                        Objects: [{
+                //check if it exist
+                if (results[0].profilePictureSmallURL) {
+                    // initialise objects to delete
+                    const deleteParam = {
+                        Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                        Delete: {
+                            Objects: [{
                                 Key: results[0].profilePictureSmallURL
                             },
                             {
@@ -1236,48 +1236,48 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
                             {
                                 Key: results[0].profilePictureBigURL
                             }
-                        ]
-                    }
-                };
+                            ]
+                        }
+                    };
 
-                s3.deleteObjects(deleteParam, (err, data) => {
-                    if (err) {
-                        res.status(500);
-                        res.json({
-                            error_code: "internal_error",
-                            message: "Internal error"
-                        });
+                    s3.deleteObjects(deleteParam, (err, data) => {
+                        if (err) {
+                            res.status(500);
+                            res.json({
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
 
-                        // log the error to log file
-                        gLogger.log('error', err.message, {
-                            stack: err.stack
-                        });
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
 
-                        return;
+                            return;
 
-                    } else {
-                        getCropRect(processImage);
-                    }
+                        } else {
+                            getCropRect(processImage);
+                        }
+                    });
+
+                } else { // doesn't exist
+                    getCropRect(processImage);
+                }
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
                 });
 
-            } else { // doesn't exist
-                getCropRect(processImage);
-            }
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
 
-        }).catch(err => {
-            res.status(500);
-            res.json({
-                error_code: "internal_error",
-                message: "Internal error"
+                return;
             });
-
-            // log the error to log file
-            gLogger.log('error', err.message, {
-                stack: err.stack
-            });
-
-            return;
-        });
     });
 });
 
@@ -1366,18 +1366,242 @@ router.get('/users/:user_id/profile/picture', custom_utils.allowedScopes(['read:
 
         return;
     });
-
-
 });
 
-// unknown
-router.post('/users/:user_id/profile/about', custom_utils.allowedScopes(['write:user']), (req, res) => {
-    // code here
+// set user's profile information
+router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:user']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // check if some field contain valid data
+    const invalid_inputs = [];
+
+    if (req.body.bio) {
+        if (typeof req.body.bio != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "bio",
+                message: "data type not supported"
+            });
+
+        } else if (req.body.bio < 500) { // check if about exceed 500 characters
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "bio",
+                message: "bio exceed maximum allowed text"
+            });
+        }
+    }
+
+    if (req.body.about) {
+        if (typeof req.body.about != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "about",
+                message: "data type not supported"
+            });
+
+        } else if (req.body.about < 1500) { // check if about exceed 1500 characters
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "about",
+                message: "about exceed maximum allowed text"
+            });
+        }
+    }
+
+    if (req.body.country && !/^([a-zA-Z]+|[a-zA-Z]+[']*[a-zA-Z]+)+$/.test(req.body.country)) {
+        invalid_inputs.push({
+            error_code: "invalid_data",
+            field: "country",
+            message: "country name is not acceptable"
+        });
+    }
+
+    // check if any field is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_field",
+            errors: invalid_inputs,
+            message: "Field(s) value is invalid"
+        });
+
+        return;
+    }
+
+    // update some user's profile information 
+    let query = 'UPDATE user SET ';
+    let post = [];
+
+    // check if bio is provided
+    if (req.body.bio) {
+        query += 'bio = ?, ';
+        post.push(req.body.bio.trim());
+    }
+
+    // check if about is provided
+    if (req.body.about) {
+        query += 'about = ?, ';
+        post.push(req.body.about.trim());
+    }
+
+    // check if country is provided
+    if (req.body.country) {
+        query += 'country = ?, ';
+        post.push(req.body.country);
+    }
+
+    //last part of query
+    query += 'WHERE userID = ? LIMIT 1';
+    post.push(req.params.user_id);
+
+    gDB.query(query, post).then(results => {
+        return res.status(200).send();
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
-// unknown
-router.get('/users/:user_id/profile/about', custom_utils.allowedScopes(['read:user']), (req, res) => {
-    // code here
+// get user's profile information
+router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:user']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    const permitted_fields = [
+        'bio',
+        'about',
+        'country'
+    ];
+
+    let query = 'SELECT ';
+
+    // check if valid and required fields is given
+    if (req.query.fields) {
+        // split the provided fields
+        let req_fields = req.query.fields.split(',');
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+        const req_field_count = req_fields.length - 1;
+
+        req_fields.forEach((elem, index) => {
+            if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
+                if (index == req_field_count) {
+                    query += `${elem} `;
+
+                } else {
+                    query += `${elem}, `;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        if (permitted_field_count < 1) {
+            query = 'SELECT bio, about, country FROM user WHERE userID = ? LIMIT 1';
+
+        } else {
+            query += 'FROM user WHERE userID = ? LIMIT 1';
+        }
+
+    } else { // no fields selection
+        query += 'SELECT bio, about, country FROM user WHERE userID = ? LIMIT 1';
+    }
+
+    // get user's profile information
+    gDB.query(query, [req.params.user_id]).then(results => {
+        // send result to client
+        res.status(200);
+        res.json(results[0]);
+
+        return;
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 // get categories for article or news
@@ -2168,81 +2392,81 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                                 query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
                                 post: [req.params.draft_id, req.params.user_id]
                             }, {
-                                query: 'INSERT INTO articles (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
-                                    'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                                post: [
-                                    req.params.user_id,
-                                    results[0].categoryID,
-                                    region_results[0].continentID,
-                                    region_results[0].countryID,
-                                    req.body.locationID,
-                                    draft_results[0].featuredImageURL,
-                                    draft_results[0].title,
-                                    article_highlight,
-                                    draft_results[0].content
-                                ]
-                            }).then(results => {
-                                res.status(201);
-                                res.json({
-                                    article_id: results.insertId,
-                                    message: "Article published successfully"
+                                    query: 'INSERT INTO articles (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
+                                        'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                                    post: [
+                                        req.params.user_id,
+                                        results[0].categoryID,
+                                        region_results[0].continentID,
+                                        region_results[0].countryID,
+                                        req.body.locationID,
+                                        draft_results[0].featuredImageURL,
+                                        draft_results[0].title,
+                                        article_highlight,
+                                        draft_results[0].content
+                                    ]
+                                }).then(results => {
+                                    res.status(201);
+                                    res.json({
+                                        article_id: results.insertId,
+                                        message: "Article published successfully"
+                                    });
+
+                                    return;
+
+                                }).catch(reason => {
+                                    res.status(500);
+                                    res.json({
+                                        error_code: "internal_error",
+                                        message: "Internal error"
+                                    });
+
+                                    // log the error to log file
+                                    gLogger.log('error', reason.message, {
+                                        stack: reason.stack
+                                    });
+
+                                    return;
                                 });
-
-                                return;
-
-                            }).catch(reason => {
-                                res.status(500);
-                                res.json({
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                gLogger.log('error', reason.message, {
-                                    stack: reason.stack
-                                });
-
-                                return;
-                            });
 
                         } else { // article has been published
                             gDB.transaction({
                                 query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
                                 post: [req.params.draft_id, req.params.user_id]
                             }, {
-                                query: 'UPDATE articles SET categoryID = ?, featuredImageURL = ?, ' +
-                                    'title = ?, highlight = ?, content = ? WHERE articleID = ?',
-                                post: [
-                                    results[0].categoryID,
-                                    draft_results[0].featuredImageURL,
-                                    draft_results[0].title,
-                                    article_highlight,
-                                    draft_results[0].content,
-                                    draft_results[0].publishedContentID
-                                ]
-                            }).then(results => {
-                                res.status(201);
-                                res.json({
-                                    article_id: draft_results[0].publishedContentID,
-                                    message: "Published successfully"
+                                    query: 'UPDATE articles SET categoryID = ?, featuredImageURL = ?, ' +
+                                        'title = ?, highlight = ?, content = ? WHERE articleID = ?',
+                                    post: [
+                                        results[0].categoryID,
+                                        draft_results[0].featuredImageURL,
+                                        draft_results[0].title,
+                                        article_highlight,
+                                        draft_results[0].content,
+                                        draft_results[0].publishedContentID
+                                    ]
+                                }).then(results => {
+                                    res.status(201);
+                                    res.json({
+                                        article_id: draft_results[0].publishedContentID,
+                                        message: "Published successfully"
+                                    });
+
+                                    return;
+
+                                }).catch(reason => {
+                                    res.status(500);
+                                    res.json({
+                                        error_code: "internal_error",
+                                        message: "Internal error"
+                                    });
+
+                                    // log the error to log file
+                                    gLogger.log('error', reason.message, {
+                                        stack: reason.stack
+                                    });
+
+                                    return;
                                 });
-
-                                return;
-
-                            }).catch(reason => {
-                                res.status(500);
-                                res.json({
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                gLogger.log('error', reason.message, {
-                                    stack: reason.stack
-                                });
-
-                                return;
-                            });
                         }
 
                     } else { // news
@@ -2255,81 +2479,81 @@ router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes
                                 query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
                                 post: [req.params.draft_id, req.params.user_id]
                             }, {
-                                query: 'INSERT INTO news (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
-                                    'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                                post: [
-                                    req.params.user_id,
-                                    results[0].categoryID,
-                                    region_results[0].continentID,
-                                    region_results[0].countryID,
-                                    req.body.locationID,
-                                    draft_results[0].featuredImageURL,
-                                    draft_results[0].title,
-                                    news_highlight,
-                                    draft_results[0].content
-                                ]
-                            }).then(results => {
-                                res.status(201);
-                                res.json({
-                                    news_id: results.insertId,
-                                    message: "Article published successfully"
+                                    query: 'INSERT INTO news (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
+                                        'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                                    post: [
+                                        req.params.user_id,
+                                        results[0].categoryID,
+                                        region_results[0].continentID,
+                                        region_results[0].countryID,
+                                        req.body.locationID,
+                                        draft_results[0].featuredImageURL,
+                                        draft_results[0].title,
+                                        news_highlight,
+                                        draft_results[0].content
+                                    ]
+                                }).then(results => {
+                                    res.status(201);
+                                    res.json({
+                                        news_id: results.insertId,
+                                        message: "Article published successfully"
+                                    });
+
+                                    return;
+
+                                }).catch(reason => {
+                                    res.status(500);
+                                    res.json({
+                                        error_code: "internal_error",
+                                        message: "Internal error"
+                                    });
+
+                                    // log the error to log file
+                                    gLogger.log('error', reason.message, {
+                                        stack: reason.stack
+                                    });
+
+                                    return;
                                 });
-
-                                return;
-
-                            }).catch(reason => {
-                                res.status(500);
-                                res.json({
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                gLogger.log('error', reason.message, {
-                                    stack: reason.stack
-                                });
-
-                                return;
-                            });
 
                         } else { // news has been published
                             gDB.transaction({
                                 query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
                                 post: [req.params.draft_id, req.params.user_id]
                             }, {
-                                query: 'UPDATE news SET categoryID = ?, featuredImageURL = ?, ' +
-                                    'title = ?, highlight = ?, content = ? WHERE articleID = ?',
-                                post: [
-                                    results[0].categoryID,
-                                    draft_results[0].featuredImageURL,
-                                    draft_results[0].title,
-                                    article_highlight,
-                                    draft_results[0].content,
-                                    draft_results[0].publishedContentID
-                                ]
-                            }).then(results => {
-                                res.status(201);
-                                res.json({
-                                    news_id: draft_results[0].publishedContentID,
-                                    message: "Published successfully"
+                                    query: 'UPDATE news SET categoryID = ?, featuredImageURL = ?, ' +
+                                        'title = ?, highlight = ?, content = ? WHERE articleID = ?',
+                                    post: [
+                                        results[0].categoryID,
+                                        draft_results[0].featuredImageURL,
+                                        draft_results[0].title,
+                                        article_highlight,
+                                        draft_results[0].content,
+                                        draft_results[0].publishedContentID
+                                    ]
+                                }).then(results => {
+                                    res.status(201);
+                                    res.json({
+                                        news_id: draft_results[0].publishedContentID,
+                                        message: "Published successfully"
+                                    });
+
+                                    return;
+
+                                }).catch(reason => {
+                                    res.status(500);
+                                    res.json({
+                                        error_code: "internal_error",
+                                        message: "Internal error"
+                                    });
+
+                                    // log the error to log file
+                                    gLogger.log('error', reason.message, {
+                                        stack: reason.stack
+                                    });
+
+                                    return;
                                 });
-
-                                return;
-
-                            }).catch(reason => {
-                                res.status(500);
-                                res.json({
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                gLogger.log('error', reason.message, {
-                                    stack: reason.stack
-                                });
-
-                                return;
-                            });
                         }
                     }
 
@@ -2432,7 +2656,7 @@ router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['read:
 
         } else { // no fields selection
             query += 'categoryID, featuredImageURL, title, highlight, content, time ' +
-                'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1'
+                'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
         }
 
         // get publication saved to draft
@@ -2537,7 +2761,7 @@ router.get('/users/:user_id/draft/articles', custom_utils.allowedScopes(['read:u
 
         } else { // no fields selection
             query += 'categoryID, featuredImageURL, title, highlight, content, time ' +
-                'FROM draft WHERE userID = ? AND draftContentTypeID = 0'
+                'FROM draft WHERE userID = ? AND draftContentTypeID = 0';
         }
 
         // get publication saved to draft
@@ -2795,21 +3019,21 @@ router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedS
                                 res.json({
                                     id: image_id,
                                     images: [{
-                                            url: data.Location,
-                                            size: 'big'
-                                        },
-                                        {
-                                            url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/medium/' + object_unique_name,
-                                            size: 'medium'
-                                        },
-                                        {
-                                            url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/small/' + object_unique_name,
-                                            size: 'small'
-                                        },
-                                        {
-                                            url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/tiny/' + object_unique_name,
-                                            size: 'tiny'
-                                        }
+                                        url: data.Location,
+                                        size: 'big'
+                                    },
+                                    {
+                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/medium/' + object_unique_name,
+                                        size: 'medium'
+                                    },
+                                    {
+                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/small/' + object_unique_name,
+                                        size: 'small'
+                                    },
+                                    {
+                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/tiny/' + object_unique_name,
+                                        size: 'tiny'
+                                    }
                                     ]
                                 });
 
