@@ -3161,7 +3161,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
 
             return;
 
-        }).catch(reason => {
+        }).catch(err => {
             res.status(500);
             res.json({
                 error_code: "internal_error",
@@ -3169,8 +3169,8 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             });
 
             // log the error to log file
-            gLogger.log('error', reason.message, {
-                stack: reason.stack
+            gLogger.log('error', err.message, {
+                stack: err.stack
             });
 
             return;
@@ -3190,6 +3190,333 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
 // search article(s)
 router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
     // start here
+});
+
+// post comment for an article
+router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.article_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // utility function to save comment to database
+    const saveComment = () => {
+        // check if article exist
+        gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+            if (results.length < 1) {
+                return res.status(204).send(); // article doesn't exist
+            }
+
+            // generate sixten digit unique id
+            const comment_id = rand_token.generate(16);
+
+            // start here
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+    };
+
+    // check if some field contain valid data
+    const invalid_inputs = [];
+
+    if (!req.body.comment) {
+        invalid_inputs.push({
+            error_code: "undefined_data",
+            field: "comment",
+            message: "comment has to be defined"
+        });
+
+    } else if (!(typeof req.body.comment == 'string' && req.body.comment.trim().length > 0)) {
+        invalid_inputs.push({
+            error_code: "invalid_data",
+            field: "comment",
+            message: "comment is not acceptable"
+        });
+
+    } else if (req.body.comment.trim().length > 5000) {
+        invalid_inputs.push({
+            error_code: "invalid_data",
+            field: "comment",
+            message: "comment exceed maximum allowed text"
+        });
+    }
+
+    // if user supply replied id, then comment is a reply to another comment
+    if (req.body.replyID) {
+        if (/^[a-zA-Z][0-9]{16}$/.test(req.body.replyID)) {
+            // check if comment exist
+            gDB.query(
+                'SELECT 1 FROM article_comments WHERE articleID = ? AND commentID = ? LIMIT 1',
+                [req.params.article_id, req.body.replyID]
+            ).then(results => {
+                if (results.length < 1) {
+                    invalid_inputs.push({
+                        error_code: "invalid_data",
+                        field: "commentID",
+                        message: "comment doesn't exist"
+                    });
+                }
+
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        error_code: "invalid_field",
+                        errors: invalid_inputs,
+                        message: "Field(s) value not acceptable"
+                    });
+
+                    return;
+                }
+
+                // save comment to database
+                saveComment();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        } else {
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "commentID",
+                message: "commentID is invalid"
+            });
+
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs,
+                message: "Field(s) value not acceptable"
+            });
+
+            return;
+        }
+
+    } else {
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs,
+                message: "Field(s) value not acceptable"
+            });
+
+            return;
+        }
+
+        // save comment to database
+        saveComment();
+    }
+});
+
+// post reply for comment for an article
+router.post('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    // check if user id is integer
+    if (!(/^\d+$/.test(req.params.article_id) && /^regex here$/.test(req.params.cmt_id))) { // regex for cmt_id
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(400);
+            res.json({
+                error_code: "invalid_id",
+                message: "Article doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if comment exist
+        gDB.query(
+            'SELECT 1 FROM article_comments WHERE articleID = ? AND commentID = ? LIMIT 1',
+            [req.params.article_id, req.params.cmt_id]
+        ).then(results => {
+            if (results.length < 1) {
+                // article doesn't exist
+                res.status(400);
+                res.json({
+                    error_code: "invalid_id",
+                    message: "Article doesn't exist"
+                });
+
+                return;
+            }
+
+            // check if some field contain valid data
+            const invalid_inputs = [];
+
+            if (!req.body.comment) {
+                invalid_inputs.push({
+                    error_code: "undefined_data",
+                    field: "comment",
+                    message: "comment has to be defined"
+                });
+
+            } else if (!(typeof req.body.comment == 'string' && req.body.comment.trim().length > 0)) {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "comment",
+                    message: "comment is not acceptable"
+                });
+
+            } else if (req.body.comment.trim().length > 5000) {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "comment",
+                    message: "comment exceed maximum allowed text"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_field",
+                    errors: invalid_inputs,
+                    message: "Field(s) value not acceptable"
+                });
+
+                return;
+            }
+
+            // generate sixten digit unique id
+            const comment_id = rand_token.generate(16);
+
+            // insert comment into database
+            gDB.query(
+                'INSERT INTO article_comments (articleID, commentID, userID, comment, replyToCommentID) VALUES (?, ?, ?, ?, ?)', 
+                []
+            ).then(results => {
+                //
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 router.get('/hellos', custom_utils.allowedScopes(['read:hellos:all']), (req, res) => {
