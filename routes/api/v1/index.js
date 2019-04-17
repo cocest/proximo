@@ -3229,9 +3229,9 @@ router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['read:
     gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
         if (results.length < 1) {
             // article doesn't exist
-            res.status(400);
+            res.status(404);
             res.json({
-                error_code: "invalid_id",
+                error_code: "file_not_found",
                 message: "Article doesn't exist"
             });
 
@@ -3408,63 +3408,115 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
         return;
     }
 
-    // set limit and offset
-    let limit = 50;
-    let offset = 0;
-    let pass_limit = req.query.limit;
-    let pass_offset = req.query.offset;
-    const invalid_inputs = [];
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article doesn't exist"
+            });
 
-    // check if query is valid
-    if (pass_limit && !/^\d+$/.test(pass_limit)) {
-        invalid_inputs.push({
-            error_code: "invalid_value",
-            field: "limit",
-            message: "value must be integer"
+            return;
+        }
+
+        // set limit and offset
+        let limit = 50;
+        let offset = 0;
+        let pass_limit = req.query.limit;
+        let pass_offset = req.query.offset;
+        const invalid_inputs = [];
+
+        // check if query is valid
+        if (pass_limit && !/^\d+$/.test(pass_limit)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "limit",
+                message: "value must be integer"
+            });
+        }
+
+        if (pass_offset && !/^\d+$/.test(pass_offset)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "offset",
+                message: "value must be integer"
+            });
+        }
+
+        // check if any query is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_query",
+                errors: invalid_inputs,
+                message: "Query(s) value is invalid"
+            });
+
+            return;
+        }
+
+        if (pass_limit && pass_limit < limit) {
+            limit = pass_limit;
+        }
+
+        if (pass_offset) {
+            offset = pass_offset;
+        }
+
+        // get all comment
+        gDB.query(
+            'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
+            'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
+            'AND A.replyToCommentID = ? LIMIT ? OFFSET ? ORDER BY A.time DESC',
+            [
+                req.params.article_id,
+                -1,
+                limit,
+                offset
+            ]
+        ).then(results => {
+            let comments = [];
+            for (let i = 0; i < results.length; i++) {
+                comments.push({
+                    comment: results[i].comment,
+                    id: results[i].commentID,
+                    reply_count: results[i].replyCount,
+                    time: results[i].time,
+                    user: {
+                        name: results[i].lastName + ' ' + results[i].firstName,
+                        image: {
+                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                            size: 'small'
+                        }
+                    }
+                });
+            }
+
+            // send results to client
+            res.status(201);
+            res.json({
+                comments: comments
+            });
+
+            return;
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
         });
-    }
-
-    if (pass_offset && !/^\d+$/.test(pass_offset)) {
-        invalid_inputs.push({
-            error_code: "invalid_value",
-            field: "offset",
-            message: "value must be integer"
-        });
-    }
-
-    // check if any query is invalid
-    if (invalid_inputs.length > 0) {
-        // send json error message to client
-        res.status(406);
-        res.json({
-            error_code: "invalid_query",
-            errors: invalid_inputs,
-            message: "Query(s) value is invalid"
-        });
-
-        return;
-    }
-
-    if (pass_limit && pass_limit < limit) {
-        limit = pass_limit;
-    }
-
-    if (pass_offset) {
-        offset = pass_offset;
-    }
-
-    // get all comment
-    gDB.query(
-        'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' + 
-        'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' + 
-        'LIMIT ? OFFSET ? ORDER BY A.time DESC', 
-        [
-            req.params.article_id,
-            limit,
-            offset
-        ]
-    ).then(results => {
-        // start here
 
     }).catch(err => {
         res.status(500);
@@ -3519,9 +3571,9 @@ router.post('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allow
     gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
         if (results.length < 1) {
             // article doesn't exist
-            res.status(400);
+            res.status(404);
             res.json({
-                error_code: "invalid_id",
+                error_code: "file_not_found",
                 message: "Article doesn't exist"
             });
 
@@ -3535,9 +3587,9 @@ router.post('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allow
         ).then(results => {
             if (results.length < 1) {
                 // article doesn't exist
-                res.status(400);
+                res.status(404);
                 res.json({
-                    error_code: "invalid_id",
+                    error_code: "file_not_found",
                     message: "Comment doesn't exist"
                 });
 
@@ -3588,6 +3640,13 @@ router.post('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allow
             // insert comment into database
             gDB.transaction(
                 {
+                    query: 'UPDATE article_comments SET replyCount = replyCount + 1 WHERE articleID = ? AND commentID = ? LIMIT 1',
+                    post: [
+                        req.params.article_id,
+                        req.params.cmt_id
+                    ]
+                },
+                {
                     query: 'INSERT INTO article_comments (articleID, commentID, userID, ' +
                         'comment, replyToCommentID) VALUES (?, ?, ?, ?, ?)',
                     post: [
@@ -3597,18 +3656,181 @@ router.post('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allow
                         req.body.comment.trim(),
                         req.params.cmt_id
                     ]
-                },
-                {
-                    query: 'UPDATE article_comments SET replyCount = replyCount + 1 WHERE articleID = ? AND commentID = ? LIMIT 1',
-                    post: [
-                        req.params.article_id,
-                        req.params.cmt_id
-                    ]
                 }
             ).then(results => {
                 res.status(201);
                 res.json({
                     comment_id: comment_id
+                });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get all the replies for a comment
+router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.article_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if comment exist
+        gDB.query(
+            'SELECT 1 FROM article_comments WHERE articleID = ? AND commentID = ? LIMIT 1',
+            [req.params.article_id, req.params.cmt_id]
+        ).then(results => {
+            if (results.length < 1) {
+                // article doesn't exist
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Comment doesn't exist"
+                });
+
+                return;
+            }
+
+            // set limit and offset
+            let limit = 50;
+            let offset = 0;
+            let pass_limit = req.query.limit;
+            let pass_offset = req.query.offset;
+            const invalid_inputs = [];
+
+            // check if query is valid
+            if (pass_limit && !/^\d+$/.test(pass_limit)) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "limit",
+                    message: "value must be integer"
+                });
+            }
+
+            if (pass_offset && !/^\d+$/.test(pass_offset)) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "offset",
+                    message: "value must be integer"
+                });
+            }
+
+            // check if any query is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_query",
+                    errors: invalid_inputs,
+                    message: "Query(s) value is invalid"
+                });
+
+                return;
+            }
+
+            if (pass_limit && pass_limit < limit) {
+                limit = pass_limit;
+            }
+
+            if (pass_offset) {
+                offset = pass_offset;
+            }
+
+            // get all comment
+            gDB.query(
+                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
+                'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
+                'AND A.replyToCommentID = ? LIMIT ? OFFSET ? ORDER BY A.time DESC',
+                [
+                    req.params.article_id,
+                    req.params.cmt_id,
+                    limit,
+                    offset
+                ]
+            ).then(results => {
+                let comments = [];
+                for (let i = 0; i < results.length; i++) {
+                    comments.push({
+                        comment: results[i].comment,
+                        id: results[i].commentID,
+                        reply_count: results[i].replyCount,
+                        time: results[i].time,
+                        user: {
+                            name: results[i].lastName + ' ' + results[i].firstName,
+                            image: {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                size: 'small'
+                            }
+                        }
+                    });
+                }
+
+                // send results to client
+                res.status(201);
+                res.json({
+                    comments: comments
                 });
 
                 return;
