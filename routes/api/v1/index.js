@@ -1770,7 +1770,7 @@ router.get('/user/publishLocation/:location', custom_utils.allowedScopes(['read:
 });
 
 // get a region or nearest region if user is not in any launch region on map
-router.get('/map/region', custom_utils.allowedScopes(['read:user']), (req, res) => {
+router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) => {
     // validate pass in query values
     const invalid_inputs = [];
 
@@ -1818,24 +1818,108 @@ router.get('/map/region', custom_utils.allowedScopes(['read:user']), (req, res) 
     }
 
     // latitude and longitude
-    const lat = req.query.lat;
-    const long = req.query.long;
+    const position = { x: req.query.lat, y: req.query.long };
+    let cont_bounds;
+    let cont_polys;
 
     // found which continent user's lat and long fall into
-    gDB.query('SELECT continentID, mapPerimeter, mapBounds FROM map_continents').then(results => {
+    gDB.query('SELECT continentID, polygons, bounds FROM map_continents').then(continent_results => {
         // check which continet user location fall into
         for (let i = 0; i < results.length; i++) {
             //convert string to javascript object
-            let cont_bounds = JSON.parse(results[i].mapBounds);
-            let continent = JSON.parse(results[i].mapPerimeter);
+            cont_bounds = JSON.parse(continent_results[i].bounds);
+            cont_polys = JSON.parse(continent_results[i].polygons);
 
-            // continents bounds
-            if (custom_utils.pointInsideRect({x: lat, y: long}, cont_bounds)) {
-                // start here
+            // check for continent user's position fall into
+            if (custom_utils.pointInsideRect(position, cont_bounds) &&
+                custom_utils.pointInsidePolygon(position, cont_polys)) {
+                // found which country user's lat and long fall into
+                gDB.query(
+                    'SELECT countryID, polygons, bounds FROM map_countries WHERE continentID = ?',
+                    [continent_results[i].continentID]
+                ).then(country_results => {
+                    // check which country user location fall into
+                    for (let j = 0; j < country_results.length; j++) {
+                        //convert string to javascript object
+                        cont_bounds = JSON.parse(country_results[j].bounds);
+                        cont_polys = JSON.parse(country_results[j].polygons);
+
+                        // check for continent user's position fall into
+                        if (custom_utils.pointInsideRect(position, cont_bounds) &&
+                            custom_utils.pointInsidePolygon(position, cont_polys)) {
+                            // found which region user's lat and long fall into
+                            gDB.query(
+                                'SELECT regionID, name, polygons, bounds FROM map_regions WHERE countryID = ?',
+                                [country_results[j].countryID]
+                            ).then(region_results => {
+                                // check which region user location fall into
+                                for (let k = 0; k < region_results.length; k++) {
+                                    //convert string to javascript object
+                                    cont_bounds = JSON.parse(region_results[k].bounds);
+                                    cont_polys = JSON.parse(region_results[k].polygons);
+
+                                    // check for continent user's position fall into
+                                    if (custom_utils.pointInsideRect(position, cont_bounds) &&
+                                        custom_utils.pointInsidePolygon(position, cont_polys)) {
+                                        //send user's location to client
+                                        res.status(200);
+                                        res.json({
+                                            location_id: region_results[k].regionID,
+                                            location_name: region_results[k].name
+                                        });
+
+                                        return;
+                                    }
+                                }
+
+                                // check for which region is closer to user's location
+                                // code here
+
+                            }).catch(err => {
+                                res.status(500);
+                                res.json({
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+
+                                return;
+                            });
+                        }
+                    }
+
+                    //  service not available at user's location
+                    //code here
+
+                    return;
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
             }
         }
 
-    }).catch(reason => {
+        //  service not available at user's location
+        //code here
+
+        return;
+
+    }).catch(err => {
         res.status(500);
         res.json({
             error_code: "internal_error",
@@ -1843,8 +1927,8 @@ router.get('/map/region', custom_utils.allowedScopes(['read:user']), (req, res) 
         });
 
         // log the error to log file
-        gLogger.log('error', reason.message, {
-            stack: reason.stack
+        gLogger.log('error', err.message, {
+            stack: err.stack
         });
 
         return;
