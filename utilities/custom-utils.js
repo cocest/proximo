@@ -243,6 +243,78 @@ class Utilities {
             }, []);
         }
     }
+
+    static pointInsideRect(point, bounds) {
+        // determine if point is inside pass in rectangle
+        if (point.x > bounds[0] && point.x < bounds[2] && point.y > bounds[1] && point.y < bounds[3]) {
+            return true;
+        }
+
+        return false;
+    }
+
+    static pointInsidePolygon(point, polys) {
+        // This algorithm use the y-axis to calculate intersection
+        // Note: intersection at left side of the point is what is considered
+        let int_line_count = 0;
+        let t;
+        let int_x;
+        let point_x = point.x;
+        let point_y = point.y;
+        let p_x0 = polys[0][0];
+        let p_y0 = polys[0][1];
+        let p_x1;
+        let p_y1;
+        let NM;
+        let DM;
+        let polyline_count = polys.length;
+
+        // iterate the polys
+        for (let i = 1; i < polyline_count; i++) {
+            p_x1 = polys[i][0];            
+            p_y1 = polys[i][1];
+
+            // check if line should be skiped by determining if it fall completely at right side
+            if (point_x >= p_x0 || point_x >= p_x1) {
+                // check if the line should intercept the point
+                if ((point_y <= p_y0 && point_y >= p_y1) || (point_y >= p_y0 && point_y <= p_y1)) {
+                    // calculate for intercept
+                    DM = p_y0 - p_y1; // denominator
+
+                    if (DM == 0) { // line is horizontal
+                        if (p_x0 == point_x || p_x1 == point_x) { // check if point is at line define points
+                            return true;
+
+                        } else if ((p_x1 < point_x && p_x0 > point_x) || (p_x0 < point_x && p_x1 > point_x)) {
+                            return true;
+                        }
+
+                    } else {
+                        NM = p_y0 - point_y; // nominator
+                        t = NM / DM; // time 
+                        int_x = (1 - t) * p_x0 + t * p_x1; // berzier line
+
+                        if (int_x <= point_x) {
+                            if (int_x == point_x) {
+                                return true;
+
+                            } else if (p_y1 == point_y) {
+                                int_line_count++;
+
+                            } else if (p_y0 != point_y) {
+                                int_line_count++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            p_x0 = p_x1;
+            p_y0 = p_y1;
+        }
+
+        return int_line_count % 2 != 0;
+    }
 }
 
 //export the object that contains the utility functions

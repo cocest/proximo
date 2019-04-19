@@ -1769,6 +1769,88 @@ router.get('/user/publishLocation/:location', custom_utils.allowedScopes(['read:
     }
 });
 
+// get a region or nearest region if user is not in any launch region on map
+router.get('/map/region', custom_utils.allowedScopes(['read:user']), (req, res) => {
+    // validate pass in query values
+    const invalid_inputs = [];
+
+    if (!req.query.lat) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "lat",
+            message: "lat has to be defined"
+        });
+
+    } else if (!/^(\d+.\d+|\d+)$/.test(req.query.lat)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "lat",
+            message: "lat value is invalid"
+        });
+    }
+
+    if (!req.query.long) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "long",
+            message: "long has to be defined"
+        });
+
+    } else if (!/^(\d+.\d+|\d+)$/.test(req.query.lat)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "long",
+            message: "long value is invalid"
+        });
+    }
+
+    // check if any query is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs,
+            message: "Query(s) value is invalid"
+        });
+
+        return;
+    }
+
+    // latitude and longitude
+    const lat = req.query.lat;
+    const long = req.query.long;
+
+    // found which continent user's lat and long fall into
+    gDB.query('SELECT continentID, mapPerimeter, mapBounds FROM map_continents').then(results => {
+        // check which continet user location fall into
+        for (let i = 0; i < results.length; i++) {
+            //convert string to javascript object
+            let cont_bounds = JSON.parse(results[i].mapBounds);
+            let continent = JSON.parse(results[i].mapPerimeter);
+
+            // continents bounds
+            if (custom_utils.pointInsideRect({x: lat, y: long}, cont_bounds)) {
+                // start here
+            }
+        }
+
+    }).catch(reason => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', reason.message, {
+            stack: reason.stack
+        });
+
+        return;
+    });
+});
+
 /*
  * save newly created article to draft and return a 
  * unique id that identified the article stored in draft
