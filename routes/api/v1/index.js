@@ -1883,7 +1883,7 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
                                 }
 
                                 // check for which region is closer to user's location
-                                shortest_distance1 = pointDistanceFromObj(position, temp_cont_polys[0]);
+                                shortest_distance1 = custom_utils.pointDistanceFromObj(position, temp_cont_polys[0]);
                                 closest_region = region_results[0];
 
                                 for (let n = 1; n < region_results.length; n++) {
@@ -1891,7 +1891,7 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
 
                                     // calculate and check if region's bounding box is closer to user's current position
                                     // than other calculated region's bounding box, if not skip the region
-                                    bounds_distance = pointDistanceFromObj(
+                                    bounds_distance = custom_utils.pointDistanceFromObj(
                                         position,
                                         [
                                             [cont_bounds[0], cont_bounds[1]], [cont_bounds[2], cont_bounds[1]],
@@ -1901,7 +1901,7 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
 
                                     if (bounds_distance < shortest_distance1) {
                                         // calculate the distance of region from user's current position
-                                        shortest_distance2 = pointDistanceFromObj(position, temp_cont_polys[n]);
+                                        shortest_distance2 = custom_utils.pointDistanceFromObj(position, temp_cont_polys[n]);
                                         closest_region = region_results[n];
 
                                         // replace with smaller distance
