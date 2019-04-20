@@ -1821,6 +1821,12 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
     const position = { x: req.query.lat, y: req.query.long };
     let cont_bounds;
     let cont_polys;
+    let temp_cont_bounds = [];
+    let temp_cont_polys = [];
+    let closest_region;
+    let bounds_distance;
+    let shortest_distance1;
+    let shortest_distance1;
 
     // found which continent user's lat and long fall into
     gDB.query('SELECT continentID, polygons, bounds FROM map_continents').then(continent_results => {
@@ -1858,7 +1864,11 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
                                     cont_bounds = JSON.parse(region_results[k].bounds);
                                     cont_polys = JSON.parse(region_results[k].polygons);
 
-                                    // check for continent user's position fall into
+                                    // temporary store the parse bounds and polygons
+                                    temp_cont_bounds.push(cont_bounds);
+                                    temp_cont_polys.push(cont_polys);
+
+                                    // check for region user's position fall into
                                     if (custom_utils.pointInsideRect(position, cont_bounds) &&
                                         custom_utils.pointInsidePolygon(position, cont_polys)) {
                                         //send user's location to client
@@ -1873,7 +1883,40 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
                                 }
 
                                 // check for which region is closer to user's location
-                                // code here
+                                shortest_distance1 = pointDistanceFromObj(position, temp_cont_polys[0]);
+                                closest_region = region_results[0];
+
+                                for (let n = 1; n < region_results.length; n++) {
+                                    cont_bounds = temp_cont_bounds[n];
+
+                                    // calculate and check if region's bounding box is closer to user's current position
+                                    // than other calculated region's bounding box, if not skip the region
+                                    bounds_distance = pointDistanceFromObj(
+                                        position,
+                                        [
+                                            [cont_bounds[0], cont_bounds[1]], [cont_bounds[2], cont_bounds[1]],
+                                            [cont_bounds[2], cont_bounds[3]], [cont_bounds[0], cont_bounds[3]]
+                                        ]
+                                    );
+
+                                    if (bounds_distance < shortest_distance1) {
+                                        // calculate the distance of region from user's current position
+                                        shortest_distance2 = pointDistanceFromObj(position, temp_cont_polys[n]);
+                                        closest_region = region_results[n];
+
+                                        // replace with smaller distance
+                                        if (shortest_distance2 < shortest_distance1) shortest_distance1 = shortest_distance2;
+                                    }
+                                }
+
+                                // return result of closest region to client
+                                res.status(200);
+                                res.json({
+                                    location_id: closest_region.regionID,
+                                    location_name: closest_region.name
+                                });
+
+                                return;
 
                             }).catch(err => {
                                 res.status(500);
@@ -1893,7 +1936,11 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
                     }
 
                     //  service not available at user's location
-                    //code here
+                    res.status(404);
+                    res.json({
+                        error_code: "unsupported_location",
+                        message: "Service not available at the location"
+                    });
 
                     return;
 
@@ -1915,7 +1962,11 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
         }
 
         //  service not available at user's location
-        //code here
+        res.status(404);
+        res.json({
+            error_code: "unsupported_location",
+            message: "Service not available at the location"
+        });
 
         return;
 
@@ -4045,6 +4096,14 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
 
         return;
     });
+});
+
+router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    //
+});
+
+router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    //
 });
 
 router.get('/hellos', custom_utils.allowedScopes(['read:hellos:all']), (req, res) => {

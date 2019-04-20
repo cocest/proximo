@@ -315,6 +315,31 @@ class Utilities {
 
         return int_line_count % 2 != 0;
     }
+
+    static pointDistanceFromObj(point, obj) {
+        /*
+         * determine the distance of a point from polyline of polygon using
+         * pythagoras without taking the square root
+         * 
+         */
+         
+         let point_x = point.x;
+         let point_y = point.y;
+         let d_x = point_x - obj[0][0];
+         let d_y = point_y - obj[0][1];
+         let r1 = d_x * d_x + d_y * d_y; // distance of point A from point B of object
+         let r2;
+
+         for (let i = 1; i < obj.length; i++) {
+             d_x = point_x - obj[i][0]; // x component distance
+             d_y = point_y - obj[i][1]; // y component distance
+
+             r2 = d_x * d_x + d_y * d_y; // distance of point A from point B of object
+             if (r2 < r1) r1 = r2; // replace with smaller distance
+         }
+
+         return r1;
+    }
 }
 
 //export the object that contains the utility functions
