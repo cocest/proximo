@@ -1821,10 +1821,8 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
     const position = { x: req.query.lat, y: req.query.long };
     let cont_bounds;
     let cont_polys;
-    let temp_cont_bounds = [];
     let temp_cont_polys = [];
     let closest_region;
-    let bounds_distance;
     let shortest_distance1;
     let shortest_distance1;
 
@@ -1864,8 +1862,7 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
                                     cont_bounds = JSON.parse(region_results[k].bounds);
                                     cont_polys = JSON.parse(region_results[k].polygons);
 
-                                    // temporary store the parse bounds and polygons
-                                    temp_cont_bounds.push(cont_bounds);
+                                    // temporary store the parse polygons
                                     temp_cont_polys.push(cont_polys);
 
                                     // check for region user's position fall into
@@ -1887,25 +1884,13 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
                                 closest_region = region_results[0];
 
                                 for (let n = 1; n < region_results.length; n++) {
-                                    cont_bounds = temp_cont_bounds[n];
+                                    // calculate the distance of region from user's current position
+                                    shortest_distance2 = custom_utils.pointDistanceFromObj(position, temp_cont_polys[n]);
 
-                                    // calculate and check if region's bounding box is closer to user's current position
-                                    // than other calculated region's bounding box, if not skip the region
-                                    bounds_distance = custom_utils.pointDistanceFromObj(
-                                        position,
-                                        [
-                                            [cont_bounds[0], cont_bounds[1]], [cont_bounds[2], cont_bounds[1]],
-                                            [cont_bounds[2], cont_bounds[3]], [cont_bounds[0], cont_bounds[3]]
-                                        ]
-                                    );
-
-                                    if (bounds_distance < shortest_distance1) {
-                                        // calculate the distance of region from user's current position
-                                        shortest_distance2 = custom_utils.pointDistanceFromObj(position, temp_cont_polys[n]);
+                                    // replace with smaller distance
+                                    if (shortest_distance2 < shortest_distance1) {
+                                        shortest_distance1 = shortest_distance2;
                                         closest_region = region_results[n];
-
-                                        // replace with smaller distance
-                                        if (shortest_distance2 < shortest_distance1) shortest_distance1 = shortest_distance2;
                                     }
                                 }
 

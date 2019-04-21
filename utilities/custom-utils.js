@@ -276,7 +276,7 @@ class Utilities {
 
             // check if line should be skiped by determining if it fall completely at right side
             if (point_x >= p_x0 || point_x >= p_x1) {
-                // check if the line should intercept the point
+                // check if the line should intercept the point y-axis
                 if ((point_y <= p_y0 && point_y >= p_y1) || (point_y >= p_y0 && point_y <= p_y1)) {
                     // calculate for intercept
                     DM = p_y0 - p_y1; // denominator
@@ -318,7 +318,7 @@ class Utilities {
 
     static pointDistanceFromObj(point, obj) {
         /*
-         * determine the distance of a point from polyline of polygon using
+         * determine the distance of a point from polyline or polygon using
          * pythagoras without taking the square root
          * 
          */
