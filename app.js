@@ -119,7 +119,7 @@ app.get('/resizeImage/:base_folder/images/:resize_size/:image_name', (req, res) 
                         const upload_params = {
                             Bucket: gConfig.AWS_S3_BUCKET_NAME,
                             Body: outputBuffer,
-                            Key: 'article/images/' + req.params.resize_size + '/' + req.params.image_name,
+                            Key: req.params.base_folder + '/images/' + req.params.resize_size + '/' + req.params.image_name,
                             ACL: gConfig.AWS_S3_BUCKET_PERMISSION
                         };
 
