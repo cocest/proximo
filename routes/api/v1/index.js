@@ -3668,42 +3668,65 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
             offset = pass_offset;
         }
 
-        // get all comment
+        // get total count of comment with "replyToCommentID" equal to -1
         gDB.query(
-            'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
-            'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
-            'AND A.replyToCommentID = ? LIMIT ? OFFSET ? ORDER BY A.time DESC',
-            [
-                req.params.article_id,
-                -1,
-                limit,
-                offset
-            ]
-        ).then(results => {
-            let comments = [];
-            for (let i = 0; i < results.length; i++) {
-                comments.push({
-                    comment: results[i].comment,
-                    id: results[i].commentID,
-                    reply_count: results[i].replyCount,
-                    time: results[i].time,
-                    user: {
-                        name: results[i].lastName + ' ' + results[i].firstName,
-                        image: {
-                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                            size: 'small'
+            'SELECT COUNT(*) AS total FROM article_comments WHERE articleID = ? AND replyToCommentID = ?',
+            [req.params.article_id, -1]
+        ).then(cmt_results => {
+            // get all comment
+            gDB.query(
+                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
+                'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
+                'AND A.replyToCommentID = ? LIMIT ? OFFSET ? ORDER BY A.time DESC',
+                [
+                    req.params.article_id,
+                    -1,
+                    limit,
+                    offset
+                ]
+            ).then(results => {
+                let comments = [];
+                for (let i = 0; i < results.length; i++) {
+                    comments.push({
+                        comment: results[i].comment,
+                        id: results[i].commentID,
+                        reply_count: results[i].replyCount,
+                        time: results[i].time,
+                        user: {
+                            name: results[i].lastName + ' ' + results[i].firstName,
+                            image: {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                size: 'small'
+                            }
                         }
+                    });
+                }
+
+                // send results to client
+                res.status(201);
+                res.json({
+                    comments: comments,
+                    summary: {
+                        total_count: cmt_results[0].total
                     }
                 });
-            }
 
-            // send results to client
-            res.status(201);
-            res.json({
-                comments: comments
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
             });
-
-            return;
 
         }).catch(err => {
             res.status(500);
@@ -4000,42 +4023,65 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
                 offset = pass_offset;
             }
 
-            // get all comment
+            // count the replies to a comment
             gDB.query(
-                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
-                'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
-                'AND A.replyToCommentID = ? LIMIT ? OFFSET ? ORDER BY A.time DESC',
-                [
-                    req.params.article_id,
-                    req.params.cmt_id,
-                    limit,
-                    offset
-                ]
-            ).then(results => {
-                let comments = [];
-                for (let i = 0; i < results.length; i++) {
-                    comments.push({
-                        comment: results[i].comment,
-                        id: results[i].commentID,
-                        reply_count: results[i].replyCount,
-                        time: results[i].time,
-                        user: {
-                            name: results[i].lastName + ' ' + results[i].firstName,
-                            image: {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                size: 'small'
+                'SELECT COUNT(*) AS total FROM article_comments WHERE articleID = ? AND replyToCommentID = ?',
+                [req.params.article_id, req.params.cmt_id]
+            ).then(cmt_results => {
+                // get all comment
+                gDB.query(
+                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
+                    'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
+                    'AND A.replyToCommentID = ? LIMIT ? OFFSET ? ORDER BY A.time DESC',
+                    [
+                        req.params.article_id,
+                        req.params.cmt_id,
+                        limit,
+                        offset
+                    ]
+                ).then(results => {
+                    let comments = [];
+                    for (let i = 0; i < results.length; i++) {
+                        comments.push({
+                            comment: results[i].comment,
+                            id: results[i].commentID,
+                            reply_count: results[i].replyCount,
+                            time: results[i].time,
+                            user: {
+                                name: results[i].lastName + ' ' + results[i].firstName,
+                                image: {
+                                    url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                    size: 'small'
+                                }
                             }
+                        });
+                    }
+
+                    // send results to client
+                    res.status(201);
+                    res.json({
+                        comments: comments,
+                        summary: {
+                            total_count: cmt_results[0].total
                         }
                     });
-                }
 
-                // send results to client
-                res.status(201);
-                res.json({
-                    comments: comments
+                    return;
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
                 });
-
-                return;
 
             }).catch(err => {
                 res.status(500);
