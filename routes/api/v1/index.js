@@ -1095,6 +1095,7 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
                                     req.params.user_id
                                 ]
                             ).then(results => {
+                                res.status(200);
                                 res.json({
                                     images: [{
                                         url: dm.get(280).Location,
