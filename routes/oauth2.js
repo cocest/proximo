@@ -281,7 +281,7 @@ router.post('/token', (req, res) => {
 
                     } else {
                         // compare client_secret to hash in database
-                        bcrypt.compare(req.body.client_secret, results[0].secret).then(hash_res => {
+                        bcrypt.compare(req.body.client_secret, results[0].clientSecret).then(hash_res => {
                             if (!hash_res) {
                                 res.status(401);
                                 res.json({
