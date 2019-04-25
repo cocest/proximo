@@ -881,7 +881,7 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
 });
 
 // upload profile picture for the user
-router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['write:user']), (req, res) => {
+router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if user id is integer
     if (!/^\d+$/.test(req.params.user_id)) {
         res.status(400);
@@ -1370,7 +1370,7 @@ router.get('/users/:user_id/profile/picture', custom_utils.allowedScopes(['read:
 });
 
 // set user's profile information
-router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:user']), (req, res) => {
+router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if user id is integer
     if (!/^\d+$/.test(req.params.user_id)) {
         res.status(400);
@@ -1450,14 +1450,6 @@ router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:user'])
         }
     }
 
-    if (req.body.country && !/^([a-zA-Z]+|[a-zA-Z]+[']*[a-zA-Z]+)+$/.test(req.body.country)) {
-        invalid_inputs.push({
-            error_code: "invalid_data",
-            field: "country",
-            message: "country name is not acceptable"
-        });
-    }
-
     // check if any field is invalid
     if (invalid_inputs.length > 0) {
         // send json error message to client
@@ -1483,14 +1475,8 @@ router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:user'])
 
     // check if about is provided
     if (req.body.about) {
-        query += 'about = ?, ';
+        query += 'about = ? ';
         post.push(req.body.about.trim());
-    }
-
-    // check if country is provided
-    if (req.body.country) {
-        query += 'country = ?, ';
-        post.push(req.body.country);
     }
 
     //last part of query
@@ -1517,7 +1503,7 @@ router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:user'])
 });
 
 // get user's profile information
-router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:user']), (req, res) => {
+router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:users']), (req, res) => {
     // check if user id is integer
     if (!/^\d+$/.test(req.params.user_id)) {
         res.status(400);
@@ -1542,8 +1528,7 @@ router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:user']),
 
     const permitted_fields = [
         'bio',
-        'about',
-        'country'
+        'about'
     ];
 
     let query = 'SELECT ';
@@ -1571,14 +1556,14 @@ router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:user']),
         });
 
         if (permitted_field_count < 1) {
-            query = 'SELECT bio, about, country FROM user WHERE userID = ? LIMIT 1';
+            query = 'SELECT bio, about FROM user WHERE userID = ? LIMIT 1';
 
         } else {
             query += 'FROM user WHERE userID = ? LIMIT 1';
         }
 
     } else { // no fields selection
-        query += 'SELECT bio, about, country FROM user WHERE userID = ? LIMIT 1';
+        query += 'SELECT bio, about FROM user WHERE userID = ? LIMIT 1';
     }
 
     // get user's profile information
@@ -1606,7 +1591,7 @@ router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:user']),
 });
 
 // get categories for article or news
-router.get('/user/:publication_type/categories', custom_utils.allowedScopes(['read:user']), (req, res) => {
+router.get('/publications/:publication_type/categories', custom_utils.allowedScopes(['read:users']), (req, res) => {
     // check if publication_type is article or news
     if (!/^(article|news)$/.test(req.params.publication_type)) {
         res.status(404);
@@ -1639,6 +1624,7 @@ router.get('/user/:publication_type/categories', custom_utils.allowedScopes(['re
         // log the error to log file
         gLogger.log('error', reason.message, {
             stack: reason.stack
+
         });
 
         return;
@@ -1646,7 +1632,7 @@ router.get('/user/:publication_type/categories', custom_utils.allowedScopes(['re
 });
 
 // get areas users can publish content
-router.get('/user/publishLocation/:location', custom_utils.allowedScopes(['read:user']), (req, res) => {
+router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users']), (req, res) => {
     // check the location
     if (!/^(countries|regions)$/.test(req.params.location)) {
         res.status(404);
@@ -1663,6 +1649,7 @@ router.get('/user/publishLocation/:location', custom_utils.allowedScopes(['read:
     let offset = 0;
     let pass_limit = req.query.limit;
     let pass_offset = req.query.offset;
+    let country_id = req.query.countryID;
     const invalid_inputs = [];
 
     // check if query is valid
@@ -1678,6 +1665,14 @@ router.get('/user/publishLocation/:location', custom_utils.allowedScopes(['read:
         invalid_inputs.push({
             error_code: "invalid_value",
             field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    if (country_id && !/^\d+$/.test(country_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "countryID",
             message: "value must be integer"
         });
     }
@@ -1703,71 +1698,82 @@ router.get('/user/publishLocation/:location', custom_utils.allowedScopes(['read:
         offset = pass_offset;
     }
 
-    if (req.params.location == 'countries') {
-        // select countries from database
-        gDB.query(
-            'SELECT countryID AS id, name FROM countries LIMIT ? OFFSET ?', [limit, offset]
-        ).then(results => {
-            res.status(200);
-            res.json({
-                countries: results
+    // total count of rows in countries table
+    gDB.query('SELECT COUNT(*) AS total FROM map_countries').then(count_results => {
+        if (req.params.location == 'countries') {
+            // select countries from database
+            gDB.query(
+                'SELECT countryID AS id, name AS country FROM map_countries LIMIT ? OFFSET ?', [limit, offset]
+            ).then(results => {
+                res.status(200);
+                res.json({
+                    countries: results,
+                    metadata: {
+                        result_set: {
+                            count: results.length,
+                            offset: offset,
+                            limit: limit,
+                            total: count_results[0].total
+                        }
+                    }
+                });
+    
+                return;
+    
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+    
+                // log the error to log file
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
+    
+                return;
             });
-
-            return;
-
-        }).catch(reason => {
-            res.status(500);
-            res.json({
-                error_code: "internal_error",
-                message: "Internal error"
+    
+        } else { //regions
+            let query;
+            let post;
+    
+            // get country to select regions from
+            if (country_id) {
+                query = 'SELECT regionID AS id, name AS country FROM map_regions WHERE countryID = ? LIMIT ? OFFSET ?';
+                post = [country_id, limit, offset];
+    
+            } else {
+                query = 'SELECT regionID AS id, name AS country FROM map_regions LIMIT ? OFFSET ?';
+                post = [limit, offset];
+            }
+    
+            // select countries from database
+            gDB.query(query, post).then(results => {
+                res.status(200);
+                res.json({
+                    regions: results
+                });
+    
+                return;
+    
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+    
+                // log the error to log file
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
+    
+                return;
             });
-
-            // log the error to log file
-            gLogger.log('error', reason.message, {
-                stack: reason.stack
-            });
-
-            return;
-        });
-
-    } else { //regions
-        let query;
-        let post;
-
-        // get country to select regions from
-        if (req.params.countryID && /^\d+$/.test(req.params.countryID)) {
-            query = 'SELECT regionID AS id, name FROM regions WHERE countryID = ? LIMIT ? OFFSET ?';
-            post = [req.params.countryID, limit, offset];
-
-        } else {
-            query = 'SELECT regionID AS id, name FROM regions LIMIT ? OFFSET ?';
-            post = [limit, offset];
         }
-
-        // select countries from database
-        gDB.query(query, post).then(results => {
-            res.status(200);
-            res.json({
-                regions: results
-            });
-
-            return;
-
-        }).catch(reason => {
-            res.status(500);
-            res.json({
-                error_code: "internal_error",
-                message: "Internal error"
-            });
-
-            // log the error to log file
-            gLogger.log('error', reason.message, {
-                stack: reason.stack
-            });
-
-            return;
-        });
-    }
+    });
 });
 
 // get a region or nearest region if user is not in any launch region on map
@@ -1825,7 +1831,7 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
     let temp_cont_polys = [];
     let closest_region;
     let shortest_distance1;
-    let shortest_distance1;
+    let shortest_distance2;
 
     // found which continent user's lat and long fall into
     gDB.query('SELECT continentID, polygons, bounds FROM map_continents').then(continent_results => {
@@ -4128,6 +4134,10 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
 
         return;
     });
+});
+
+router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    //
 });
 
 router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
