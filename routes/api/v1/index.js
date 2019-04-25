@@ -1066,7 +1066,7 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
                                 const upload_params = {
                                     Bucket: gConfig.AWS_S3_BUCKET_NAME,
                                     Body: pass_data.buffer,
-                                    Key: 'users/images/profile/' + object_unique_name,
+                                    Key: 'user/images/profile/' + object_unique_name,
                                     ACL: gConfig.AWS_S3_BUCKET_PERMISSION
                                 };
 
