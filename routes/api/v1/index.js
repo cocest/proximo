@@ -1614,7 +1614,7 @@ router.get('/publications/:publication_type/categories', custom_utils.allowedSco
 
         return;
 
-    }).catch(reason => {
+    }).catch(err => {
         res.status(500);
         res.json({
             error_code: "internal_error",
@@ -1622,8 +1622,8 @@ router.get('/publications/:publication_type/categories', custom_utils.allowedSco
         });
 
         // log the error to log file
-        gLogger.log('error', reason.message, {
-            stack: reason.stack
+        gLogger.log('error', err.message, {
+            stack: err.stack
 
         });
 
@@ -1720,7 +1720,7 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
 
                 return;
 
-            }).catch(reason => {
+            }).catch(err => {
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -1728,8 +1728,8 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
                 });
 
                 // log the error to log file
-                gLogger.log('error', reason.message, {
-                    stack: reason.stack
+                gLogger.log('error', err.message, {
+                    stack: err.stack
                 });
 
                 return;
