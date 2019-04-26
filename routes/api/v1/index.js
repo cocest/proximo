@@ -1717,59 +1717,59 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
                         }
                     }
                 });
-    
+
                 return;
-    
+
             }).catch(reason => {
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
                     message: "Internal error"
                 });
-    
+
                 // log the error to log file
                 gLogger.log('error', reason.message, {
                     stack: reason.stack
                 });
-    
+
                 return;
             });
-    
+
         } else { //regions
             let query;
             let post;
-    
+
             // get country to select regions from
             if (country_id) {
                 query = 'SELECT regionID AS id, name AS country FROM map_regions WHERE countryID = ? LIMIT ? OFFSET ?';
                 post = [country_id, limit, offset];
-    
+
             } else {
                 query = 'SELECT regionID AS id, name AS country FROM map_regions LIMIT ? OFFSET ?';
                 post = [limit, offset];
             }
-    
+
             // select countries from database
             gDB.query(query, post).then(results => {
                 res.status(200);
                 res.json({
                     regions: results
                 });
-    
+
                 return;
-    
+
             }).catch(reason => {
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
                     message: "Internal error"
                 });
-    
+
                 // log the error to log file
                 gLogger.log('error', reason.message, {
                     stack: reason.stack
                 });
-    
+
                 return;
             });
         }
@@ -1982,162 +1982,128 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
  * save newly created article to draft and return a 
  * unique id that identified the article stored in draft
  */
-router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
-    if (/^\d+$/.test(req.params.user_id)) {
-        // check if is accessing the right user or as a logged in user
-        if (!req.params.user_id == req.user.access_token.user_id) {
-            res.status(401);
-            res.json({
-                error_code: "unauthorized_user",
-                message: "Unauthorized"
-            });
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
 
-            return;
-        }
+        return;
+    }
 
-        if (!req.body) { // check if body contain data
-            res.status(400);
-            res.json({
-                error_code: "invalid_request",
-                message: "Bad request"
-            });
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
 
-            return;
-        }
+        return;
+    }
 
-        if (!req.is('application/json')) { // check if content type is supported
-            res.status(415);
-            res.json({
-                error_code: "invalid_request_body",
-                message: "Unsupported body format"
-            });
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
 
-            return;
-        }
+        return;
+    }
 
-        // check if some field contain valid data
-        const invalid_inputs = [];
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
 
-        // utility function to save article to draft
-        const saveToDraft = () => {
-            // generate sixten digit unique id
-            const draft_id = rand_token.generate(16);
+        return;
+    }
 
-            // save article to user's draft
-            gDB.query(
-                'INSERT INTO draft (draftID, categoryID, featuredImageURL, title, content, ' +
-                'draftContentTypeID) VALUES (?, ?, ?, ?, ?, ?)',
-                [
-                    draft_id,
-                    req.body.categoryID,
-                    req.body.featuredImageURL ? req.body.featuredImageURL : '',
-                    req.body.title ? req.body.title : '',
-                    req.body.content ? req.body.content : '',
-                    0
-                ]
-            ).then(results => {
-                res.status(201);
+    // check if some field contain valid data
+    const invalid_inputs = [];
+
+    // check if query is valid
+    if (!req.query.publication) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "publication",
+            message: "publication has to be defined"
+        });
+
+    } else if (!/^(news|article)$/.test(req.query.publication)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "publication",
+            message: "publication value is invalid"
+        });
+    }
+
+    if (!req.query.categoryID) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "categoryID",
+            message: "categoryID has to be defined"
+        });
+
+    } else if (!/^\d+$/.test(req.query.categoryID)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "categoryID",
+            message: "categoryID value is invalid"
+        });
+
+    } else {
+        // check if category id exist
+        gDB.query(
+            'SELECT 1 FROM ?? WHERE categoryID = ? LIMIT 1',
+            [req.query.publication + '_categories', req.body.categoryID]
+        ).then(results => {
+            if (results.length < 1) { // the SQL query is fast enough
+                // category does not exist
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "categoryID",
+                    message: "categoryID doesn't exist"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
                 res.json({
-                    draft_id: draft_id,
-                    message: "Draft created successfully for article"
+                    error_code: "invalid_query",
+                    errors: invalid_inputs,
+                    message: "Query(s) value is invalid"
                 });
 
                 return;
+            }
 
-            }).catch(reason => {
-                res.status(500);
-                res.json({
-                    error_code: "internal_error",
-                    message: "Internal error"
+            // check body data type if is provided
+            if (req.body.title && typeof req.body.title != 'string') {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "title",
+                    message: "title is not acceptable"
                 });
+            }
 
-                // log the error to log file
-                gLogger.log('error', reason.message, {
-                    stack: reason.stack
+            // check body data type if is provided
+            if (req.body.content && typeof req.body.content != 'string') {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "body",
+                    message: "body is not acceptable"
                 });
+            }
 
-                return;
-            });
-        };
-
-        // check body data type if is provided
-        if (req.body.title && typeof req.body.title != 'string') {
-            invalid_inputs.push({
-                error_code: "invalid_data",
-                field: "title",
-                message: "title is not acceptable"
-            });
-        }
-
-        // check body data type if is provided
-        if (req.body.content && typeof req.body.content != 'string') {
-            invalid_inputs.push({
-                error_code: "invalid_data",
-                field: "body",
-                message: "body is not acceptable"
-            });
-        }
-
-        //category id must be provided
-        if (!req.body.categoryID) {
-            invalid_inputs.push({
-                error_code: "undefined_data",
-                field: "categoryID",
-                message: "categoryID has to be defined"
-            });
-
-        } else if (!/^\d+$/.test(req.body.categoryID)) {
-            invalid_inputs.push({
-                error_code: "invalid_data",
-                field: "categoryID",
-                message: "categoryID is not acceptable"
-            });
-
-        } else if (req.body.categoryID) {
-            // check if category id exist
-            gDB.query('SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1', [req.body.categoryID]).then(results => {
-                if (results.length < 1) { // the SQL query is fast enough
-                    // category does not exist
-                    invalid_inputs.push({
-                        error_code: "invalid_data",
-                        field: "categoryID",
-                        message: "categoryID doesn't exist"
-                    });
-                }
-
-                // check if any input is invalid
-                if (invalid_inputs.length > 0) {
-                    // send json error message to client
-                    res.status(406);
-                    res.json({
-                        error_code: "invalid_field",
-                        errors: invalid_inputs,
-                        message: "Field(s) value not acceptable"
-                    });
-
-                    return;
-                }
-
-                // save article to draft
-                saveToDraft();
-
-            }).catch(reason => {
-                res.status(500);
-                res.json({
-                    error_code: "internal_error",
-                    message: "Internal error"
-                });
-
-                // log the error to log file
-                gLogger.log('error', reason.message, {
-                    stack: reason.stack
-                });
-
-                return;
-            });
-
-        } else {
             // check if any input is invalid
             if (invalid_inputs.length > 0) {
                 // send json error message to client
@@ -2151,18 +2117,58 @@ router.post('/users/:user_id/draft/article', custom_utils.allowedScopes(['write:
                 return;
             }
 
-            // save article to draft
-            saveToDraft();
-        }
+            // generate sixten digit unique id
+            const draft_id = rand_token.generate(16);
 
-    } else { // invalid id
-        res.status(400);
-        res.json({
-            error_code: "invalid_user_id",
-            message: "Bad request"
+            // save news or article to user's draft
+            gDB.query(
+                'INSERT INTO draft (draftID, categoryID, publication, featuredImageURL, ' +
+                'title ,content) VALUES (?, ?, ?, ?, ?, ?)',
+                [
+                    draft_id,
+                    req.body.categoryID,
+                    req.query.publication,
+                    req.body.featuredImageURL ? req.body.featuredImageURL : '',
+                    req.body.title ? req.body.title : '',
+                    req.body.content ? req.body.content : '',
+                ]
+            ).then(results => {
+                res.status(201);
+                res.json({
+                    draft_id: draft_id
+                });
+
+                return;
+
+            }).catch(reason => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', reason.message, {
+                    stack: reason.stack
+                });
+
+                return;
+            });
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, {
+                stack: reason.stack
+            });
+
+            return;
         });
-
-        return;
     }
 });
 
