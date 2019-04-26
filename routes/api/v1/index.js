@@ -1979,8 +1979,8 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
 });
 
 /*
- * save newly created article to draft and return a 
- * unique id that identified the article stored in draft
+ * save newly created news or article to draft and return a 
+ * unique id that identified the draft
  */
 router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
@@ -2122,12 +2122,13 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
 
             // save news or article to user's draft
             gDB.query(
-                'INSERT INTO draft (draftID, categoryID, publication, featuredImageURL, ' +
-                'title ,content) VALUES (?, ?, ?, ?, ?, ?)',
+                'INSERT INTO draft (draftID, userID, publication, categoryID, featuredImageURL, ' +
+                'title ,content) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 [
                     draft_id,
-                    req.body.categoryID,
+                    req.params.user_id,
                     req.query.publication,
+                    req.body.categoryID,
                     req.body.featuredImageURL ? req.body.featuredImageURL : '',
                     req.body.title ? req.body.title : '',
                     req.body.content ? req.body.content : '',
@@ -2173,77 +2174,69 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
 });
 
 /*
- * Add article to draft for edit and return
- * unique id that identified the article stored in draft
+ * Add news to draft for edit and return
+ * unique id that identified the draft
  * 
- * For already published articles, you can't change it location
+ * For already published news, you can't change it location
  */
-router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScopes(['write:users']), (req, res) => {
-    // check if id is integer
-    if (/^\d+$/.test(req.params.user_id)) {
-        // check if is accessing the right user or as a logged in user
-        if (!req.params.user_id == req.user.access_token.user_id) {
-            res.status(401);
+router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // generate sixten digit unique id
+    const draft_id = rand_token.generate(16);
+
+    gDB.query(
+        'SELECT categoryID, featuredImageURL, title, ' +
+        'highlight, content FROM news WHERE newsID = ? AND userID = ? LIMIT 1',
+        [req.params.news_id, req.params.user_id]
+    ).then(results => {
+        // check if article exist 
+        if (results.length < 1) {
+            return res.status(204).send(); // article doesn't exist
+        }
+
+        // copy data to draft
+        gDB.query(
+            'INSERT INTO draft (draftID, userID, publication, categoryID, featuredImageURL, ' +
+            'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                draft_id,
+                req.params.user_id,
+                'news',
+                results[0].category,
+                results[0].featuredImageURL,
+                results[0].title,
+                results[0].highlight,
+                results[0].content,
+                1, // already published
+                req.query.news_id
+            ]
+        ).then(results => {
+            res.status(201);
             res.json({
-                error_code: "unauthorized_user",
-                message: "Unauthorized"
+                draft_id: draft_id
             });
 
             return;
-        }
-
-        // generate sixten digit unique id
-        const draft_id = rand_token.generate(16);
-
-        gDB.query(
-            'SELECT articleID, categoryID, featuredImageURL, title, ' +
-            'highlight, content FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
-            [req.params.article_id, req.params.user_id]
-        ).then(results => {
-            // check if article exist 
-            if (results.length < 1) {
-                return res.status(204).send(); // article doesn't exist
-            }
-
-            // copy data to draft
-            gDB.query(
-                'INSERT INTO draft (draftID, userID, draftContentTypeID, categoryID, featuredImageURL, ' +
-                'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [
-                    draft_id,
-                    req.params.user_id,
-                    0, // article
-                    results[0].category,
-                    results[0].featuredImageURL,
-                    results[0].title,
-                    results[0].highlight,
-                    results[0].content,
-                    1, // already published
-                    results[0].articleID
-                ]
-            ).then(results => {
-                res.status(201);
-                res.json({
-                    draft_id: draft_id,
-                    message: "Article added to draft successfully"
-                });
-
-                return;
-
-            }).catch(reason => {
-                res.status(500);
-                res.json({
-                    error_code: "internal_error",
-                    message: "Internal error"
-                });
-
-                // log the error to log file
-                gLogger.log('error', reason.message, {
-                    stack: reason.stack
-                });
-
-                return;
-            });
 
         }).catch(reason => {
             res.status(500);
@@ -2260,15 +2253,116 @@ router.post('/users/:user_id/article/:article_id/edit', custom_utils.allowedScop
             return;
         });
 
-    } else { // invalid id
+    }).catch(reason => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', reason.message, {
+            stack: reason.stack
+        });
+
+        return;
+    });
+});
+
+/*
+ * Add article to draft for edit and return
+ * unique id that identified the draft
+ * 
+ * For already published articles, you can't change it location
+ */
+router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    if (!/^\d+$/.test(req.params.user_id)) {
         res.status(400);
         res.json({
-            error_code: "invalid_user_id",
+            error_code: "invalid_id",
             message: "Bad request"
         });
 
         return;
     }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // generate sixten digit unique id
+    const draft_id = rand_token.generate(16);
+
+    gDB.query(
+        'SELECT categoryID, featuredImageURL, title, ' +
+        'highlight, content FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
+        [req.params.article_id, req.params.user_id]
+    ).then(results => {
+        // check if article exist 
+        if (results.length < 1) {
+            return res.status(204).send(); // article doesn't exist
+        }
+
+        // copy data to draft
+        gDB.query(
+            'INSERT INTO draft (draftID, userID, publication, categoryID, featuredImageURL, ' +
+            'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                draft_id,
+                req.params.user_id,
+                'article',
+                results[0].category,
+                results[0].featuredImageURL,
+                results[0].title,
+                results[0].highlight,
+                results[0].content,
+                1, // already published
+                req.query.article_id
+            ]
+        ).then(results => {
+            res.status(201);
+            res.json({
+                draft_id: draft_id
+            });
+
+            return;
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, {
+                stack: reason.stack
+            });
+
+            return;
+        });
+
+    }).catch(reason => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', reason.message, {
+            stack: reason.stack
+        });
+
+        return;
+    });
 });
 
 // update content save to draft
