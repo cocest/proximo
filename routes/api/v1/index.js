@@ -2061,7 +2061,7 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
     } else {
         // check if category id exist
         gDB.query(
-            'SELECT 1 FROM ?? WHERE categoryID = ? LIMIT 1',
+            'SELECT categoryTitle FROM ?? WHERE categoryID = ? LIMIT 1',
             [req.query.publication + '_categories', req.body.categoryID]
         ).then(results => {
             if (results.length < 1) { // the SQL query is fast enough
@@ -2085,6 +2085,9 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
 
                 return;
             }
+
+            // check for featured image here
+            // code here
 
             // check body data type if is provided
             if (req.body.title && typeof req.body.title != 'string') {
@@ -2122,13 +2125,14 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
 
             // save news or article to user's draft
             gDB.query(
-                'INSERT INTO draft (draftID, userID, publication, categoryID, featuredImageURL, ' +
-                'title ,content) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO draft (draftID, userID, publication, categoryID, category, ' +
+                'featuredImageURL, title ,content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     draft_id,
                     req.params.user_id,
                     req.query.publication,
-                    req.body.categoryID,
+                    req.query.categoryID,
+                    results[0].categoryTitle,
                     req.body.featuredImageURL ? req.body.featuredImageURL : '',
                     req.body.title ? req.body.title : '',
                     req.body.content ? req.body.content : '',
@@ -2208,37 +2212,71 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
         'SELECT categoryID, featuredImageURL, title, ' +
         'highlight, content FROM news WHERE newsID = ? AND userID = ? LIMIT 1',
         [req.params.news_id, req.params.user_id]
-    ).then(results => {
+    ).then(news_results => {
         // check if article exist 
-        if (results.length < 1) {
-            return res.status(204).send(); // article doesn't exist
-        }
-
-        // copy data to draft
-        gDB.query(
-            'INSERT INTO draft (draftID, userID, publication, categoryID, featuredImageURL, ' +
-            'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-                draft_id,
-                req.params.user_id,
-                'news',
-                results[0].category,
-                results[0].featuredImageURL,
-                results[0].title,
-                results[0].highlight,
-                results[0].content,
-                1, // already published
-                req.query.news_id
-            ]
-        ).then(results => {
-            res.status(201);
+        if (news_results.length < 1) {
+            res.status(404);
             res.json({
-                draft_id: draft_id
+                error_code: "file_not_found",
+                message: "News can't be found"
             });
 
             return;
+        }
 
-        }).catch(reason => {
+        // get publication category name
+        gDB.query(
+            'SELECT categoryTitle FROM news_categories WHERE categoryID = ? LIMIT 1',
+            [news_results[0].categoryID]
+        ).then(category_results => {
+            // copy data to draft
+            gDB.query(
+                'INSERT INTO draft (draftID, userID, publication, categoryID, category, featuredImageURL, ' +
+                'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    draft_id,
+                    req.params.user_id,
+                    'news',
+                    news_results[0].categoryID,
+                    category_results[0].categoryTitle,
+                    news_results[0].featuredImageURL,
+                    news_results[0].title,
+                    news_results[0].highlight,
+                    news_results[0].content,
+                    1, // already published
+                    req.query.news_id
+                ]
+            ).then(results => {
+                res.status(201);
+                res.json({
+                    draft_id: draft_id,
+                    draft: {
+                        publication: 'news',
+                        category: category_results[0].categoryTitle,
+                        featuredImageURL: news_results[0].featuredImageURL,
+                        title: news_results[0].title,
+                        content: news_results[0].content
+                    }
+                });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
             res.status(500);
             res.json({
                 error_code: "internal_error",
@@ -2246,14 +2284,14 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
             });
 
             // log the error to log file
-            gLogger.log('error', reason.message, {
-                stack: reason.stack
+            gLogger.log('error', err.message, {
+                stack: err.stack
             });
 
             return;
         });
 
-    }).catch(reason => {
+    }).catch(err => {
         res.status(500);
         res.json({
             error_code: "internal_error",
@@ -2261,8 +2299,8 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
         });
 
         // log the error to log file
-        gLogger.log('error', reason.message, {
-            stack: reason.stack
+        gLogger.log('error', err.message, {
+            stack: err.stack
         });
 
         return;
@@ -2304,37 +2342,71 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
         'SELECT categoryID, featuredImageURL, title, ' +
         'highlight, content FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
         [req.params.article_id, req.params.user_id]
-    ).then(results => {
+    ).then(article_results => {
         // check if article exist 
-        if (results.length < 1) {
-            return res.status(204).send(); // article doesn't exist
-        }
-
-        // copy data to draft
-        gDB.query(
-            'INSERT INTO draft (draftID, userID, publication, categoryID, featuredImageURL, ' +
-            'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-                draft_id,
-                req.params.user_id,
-                'article',
-                results[0].category,
-                results[0].featuredImageURL,
-                results[0].title,
-                results[0].highlight,
-                results[0].content,
-                1, // already published
-                req.query.article_id
-            ]
-        ).then(results => {
-            res.status(201);
+        if (article_results.length < 1) {
+            res.status(404);
             res.json({
-                draft_id: draft_id
+                error_code: "file_not_found",
+                message: "News can't be found"
             });
 
             return;
+        }
 
-        }).catch(reason => {
+        // get publication category name
+        gDB.query(
+            'SELECT categoryTitle FROM article_categories WHERE categoryID = ? LIMIT 1',
+            [article_results[0].categoryID]
+        ).then(category_results => {
+            // copy data to draft
+            gDB.query(
+                'INSERT INTO draft (draftID, userID, publication, categoryID, category, featuredImageURL, ' +
+                'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    draft_id,
+                    req.params.user_id,
+                    'article',
+                    article_results[0].categoryID,
+                    category_results[0].categoryTitle,
+                    article_results[0].featuredImageURL,
+                    article_results[0].title,
+                    article_results[0].highlight,
+                    article_results[0].content,
+                    1, // already published
+                    req.query.news_id
+                ]
+            ).then(results => {
+                res.status(201);
+                res.json({
+                    draft_id: draft_id,
+                    draft: {
+                        publication: 'article',
+                        category: category_results[0].categoryTitle,
+                        featuredImageURL: news_results[0].featuredImageURL,
+                        title: news_results[0].title,
+                        content: news_results[0].content
+                    }
+                });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
             res.status(500);
             res.json({
                 error_code: "internal_error",
@@ -2342,14 +2414,14 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
             });
 
             // log the error to log file
-            gLogger.log('error', reason.message, {
-                stack: reason.stack
+            gLogger.log('error', err.message, {
+                stack: err.stack
             });
 
             return;
         });
 
-    }).catch(reason => {
+    }).catch(err => {
         res.status(500);
         res.json({
             error_code: "internal_error",
@@ -2357,8 +2429,8 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
         });
 
         // log the error to log file
-        gLogger.log('error', reason.message, {
-            stack: reason.stack
+        gLogger.log('error', err.message, {
+            stack: err.stack
         });
 
         return;
@@ -2366,7 +2438,7 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
 });
 
 // update content save to draft
-router.put('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
     if (/^\d+$/.test(req.params.user_id)) {
         // check if is accessing the right user or as a logged in user
