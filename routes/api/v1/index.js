@@ -1699,7 +1699,7 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
     }
 
     // total count of rows in countries table
-    gDB.query('SELECT COUNT(*) AS total FROM map_countries').then(count_results => {
+    gDB.query('SELECT COUNT(*) AS total FROM ??', ['map_' + req.params.location]).then(count_results => {
         if (req.params.location == 'countries') {
             // select countries from database
             gDB.query(
@@ -1741,11 +1741,11 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
 
             // get country to select regions from
             if (country_id) {
-                query = 'SELECT regionID AS id, name AS country FROM map_regions WHERE countryID = ? LIMIT ? OFFSET ?';
+                query = 'SELECT regionID AS id, name AS region FROM map_regions WHERE countryID = ? LIMIT ? OFFSET ?';
                 post = [country_id, limit, offset];
 
             } else {
-                query = 'SELECT regionID AS id, name AS country FROM map_regions LIMIT ? OFFSET ?';
+                query = 'SELECT regionID AS id, name AS region FROM map_regions LIMIT ? OFFSET ?';
                 post = [limit, offset];
             }
 
