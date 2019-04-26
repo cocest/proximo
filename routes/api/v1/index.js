@@ -1749,11 +1749,19 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
                 post = [limit, offset];
             }
 
-            // select countries from database
+            // select regions from database
             gDB.query(query, post).then(results => {
                 res.status(200);
                 res.json({
-                    regions: results
+                    regions: results,
+                    metadata: {
+                        result_set: {
+                            count: results.length,
+                            offset: offset,
+                            limit: limit,
+                            total: count_results[0].total
+                        }
+                    }
                 });
 
                 return;
