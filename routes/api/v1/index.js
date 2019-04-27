@@ -1424,7 +1424,7 @@ router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:users']
                 message: "data type not supported"
             });
 
-        } else if (req.body.bio.length <= 500) { // check if about exceed 500 characters
+        } else if (req.body.bio.length > 500) { // check if about exceed 500 characters
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "bio",
@@ -1441,7 +1441,7 @@ router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:users']
                 message: "data type not supported"
             });
 
-        } else if (req.body.about.length <= 1500) { // check if about exceed 1500 characters
+        } else if (req.body.about.length > 1500) { // check if about exceed 1500 characters
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "about",
@@ -2110,14 +2110,21 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
                     field: "title",
                     message: "title is not acceptable"
                 });
+
+            } else if (req.body.title && req.body.title.length > 150) { // check if title exceed 150 characters
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "title",
+                    message: "title exceed maximum allowed text"
+                });
             }
 
             // check body data type if is provided
             if (req.body.content && typeof req.body.content != 'string') {
                 invalid_inputs.push({
                     error_code: "invalid_data",
-                    field: "body",
-                    message: "body is not acceptable"
+                    field: "content",
+                    message: "content is not acceptable"
                 });
             }
 
@@ -2125,11 +2132,11 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
             if (req.body.highlight && typeof req.body.highlight != 'string') {
                 invalid_inputs.push({
                     error_code: "invalid_data",
-                    field: "body",
-                    message: "body is not acceptable"
+                    field: "highlight",
+                    message: "highlight is not acceptable"
                 });
 
-            } else if (req.body.highlight && req.body.highlight.length <= 500) { // check if about exceed 500 characters
+            } else if (req.body.highlight && req.body.highlight.length > 500) { // check if highlight exceed 500 characters
                 invalid_inputs.push({
                     error_code: "invalid_data",
                     field: "highlight",
