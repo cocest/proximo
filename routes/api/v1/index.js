@@ -1424,7 +1424,7 @@ router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:users']
                 message: "data type not supported"
             });
 
-        } else if (req.body.bio < 500) { // check if about exceed 500 characters
+        } else if (req.body.bio.length <= 500) { // check if about exceed 500 characters
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "bio",
@@ -1441,7 +1441,7 @@ router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:users']
                 message: "data type not supported"
             });
 
-        } else if (req.body.about < 1500) { // check if about exceed 1500 characters
+        } else if (req.body.about.length <= 1500) { // check if about exceed 1500 characters
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "about",
@@ -2094,8 +2094,14 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
                 return;
             }
 
-            // check for featured image here
-            // code here
+            // check if featured image URL is valid if is provided
+            if (req.body.featuredImageURL && validator.isURL(req.body.featuredImageURL)) {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "featuredImageURL",
+                    message: "URL is invalid"
+                });
+            }
 
             // check body data type if is provided
             if (req.body.title && typeof req.body.title != 'string') {
@@ -2115,6 +2121,22 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
                 });
             }
 
+            // check body data type if is provided
+            if (req.body.highlight && typeof req.body.highlight != 'string') {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "body",
+                    message: "body is not acceptable"
+                });
+
+            } else if (req.body.highlight && req.body.highlight.length <= 500) { // check if about exceed 500 characters
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "highlight",
+                    message: "highlight exceed maximum allowed text"
+                });
+            } 
+
             // check if any input is invalid
             if (invalid_inputs.length > 0) {
                 // send json error message to client
@@ -2133,16 +2155,17 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
 
             // save news or article to user's draft
             gDB.query(
-                'INSERT INTO draft (draftID, userID, publication, categoryID, category, ' +
-                'featuredImageURL, title ,content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO draft (draftID, userID, categoryID, category, publication, ' +
+                'featuredImageURL, title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     draft_id,
                     req.params.user_id,
-                    req.query.publication,
                     req.query.categoryID,
                     results[0].categoryTitle,
+                    req.query.publication,
                     req.body.featuredImageURL ? req.body.featuredImageURL : '',
                     req.body.title ? req.body.title : '',
+                    req.body.highlight ? req.body.highlight : '',
                     req.body.content ? req.body.content : '',
                 ]
             ).then(results => {
@@ -2239,14 +2262,14 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
         ).then(category_results => {
             // copy data to draft
             gDB.query(
-                'INSERT INTO draft (draftID, userID, publication, categoryID, category, featuredImageURL, ' +
+                'INSERT INTO draft (draftID, userID, categoryID, category, publication, featuredImageURL, ' +
                 'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     draft_id,
                     req.params.user_id,
-                    'news',
                     news_results[0].categoryID,
                     category_results[0].categoryTitle,
+                    'news',
                     news_results[0].featuredImageURL,
                     news_results[0].title,
                     news_results[0].highlight,
@@ -2263,6 +2286,7 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
                         category: category_results[0].categoryTitle,
                         featuredImageURL: news_results[0].featuredImageURL,
                         title: news_results[0].title,
+                        highlight: news_results[0].highlight,
                         content: news_results[0].content
                     }
                 });
@@ -2369,14 +2393,14 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
         ).then(category_results => {
             // copy data to draft
             gDB.query(
-                'INSERT INTO draft (draftID, userID, publication, categoryID, category, featuredImageURL, ' +
+                'INSERT INTO draft (draftID, userID, categoryID, category, publication, featuredImageURL, ' +
                 'title, highlight, content, published, publishedContentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     draft_id,
                     req.params.user_id,
-                    'article',
                     article_results[0].categoryID,
                     category_results[0].categoryTitle,
+                    'article',
                     article_results[0].featuredImageURL,
                     article_results[0].title,
                     article_results[0].highlight,
@@ -2385,15 +2409,16 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
                     req.query.news_id
                 ]
             ).then(results => {
+                // since article highlight is autogenerated don't return it to client for edit
                 res.status(201);
                 res.json({
                     draft_id: draft_id,
                     draft: {
                         publication: 'article',
                         category: category_results[0].categoryTitle,
-                        featuredImageURL: news_results[0].featuredImageURL,
-                        title: news_results[0].title,
-                        content: news_results[0].content
+                        featuredImageURL: article_results[0].featuredImageURL,
+                        title: article_results[0].title,
+                        content: article_results[0].content
                     }
                 });
 
@@ -2645,7 +2670,7 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
 });
 
 // publish article or news save to draft and return the id
-router.put('/users/:user_id/draft/:draft_id/publish', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
     if (/^\d+$/.test(req.params.user_id)) {
         // check if is accessing the right user or as a logged in user
