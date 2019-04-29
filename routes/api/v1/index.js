@@ -3118,10 +3118,18 @@ router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read
     });
 });
 
-// retrieve all article saved to user's draft
-router.get('/users/:user_id/draft/articles', custom_utils.allowedScopes(['read:users']), (req, res) => {
-    // check if id is integer
-    if (/^\d+$/.test(req.params.user_id)) {
+// retrieve all publication saved to user's draft
+router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+        
         // check if is accessing the right user or as a logged in user
         if (!req.params.user_id == req.user.access_token.user_id) {
             res.status(401);
@@ -3132,6 +3140,65 @@ router.get('/users/:user_id/draft/articles', custom_utils.allowedScopes(['read:u
 
             return;
         }
+    
+    // check if some field contain valid data
+    const invalid_inputs = [];
+
+    // check if publication is defined and valid
+    if (req.query.publication && !/^(news|article)$/.test(req.query.publication)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "publication",
+            message: "publication value is invalid"
+        });
+    }
+    
+    // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_query",
+                    errors: invalid_inputs,
+                    message: "Query(s) value is invalid"
+                });
+
+                return;
+            }
+    
+    // set limit and offset
+            let limit = 50;
+            let offset = 0;
+            let pass_limit = req.query.limit;
+            let pass_offset = req.query.offset;
+            const invalid_inputs = [];
+
+            // check if query is valid
+            if (pass_limit && !/^\d+$/.test(pass_limit)) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "limit",
+                    message: "value must be integer"
+                });
+            }
+
+            if (pass_offset && !/^\d+$/.test(pass_offset)) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "offset",
+                    message: "value must be integer"
+                });
+            }
+
+            if (pass_limit && pass_limit < limit) {
+                limit = pass_limit;
+            }
+
+            if (pass_offset) {
+                offset = pass_offset;
+            }
+    
+    // start here
 
         const permitted_fields = [
             'categoryID',
@@ -3213,16 +3280,6 @@ router.get('/users/:user_id/draft/articles', custom_utils.allowedScopes(['read:u
 
             return;
         });
-
-    } else { // invalid id
-        res.status(400);
-        res.json({
-            error_code: "invalid_user_id",
-            message: "Bad request"
-        });
-
-        return;
-    }
 });
 
 // upload media contents for an article
