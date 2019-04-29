@@ -2425,6 +2425,7 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
                         category: category_results[0].categoryTitle,
                         featuredImageURL: article_results[0].featuredImageURL,
                         title: article_results[0].title,
+                        highlight: article_results[0].highlight,
                         content: article_results[0].content
                     }
                 });
@@ -3014,108 +3015,107 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
 });
 
 // retrieve a publication saved to user's draft
-router.get('/users/:user_id/draft/:draft_id', custom_utils.allowedScopes(['read:users']), (req, res) => {
-    // check if id is integer
-    if (/^\d+$/.test(req.params.user_id)) {
-        // check if is accessing the right user or as a logged in user
-        if (!req.params.user_id == req.user.access_token.user_id) {
-            res.status(401);
-            res.json({
-                error_code: "unauthorized_user",
-                message: "Unauthorized"
-            });
-
-            return;
-        }
-
-        const permitted_fields = [
-            'categoryID',
-            'featuredImageURL',
-            'title',
-            'highlight',
-            'content',
-            'time'
-        ];
-        let query = 'SELECT ';
-
-        // check if valid and required fields is given
-        if (req.query.fields) {
-            // split the provided fields
-            let req_fields = req.query.fields.split(',');
-            let permitted_field_count = 0;
-            let field_already_exist = [];
-            const req_field_count = req_fields.length - 1;
-
-            req_fields.forEach((elem, index) => {
-                if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
-                    if (index == req_field_count) {
-                        query += `${elem} `;
-
-                    } else {
-                        query += `${elem}, `;
-                    }
-
-                    field_already_exist.push(elem);
-                    permitted_field_count++; // increment by one
-                }
-            });
-
-            if (permitted_field_count < 1) {
-                query = 'SELECT categoryID, featuredImageURL, title, highlight, content, time ' +
-                    'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
-
-            } else {
-                query += 'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
-            }
-
-        } else { // no fields selection
-            query += 'categoryID, featuredImageURL, title, highlight, content, time ' +
-                'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
-        }
-
-        // get publication saved to draft
-        gDB.query(query, [req.params.draft_id, req.params.user_id]).then(results => {
-            // check if there is result
-            if (results.length < 1) {
-                res.status(404);
-                res.json({
-                    error_code: "file_not_found",
-                    message: "Draft can't be found"
-                });
-
-                return;
-            }
-
-            // send result to client
-            res.status(200);
-            res.json(results[0]);
-
-            return;
-
-        }).catch(reason => {
-            res.status(500);
-            res.json({
-                error_code: "internal_error",
-                message: "Internal error"
-            });
-
-            // log the error to log file
-            gLogger.log('error', reason.message, {
-                stack: reason.stack
-            });
-
-            return;
-        });
-
-    } else { // invalid id
+router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    if (!(/^\d+$/.test(req.params.user_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.draft_id))) {
         res.status(400);
         res.json({
-            error_code: "invalid_user_id",
+            error_code: "invalid_id",
             message: "Bad request"
         });
 
         return;
     }
+        
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    const permitted_fields = [
+        'publication';
+        'category',
+        'featuredImageURL',
+        'title',
+        'highlight',
+        'content',
+        'time'
+    ];
+    let query = 'SELECT ';
+
+    // check if valid and required fields is given
+    if (req.query.fields) {
+        // split the provided fields
+        let req_fields = req.query.fields.split(',');
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+        const req_field_count = req_fields.length - 1;
+
+        req_fields.forEach((elem, index) => {
+            if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
+                if (index == req_field_count) {
+                    query += `${elem} `;
+
+                } else {
+                    query += `${elem}, `;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        if (permitted_field_count < 1) {
+            query = 'SELECT publication, category, featuredImageURL, title, highlight, content, time ' +
+                'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
+
+        } else {
+            query += 'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
+        }
+
+    } else { // no fields selection
+        query += 'publication, category, featuredImageURL, title, highlight, content, time ' +
+            'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
+    }
+
+    // get publication saved to draft
+    gDB.query(query, [req.params.draft_id, req.params.user_id]).then(results => {
+        // check if there is result
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Draft can't be found"
+            });
+
+            return;
+        }
+
+        // send result to client
+        res.status(200);
+        res.json(results[0]);
+
+        return;
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 // retrieve all article saved to user's draft
