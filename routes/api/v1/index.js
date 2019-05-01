@@ -2142,7 +2142,7 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
                     field: "highlight",
                     message: "highlight exceed maximum allowed text"
                 });
-            } 
+            }
 
             // check if any input is invalid
             if (invalid_inputs.length > 0) {
@@ -2489,7 +2489,7 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
 
         return;
     }
-        
+
     // check if is accessing the right user or as a logged in user
     if (!req.params.user_id == req.user.access_token.user_id) {
         res.status(401);
@@ -2520,10 +2520,10 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
 
         return;
     }
-    
+
     // check if draft exist
     gDB.query(
-        'SELECT 1 FROM draft WHERE draftID = ? AND userID = ? LIMIT 1', 
+        'SELECT 1 FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
         [req.params.draft_id, req.params.user_id]
     ).then(results => {
         // check if draft exist 
@@ -2536,10 +2536,10 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
 
             return;
         }
-        
+
         // check if some field contain valid data
         const invalid_inputs = [];
-        
+
         // check if featured image URL is valid if is provided
         if (req.body.featuredImageURL && validator.isURL(req.body.featuredImageURL)) {
             invalid_inputs.push({
@@ -2564,7 +2564,7 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
                 message: "title exceed maximum allowed text"
             });
         }
-        
+
         // check body data type if is provided
         if (req.body.highlight && typeof req.body.highlight != 'string') {
             invalid_inputs.push({
@@ -2589,7 +2589,7 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
                 message: "content is not acceptable"
             });
         }
-        
+
         // check if any input is invalid
         if (invalid_inputs.length > 0) {
             // send json error message to client
@@ -2602,11 +2602,11 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
 
             return;
         }
-        
+
         // prepare query for update
         let query = 'UPDATE draft SET ';
         let post = [];
-        
+
         // check if featuredImageURL is provided
         if (req.body.featuredImageURL) {
             query += 'featuredImageURL = ?, ';
@@ -2618,7 +2618,7 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
             query += 'title = ?, ';
             post.push(req.body.title);
         }
-            
+
         // check if highlight is provided
         if (req.body.highlight) {
             query += 'highlight = ?, ';
@@ -2630,7 +2630,7 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
             query += 'content = ? ';
             post.push(req.body.content);
         }
-        
+
         // last part of query
         query += 'WHERE draftID = ? LIMIT 1';
         post.push(req.params.draft_id);
@@ -2638,7 +2638,7 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
         // save article to user's draft
         gDB.query(query, post).then(results => {
             return res.status(200).send();
-                
+
         }).catch(err => {
             res.status(500);
             res.json({
@@ -2653,7 +2653,7 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
 
             return;
         });
-        
+
     }).catch(reason => {
         res.status(500);
         res.json({
@@ -3025,7 +3025,7 @@ router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read
 
         return;
     }
-        
+
     // check if is accessing the right user or as a logged in user
     if (!req.params.user_id == req.user.access_token.user_id) {
         res.status(401);
@@ -3038,7 +3038,7 @@ router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read
     }
 
     const permitted_fields = [
-        'publication';
+        'publication',
         'category',
         'featuredImageURL',
         'title',
@@ -3129,144 +3129,170 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
 
         return;
     }
-        
-        // check if is accessing the right user or as a logged in user
-        if (!req.params.user_id == req.user.access_token.user_id) {
-            res.status(401);
-            res.json({
-                error_code: "unauthorized_user",
-                message: "Unauthorized"
-            });
 
-            return;
-        }
-    
-    // check if some field contain valid data
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // set limit and offset
+    let limit = 50;
+    let offset = 0;
+    let publication = req.query.publication;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
     const invalid_inputs = [];
 
+    // check if query is valid
     // check if publication is defined and valid
-    if (req.query.publication && !/^(news|article)$/.test(req.query.publication)) {
+    if (publication && !/^(news|article)$/.test(publication)) {
         invalid_inputs.push({
             error_code: "invalid_value",
             field: "publication",
             message: "publication value is invalid"
         });
     }
-    
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
     // check if any input is invalid
-            if (invalid_inputs.length > 0) {
-                // send json error message to client
-                res.status(406);
-                res.json({
-                    error_code: "invalid_query",
-                    errors: invalid_inputs,
-                    message: "Query(s) value is invalid"
-                });
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs,
+            message: "Query(s) value is invalid"
+        });
 
-                return;
-            }
-    
-    // set limit and offset
-            let limit = 50;
-            let offset = 0;
-            let pass_limit = req.query.limit;
-            let pass_offset = req.query.offset;
-            const invalid_inputs = [];
+        return;
+    }
 
-            // check if query is valid
-            if (pass_limit && !/^\d+$/.test(pass_limit)) {
-                invalid_inputs.push({
-                    error_code: "invalid_value",
-                    field: "limit",
-                    message: "value must be integer"
-                });
-            }
+    if (pass_limit && pass_limit < limit) {
+        limit = pass_limit;
+    }
 
-            if (pass_offset && !/^\d+$/.test(pass_offset)) {
-                invalid_inputs.push({
-                    error_code: "invalid_value",
-                    field: "offset",
-                    message: "value must be integer"
-                });
-            }
+    if (pass_offset) {
+        offset = pass_offset;
+    }
 
-            if (pass_limit && pass_limit < limit) {
-                limit = pass_limit;
-            }
+    const permitted_fields = [
+        'publication',
+        'category',
+        'featuredImageURL',
+        'title',
+        'highlight',
+        'content',
+        'time'
+    ];
+    let select_query = 'SELECT ';
+    let select_post = [];
+    let count_query = 'SELECT COUNT(*) AS total WHERE ';
+    let count_post = [];
 
-            if (pass_offset) {
-                offset = pass_offset;
-            }
-    
-    // start here
+    // check if valid and required fields is given
+    if (req.query.fields) {
+        // split the provided fields
+        let req_fields = req.query.fields.split(',');
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+        const req_field_count = req_fields.length - 1;
 
-        const permitted_fields = [
-            'categoryID',
-            'featuredImageURL',
-            'title',
-            'highlight',
-            'content',
-            'time'
-        ];
-        let query = 'SELECT ';
+        req_fields.forEach((elem, index) => {
+            if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
+                if (index == req_field_count) {
+                    select_query += `${elem} `;
 
-        // check if valid and required fields is given
-        if (req.query.fields) {
-            // split the provided fields
-            let req_fields = req.query.fields.split(',');
-            let permitted_field_count = 0;
-            let field_already_exist = [];
-            const req_field_count = req_fields.length - 1;
-
-            req_fields.forEach((elem, index) => {
-                if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
-                    if (index == req_field_count) {
-                        query += `${elem} `;
-
-                    } else {
-                        query += `${elem}, `;
-                    }
-
-                    field_already_exist.push(elem);
-                    permitted_field_count++; // increment by one
+                } else {
+                    select_query += `${elem}, `;
                 }
-            });
 
-            if (permitted_field_count < 1) {
-                query = 'SELECT categoryID, featuredImageURL, title, highlight, content, time ' +
-                    'FROM draft WHERE userID = ? AND draftContentTypeID = 0';
-
-            } else {
-                query += 'FROM draft WHERE userID = ? AND draftContentTypeID = 0';
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
             }
+        });
 
-        } else { // no fields selection
-            query += 'categoryID, featuredImageURL, title, highlight, content, time ' +
-                'FROM draft WHERE userID = ? AND draftContentTypeID = 0';
+        if (permitted_field_count < 1) {
+            select_query = 'SELECT publication, category, featuredImageURL, title, highlight, content, time FROM draft ';
+
+        } else {
+            select_query += 'FROM draft ';
         }
 
+    } else { // no fields selection
+        select_query += 'publication, category, featuredImageURL, title, highlight, content, time FROM draft ';
+    }
+
+    // user publication
+    select_query += 'WHERE userID = ? ';
+    select_post.push(req.params.user_id);
+
+    // count query
+    count_query += 'WHERE userID = ? ';
+    count_post.push(req.params.user_id);
+
+    // set the type of publication to retrieve
+    if (publication) {
+        // publication to select
+        select_query += 'AND publication = ? ';
+        select_post.push(publication);
+
+        // coount query
+        count_query += 'AND publication = ? ';
+        count_post.push(publication);
+    }
+
+    // set limit and offset
+    select_query += 'LIMIT ? OFFSET ? ';
+    select_post.push(limit);
+    select_post.push(offset);
+
+    // last drafting should come first
+    select_query += 'ORDER BY time DESC';
+
+    // get metadata for user's publication
+    gDB.query(count_query, count_post).then(count_results => {
         // get publication saved to draft
-        gDB.query(query, [req.params.draft_id, req.params.user_id]).then(results => {
-            // check if there is result
-            if (results.length < 1) {
-                res.status(404);
-                res.json({
-                    error_code: "file_not_found",
-                    message: "Draft can't be found"
-                });
-
-                return;
-            }
-
+        gDB.query(select_query, select_post).then(results => {
             // send result to client
             res.status(200);
             res.json({
-                articles: results
+                drafts: results,
+                metadata: {
+                    result_set: {
+                        count: results.length,
+                        offset: offset,
+                        limit: limit,
+                        total: count_results[0].total
+                    }
+                }
             });
 
             return;
 
-        }).catch(reason => {
+        }).catch(err => {
             res.status(500);
             res.json({
                 error_code: "internal_error",
@@ -3274,12 +3300,27 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
             });
 
             // log the error to log file
-            gLogger.log('error', reason.message, {
-                stack: reason.stack
+            gLogger.log('error', err.message, {
+                stack: err.stack
             });
 
             return;
         });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 // upload media contents for an article
