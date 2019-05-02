@@ -2291,7 +2291,7 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
                     draft: {
                         publication: 'news',
                         category: category_results[0].categoryTitle,
-                        featuredImageURL: news_results[0].featuredImageURL,
+                        featured_image_url: news_results[0].featuredImageURL,
                         title: news_results[0].title,
                         highlight: news_results[0].highlight,
                         content: news_results[0].content
@@ -2423,7 +2423,7 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
                     draft: {
                         publication: 'article',
                         category: category_results[0].categoryTitle,
-                        featuredImageURL: article_results[0].featuredImageURL,
+                        featured_image_url: article_results[0].featuredImageURL,
                         title: article_results[0].title,
                         highlight: article_results[0].highlight,
                         content: article_results[0].content
@@ -2664,6 +2664,681 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
         // log the error to log file
         gLogger.log('error', reason.message, {
             stack: reason.stack
+        });
+
+        return;
+    });
+});
+
+// retrieve a publication saved to user's draft
+router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    if (!(/^\d+$/.test(req.params.user_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.draft_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    const mappped_field_name = new Map([
+        ['publication', 'production'],
+        ['category', 'category'],
+        ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
+        ['title', 'title'],
+        ['highlight', 'highlight'],
+        ['content', 'content'],
+        ['time', 'time']
+    ]);
+    let query = 'SELECT ';
+
+    // check if valid and required fields is given
+    if (req.query.fields) {
+        // split the provided fields
+        let req_fields = req.query.fields.split(',');
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+        const req_field_count = req_fields.length - 1;
+
+        req_fields.forEach((elem, index) => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (index == req_field_count) {
+                    query += `${mappped_field_name.get(elem)} `;
+
+                } else {
+                    query += `${mappped_field_name.get(elem)}, `;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        if (permitted_field_count < 1) {
+            query = 'SELECT publication, category, featuredImageURL AS featured_image_url, title, highlight, content, time ' +
+                'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
+
+        } else {
+            query += 'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
+        }
+
+    } else { // no fields selection
+        query += 'publication, category, featuredImageURL AS featured_image_url, title, highlight, content, time ' +
+            'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
+    }
+
+    // get publication saved to draft
+    gDB.query(query, [req.params.draft_id, req.params.user_id]).then(results => {
+        // check if there is result
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Draft can't be found"
+            });
+
+            return;
+        }
+
+        // send result to client
+        res.status(200);
+        res.json(results[0]);
+
+        return;
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// retrieve all publication saved to user's draft
+router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // set limit and offset
+    let limit = 50;
+    let offset = 0;
+    let publication = req.query.publication;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    const invalid_inputs = [];
+
+    // check if query is valid
+    // check if publication is defined and valid
+    if (publication && !/^(news|article)$/.test(publication)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "publication",
+            message: "publication value is invalid"
+        });
+    }
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs,
+            message: "Query(s) value is invalid"
+        });
+
+        return;
+    }
+
+    if (pass_limit && pass_limit < limit) {
+        limit = pass_limit;
+    }
+
+    if (pass_offset) {
+        offset = pass_offset;
+    }
+
+    const mappped_field_name = new Map([
+        ['publication', 'production'],
+        ['category', 'category'],
+        ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
+        ['title', 'title'],
+        ['highlight', 'highlight'],
+        ['time', 'time']
+    ]);
+    let select_query = 'SELECT draftID AS draft_id, ';
+    let select_post = [];
+    let count_query = 'SELECT COUNT(*) AS total WHERE ';
+    let count_post = [];
+
+    // check if valid and required fields is given
+    if (req.query.fields) {
+        // split the provided fields
+        let req_fields = req.query.fields.split(',');
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+        const req_field_count = req_fields.length - 1;
+
+        req_fields.forEach((elem, index) => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (index == req_field_count) {
+                    select_query += `${mappped_field_name.get(elem)} `;
+
+                } else {
+                    select_query += `${mappped_field_name.get(elem)}, `;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        if (permitted_field_count < 1) {
+            select_query = 'SELECT draftID AS draft_id, publication, category, featuredImageURL AS featured_image_url, title, highlight, content, time FROM draft ';
+
+        } else {
+            select_query += 'FROM draft ';
+        }
+
+    } else { // no fields selection
+        select_query += 'publication, category, featuredImageURL AS featured_image_url, title, highlight, content, time FROM draft ';
+    }
+
+    // user publication
+    select_query += 'WHERE userID = ? ';
+    select_post.push(req.params.user_id);
+
+    // count query
+    count_query += 'WHERE userID = ? ';
+    count_post.push(req.params.user_id);
+
+    // set the type of publication to retrieve
+    if (publication) {
+        // publication to select
+        select_query += 'AND publication = ? ';
+        select_post.push(publication);
+
+        // coount query
+        count_query += 'AND publication = ? ';
+        count_post.push(publication);
+    }
+
+    // set limit and offset
+    select_query += 'LIMIT ? OFFSET ? ';
+    select_post.push(limit);
+    select_post.push(offset);
+
+    // last drafting should come first
+    select_query += 'ORDER BY time DESC';
+
+    // get metadata for user's publication
+    gDB.query(count_query, count_post).then(count_results => {
+        // get publication saved to draft
+        gDB.query(select_query, select_post).then(results => {
+            // send result to client
+            res.status(200);
+            res.json({
+                drafts: results,
+                metadata: {
+                    result_set: {
+                        count: results.length,
+                        offset: offset,
+                        limit: limit,
+                        total: count_results[0].total
+                    }
+                }
+            });
+
+            return;
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// deleting a draft
+router.delete('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    if (!(/^\d+$/.test(req.params.user_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.draft_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // delete draft in database
+    gDB.query(
+        'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1', 
+        [req.params.draft_id, req.params.user_id]
+    ).then(results => {
+        return res.status(200).send();
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// deleting all user's draft
+router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // delete all user's draft in database
+    gDB.query('DELETE FROM draft WHERE userID = ?', [req.params.draft_id, req.params.user_id]).then(results => {
+        return res.status(200).send();
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// upload media contents for an article
+router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    // check if user and article id is integer
+    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if article for the user exist
+    gDB.query(
+        'SELECT 1 FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
+        [req.params.article_id, req.params.user_id]
+    ).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Publication can't be found"
+            });
+
+            return;
+        }
+
+        upload(req, res, (err) => {
+            // check if enctype is multipart form data
+            if (!req.is('multipart/form-data')) {
+                res.status(415);
+                res.json({
+                    error_code: "invalid_request_body",
+                    message: "Encode type not supported"
+                });
+
+                return;
+            }
+
+            // check if file contain data
+            if (!req.file) {
+                res.status(400);
+                res.json({
+                    error_code: "invalid_request",
+                    message: "Bad request"
+                });
+
+                return;
+            }
+
+            // A Multer error occurred when uploading
+            if (err instanceof multer.MulterError) {
+                if (err.code == 'LIMIT_FILE_SIZE') {
+                    res.status(400);
+                    res.json({
+                        error_code: "size_exceeded",
+                        message: "Image your uploading exceeded allowed size"
+                    });
+
+                    return;
+                }
+
+                // other multer errors
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+
+            } else if (err) { // An unknown error occurred when uploading
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            }
+
+            let file_path = req.file.path; // uploaded file location
+            let file_name = req.file.originalname;
+            const save_image_ext = 'png';
+
+            // read uploaded image as buffer
+            let image_buffer = fs.readFileSync(file_path);
+
+            // check file type and if is supported
+            let supported_images = [
+                'jpg',
+                'png',
+                'gif',
+                'jp2'
+            ];
+
+            // read minimum byte from buffer required to determine file mime
+            let file_mime = file_type(Buffer.from(image_buffer, 0, file_type.minimumBytes));
+
+            if (!(file_mime.mime.split('/')[0] == 'image' && supported_images.find(e => e == file_mime.ext))) {
+                // delete the uploaded file
+                fs.unlinkSync(file_path);
+
+                res.status(406);
+                res.json({
+                    error_code: "unsupported_format",
+                    message: "Uploaded image is not supported"
+                });
+
+                return;
+            }
+
+            // resize the image if it exceeded the maximum resolution
+            sharp(image_buffer)
+                .resize({
+                    height: 1080, // resize image using the set height
+                    withoutEnlargement: true
+                })
+                .toFormat(save_image_ext)
+                .toBuffer()
+                .then(outputBuffer => {
+                    // no higher than 1080 pixels
+                    // and no larger than the input image
+
+                    // upload buffer to aws s3 bucket
+                    // set aws s3 access credentials
+                    aws.config.update({
+                        apiVersion: '2006-03-01',
+                        accessKeyId: gConfig.AWS_ACCESS_ID,
+                        secretAccessKey: gConfig.AWS_SECRET_KEY,
+                        region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+                    });
+
+                    const s3 = new aws.S3();
+                    const object_unique_name = rand_token.uid(34) + '.' + save_image_ext;
+
+                    const upload_params = {
+                        Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                        Body: outputBuffer,
+                        Key: 'article/images/big/' + object_unique_name,
+                        ACL: gConfig.AWS_S3_BUCKET_PERMISSION
+                    };
+
+                    s3.upload(upload_params, (err, data) => {
+                        // delete the uploaded file
+                        fs.unlinkSync(file_path);
+
+                        if (err) {
+                            res.status(500);
+                            res.json({
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
+
+                            return;
+                        }
+
+                        if (data) { // file uploaded successfully
+                            // generate sixten digit unique id
+                            const image_id = rand_token.generate(16);
+                            const parse_url = url_parse(data.Location, true);
+
+                            // save file metadata and location to database
+                            gDB.query(
+                                'INSERT INTO article_media_contents (articleID, userID, mediaID, mediaRelativePath, ' +
+                                'mediaOriginalName, mediaType, mediaExt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                [
+                                    req.params.article_id,
+                                    req.params.user_id,
+                                    image_id,
+                                    'article/images/big/' + object_unique_name,
+                                    file_name,
+                                    file_mime.mime.split('/')[0],
+                                    save_image_ext,
+                                ]
+                            ).then(results => {
+                                // send result to client
+                                res.status(200);
+                                res.json({
+                                    image_id: image_id,
+                                    images: [{
+                                        url: data.Location,
+                                        size: 'big'
+                                    },
+                                    {
+                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/medium/' + object_unique_name,
+                                        size: 'medium'
+                                    },
+                                    {
+                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/small/' + object_unique_name,
+                                        size: 'small'
+                                    },
+                                    {
+                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/tiny/' + object_unique_name,
+                                        size: 'tiny'
+                                    }
+                                    ]
+                                });
+
+                            }).catch(err => {
+                                res.status(500);
+                                res.json({
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+
+                                return;
+                            });
+                        }
+                    });
+                })
+                .catch(err => {
+                    // delete the uploaded file
+                    fs.unlinkSync(file_path);
+
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
         });
 
         return;
@@ -3014,609 +3689,22 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
     }
 });
 
-// retrieve a publication saved to user's draft
-router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read:users']), (req, res) => {
-    if (!(/^\d+$/.test(req.params.user_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.draft_id))) {
-        res.status(400);
-        res.json({
-            error_code: "invalid_id",
-            message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
-        });
-
-        return;
-    }
-
-    const permitted_fields = [
-        'publication',
-        'category',
-        'featuredImageURL',
-        'title',
-        'highlight',
-        'content',
-        'time'
-    ];
-    let query = 'SELECT ';
-
-    // check if valid and required fields is given
-    if (req.query.fields) {
-        // split the provided fields
-        let req_fields = req.query.fields.split(',');
-        let permitted_field_count = 0;
-        let field_already_exist = [];
-        const req_field_count = req_fields.length - 1;
-
-        req_fields.forEach((elem, index) => {
-            if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
-                if (index == req_field_count) {
-                    query += `${elem} `;
-
-                } else {
-                    query += `${elem}, `;
-                }
-
-                field_already_exist.push(elem);
-                permitted_field_count++; // increment by one
-            }
-        });
-
-        if (permitted_field_count < 1) {
-            query = 'SELECT publication, category, featuredImageURL, title, highlight, content, time ' +
-                'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
-
-        } else {
-            query += 'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
-        }
-
-    } else { // no fields selection
-        query += 'publication, category, featuredImageURL, title, highlight, content, time ' +
-            'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
-    }
-
-    // get publication saved to draft
-    gDB.query(query, [req.params.draft_id, req.params.user_id]).then(results => {
-        // check if there is result
-        if (results.length < 1) {
-            res.status(404);
-            res.json({
-                error_code: "file_not_found",
-                message: "Draft can't be found"
-            });
-
-            return;
-        }
-
-        // send result to client
-        res.status(200);
-        res.json(results[0]);
-
-        return;
-
-    }).catch(err => {
-        res.status(500);
-        res.json({
-            error_code: "internal_error",
-            message: "Internal error"
-        });
-
-        // log the error to log file
-        gLogger.log('error', err.message, {
-            stack: err.stack
-        });
-
-        return;
-    });
-});
-
-// retrieve all publication saved to user's draft
-router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']), (req, res) => {
-    if (!/^\d+$/.test(req.params.user_id)) {
-        res.status(400);
-        res.json({
-            error_code: "invalid_id",
-            message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
-        });
-
-        return;
-    }
-
-    // set limit and offset
-    let limit = 50;
-    let offset = 0;
-    let publication = req.query.publication;
-    let pass_limit = req.query.limit;
-    let pass_offset = req.query.offset;
-    const invalid_inputs = [];
-
-    // check if query is valid
-    // check if publication is defined and valid
-    if (publication && !/^(news|article)$/.test(publication)) {
-        invalid_inputs.push({
-            error_code: "invalid_value",
-            field: "publication",
-            message: "publication value is invalid"
-        });
-    }
-
-    // check if limit is defined and valid
-    if (pass_limit && !/^\d+$/.test(pass_limit)) {
-        invalid_inputs.push({
-            error_code: "invalid_value",
-            field: "limit",
-            message: "value must be integer"
-        });
-    }
-
-    // check if offset is defined and valid
-    if (pass_offset && !/^\d+$/.test(pass_offset)) {
-        invalid_inputs.push({
-            error_code: "invalid_value",
-            field: "offset",
-            message: "value must be integer"
-        });
-    }
-
-    // check if any input is invalid
-    if (invalid_inputs.length > 0) {
-        // send json error message to client
-        res.status(406);
-        res.json({
-            error_code: "invalid_query",
-            errors: invalid_inputs,
-            message: "Query(s) value is invalid"
-        });
-
-        return;
-    }
-
-    if (pass_limit && pass_limit < limit) {
-        limit = pass_limit;
-    }
-
-    if (pass_offset) {
-        offset = pass_offset;
-    }
-
-    const permitted_fields = [
-        'publication',
-        'category',
-        'featuredImageURL',
-        'title',
-        'highlight',
-        'content',
-        'time'
-    ];
-    let select_query = 'SELECT ';
-    let select_post = [];
-    let count_query = 'SELECT COUNT(*) AS total WHERE ';
-    let count_post = [];
-
-    // check if valid and required fields is given
-    if (req.query.fields) {
-        // split the provided fields
-        let req_fields = req.query.fields.split(',');
-        let permitted_field_count = 0;
-        let field_already_exist = [];
-        const req_field_count = req_fields.length - 1;
-
-        req_fields.forEach((elem, index) => {
-            if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
-                if (index == req_field_count) {
-                    select_query += `${elem} `;
-
-                } else {
-                    select_query += `${elem}, `;
-                }
-
-                field_already_exist.push(elem);
-                permitted_field_count++; // increment by one
-            }
-        });
-
-        if (permitted_field_count < 1) {
-            select_query = 'SELECT publication, category, featuredImageURL, title, highlight, content, time FROM draft ';
-
-        } else {
-            select_query += 'FROM draft ';
-        }
-
-    } else { // no fields selection
-        select_query += 'publication, category, featuredImageURL, title, highlight, content, time FROM draft ';
-    }
-
-    // user publication
-    select_query += 'WHERE userID = ? ';
-    select_post.push(req.params.user_id);
-
-    // count query
-    count_query += 'WHERE userID = ? ';
-    count_post.push(req.params.user_id);
-
-    // set the type of publication to retrieve
-    if (publication) {
-        // publication to select
-        select_query += 'AND publication = ? ';
-        select_post.push(publication);
-
-        // coount query
-        count_query += 'AND publication = ? ';
-        count_post.push(publication);
-    }
-
-    // set limit and offset
-    select_query += 'LIMIT ? OFFSET ? ';
-    select_post.push(limit);
-    select_post.push(offset);
-
-    // last drafting should come first
-    select_query += 'ORDER BY time DESC';
-
-    // get metadata for user's publication
-    gDB.query(count_query, count_post).then(count_results => {
-        // get publication saved to draft
-        gDB.query(select_query, select_post).then(results => {
-            // send result to client
-            res.status(200);
-            res.json({
-                drafts: results,
-                metadata: {
-                    result_set: {
-                        count: results.length,
-                        offset: offset,
-                        limit: limit,
-                        total: count_results[0].total
-                    }
-                }
-            });
-
-            return;
-
-        }).catch(err => {
-            res.status(500);
-            res.json({
-                error_code: "internal_error",
-                message: "Internal error"
-            });
-
-            // log the error to log file
-            gLogger.log('error', err.message, {
-                stack: err.stack
-            });
-
-            return;
-        });
-
-    }).catch(err => {
-        res.status(500);
-        res.json({
-            error_code: "internal_error",
-            message: "Internal error"
-        });
-
-        // log the error to log file
-        gLogger.log('error', err.message, {
-            stack: err.stack
-        });
-
-        return;
-    });
-});
-
-// upload media contents for an article
-router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedScopes(['read:users']), (req, res) => {
-    // check if user and article id is integer
-    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id))) {
-        res.status(400);
-        res.json({
-            error_code: "invalid_id",
-            message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
-        });
-
-        return;
-    }
-
-    // check if article for the user exist
-    gDB.query(
-        'SELECT 1 FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
-        [req.params.article_id, req.params.user_id]
-    ).then(results => {
-        if (results.length < 1) {
-            res.status(404);
-            res.json({
-                error_code: "file_not_found",
-                message: "Publication can't be found"
-            });
-
-            return;
-        }
-
-        upload(req, res, (err) => {
-            // check if enctype is multipart form data
-            if (!req.is('multipart/form-data')) {
-                res.status(415);
-                res.json({
-                    error_code: "invalid_request_body",
-                    message: "Encode type not supported"
-                });
-
-                return;
-            }
-
-            // check if file contain data
-            if (!req.file) {
-                res.status(400);
-                res.json({
-                    error_code: "invalid_request",
-                    message: "Bad request"
-                });
-
-                return;
-            }
-
-            // A Multer error occurred when uploading
-            if (err instanceof multer.MulterError) {
-                if (err.code == 'LIMIT_FILE_SIZE') {
-                    res.status(400);
-                    res.json({
-                        error_code: "size_exceeded",
-                        message: "Image your uploading exceeded allowed size"
-                    });
-
-                    return;
-                }
-
-                // other multer errors
-                res.status(500);
-                res.json({
-                    error_code: "internal_error",
-                    message: "Internal error"
-                });
-
-                // log the error to log file
-                gLogger.log('error', err.message, {
-                    stack: err.stack
-                });
-
-                return;
-
-            } else if (err) { // An unknown error occurred when uploading
-                res.status(500);
-                res.json({
-                    error_code: "internal_error",
-                    message: "Internal error"
-                });
-
-                // log the error to log file
-                gLogger.log('error', err.message, {
-                    stack: err.stack
-                });
-
-                return;
-            }
-
-            let file_path = req.file.path; // uploaded file location
-            let file_name = req.file.originalname;
-            const save_image_ext = 'png';
-
-            // read uploaded image as buffer
-            let image_buffer = fs.readFileSync(file_path);
-
-            // check file type and if is supported
-            let supported_images = [
-                'jpg',
-                'png',
-                'gif',
-                'jp2'
-            ];
-
-            // read minimum byte from buffer required to determine file mime
-            let file_mime = file_type(Buffer.from(image_buffer, 0, file_type.minimumBytes));
-
-            if (!(file_mime.mime.split('/')[0] == 'image' && supported_images.find(e => e == file_mime.ext))) {
-                // delete the uploaded file
-                fs.unlinkSync(file_path);
-
-                res.status(406);
-                res.json({
-                    error_code: "unsupported_format",
-                    message: "Uploaded image is not supported"
-                });
-
-                return;
-            }
-
-            // resize the image if it exceeded the maximum resolution
-            sharp(image_buffer)
-                .resize({
-                    height: 1080, // resize image using the set height
-                    withoutEnlargement: true
-                })
-                .toFormat(save_image_ext)
-                .toBuffer()
-                .then(outputBuffer => {
-                    // no higher than 1080 pixels
-                    // and no larger than the input image
-
-                    // upload buffer to aws s3 bucket
-                    // set aws s3 access credentials
-                    aws.config.update({
-                        apiVersion: '2006-03-01',
-                        accessKeyId: gConfig.AWS_ACCESS_ID,
-                        secretAccessKey: gConfig.AWS_SECRET_KEY,
-                        region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
-                    });
-
-                    const s3 = new aws.S3();
-                    const object_unique_name = rand_token.uid(34) + '.' + save_image_ext;
-
-                    const upload_params = {
-                        Bucket: gConfig.AWS_S3_BUCKET_NAME,
-                        Body: outputBuffer,
-                        Key: 'article/images/big/' + object_unique_name,
-                        ACL: gConfig.AWS_S3_BUCKET_PERMISSION
-                    };
-
-                    s3.upload(upload_params, (err, data) => {
-                        // delete the uploaded file
-                        fs.unlinkSync(file_path);
-
-                        if (err) {
-                            res.status(500);
-                            res.json({
-                                error_code: "internal_error",
-                                message: "Internal error"
-                            });
-
-                            // log the error to log file
-                            gLogger.log('error', err.message, {
-                                stack: err.stack
-                            });
-
-                            return;
-                        }
-
-                        if (data) { // file uploaded successfully
-                            // generate sixten digit unique id
-                            const image_id = rand_token.generate(16);
-                            const parse_url = url_parse(data.Location, true);
-
-                            // save file metadata and location to database
-                            gDB.query(
-                                'INSERT INTO article_media_contents (articleID, userID, mediaID, mediaRelativePath, ' +
-                                'mediaOriginalName, mediaType, mediaExt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                                [
-                                    req.params.article_id,
-                                    req.params.user_id,
-                                    image_id,
-                                    'article/images/big/' + object_unique_name,
-                                    file_name,
-                                    file_mime.mime.split('/')[0],
-                                    save_image_ext,
-                                ]
-                            ).then(results => {
-                                // send result to client
-                                res.status(200);
-                                res.json({
-                                    id: image_id,
-                                    images: [{
-                                        url: data.Location,
-                                        size: 'big'
-                                    },
-                                    {
-                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/medium/' + object_unique_name,
-                                        size: 'medium'
-                                    },
-                                    {
-                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/small/' + object_unique_name,
-                                        size: 'small'
-                                    },
-                                    {
-                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/tiny/' + object_unique_name,
-                                        size: 'tiny'
-                                    }
-                                    ]
-                                });
-
-                            }).catch(err => {
-                                res.status(500);
-                                res.json({
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                gLogger.log('error', err.message, {
-                                    stack: err.stack
-                                });
-
-                                return;
-                            });
-                        }
-                    });
-                })
-                .catch(err => {
-                    // delete the uploaded file
-                    fs.unlinkSync(file_path);
-
-                    res.status(500);
-                    res.json({
-                        error_code: "internal_error",
-                        message: "Internal error"
-                    });
-
-                    // log the error to log file
-                    gLogger.log('error', err.message, {
-                        stack: err.stack
-                    });
-
-                    return;
-                });
-        });
-
-    }).catch(err => {
-        res.status(500);
-        res.json({
-            error_code: "internal_error",
-            message: "Internal error"
-        });
-
-        // log the error to log file
-        gLogger.log('error', err.message, {
-            stack: err.stack
-        });
-
-        return;
-    });
-});
-
 // retrieve an article
 router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
     // check if id is integer
     if (/^\d+$/.test(req.params.id)) {
 
-        const permitted_fields = [
-            'categoryID',
-            'continentID',
-            'countryID',
-            'regionID',
-            'featuredImageURL',
-            'title',
-            'highlight',
-            'content',
-            'time'
-        ];
+        const mappped_field_name = new Map([
+            ['categoryID', 'categoryID AS category_id'],
+            ['continentID', 'continentID AS continent_id'],
+            ['countryID', 'countryID AS country_id'],
+            ['regionID', 'regionID AS region_id'],
+            ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
+            ['title', 'title'],
+            ['highlight', 'highlight'],
+            ['content', 'content'],
+            ['time', 'time']
+        ]);
         let query = 'SELECT ';
 
         // check if valid and required fields is given
@@ -3628,12 +3716,12 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             const req_field_count = req_fields.length - 1;
 
             req_fields.forEach((elem, index) => {
-                if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
                     if (index == req_field_count) {
-                        query += `${elem} `;
+                        query += `${mappped_field_name.get(elem)} `;
 
                     } else {
-                        query += `${elem}, `;
+                        query += `${mappped_field_name.get(elem)}, `;
                     }
 
                     field_already_exist.push(elem);
@@ -3642,7 +3730,8 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             });
 
             if (permitted_field_count < 1) {
-                query = 'SELECT categoryID, continentID, countryID, regionID, featuredImageURL, ' +
+                query = 'SELECT categoryID AS category_id, continentID AS continent_id, countryID AS country_id, ' +
+                    'regionID AS region_id, featuredImageURL AS featured_image_url, ' +
                     'title, highlight, content, time FROM articles WHERE articleID = ?';
 
             } else {
@@ -3650,8 +3739,8 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             }
 
         } else { // no fields selection
-            query += 'categoryID, continentID, countryID, regionID, featuredImageURL, ' +
-                'title, highlight, content, time FROM articles WHERE articleID = ?';
+            query += 'categoryID AS category_id, continentID AS continent_id, countryID AS country_id, regionID AS region_id, ' +
+                'featuredImageURL AS featured_image_url, title, highlight, content, time FROM articles WHERE articleID = ?';
         }
 
         // get publication saved to draft
