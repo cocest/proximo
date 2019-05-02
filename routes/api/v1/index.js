@@ -3067,6 +3067,284 @@ router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users'
     });
 });
 
+// upload media contents for an news
+router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    // check if user and article id is integer
+    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.news_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if article for the user exist
+    gDB.query(
+        'SELECT 1 FROM news WHERE newsID = ? AND userID = ? LIMIT 1',
+        [req.params.news_id, req.params.user_id]
+    ).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Publication can't be found"
+            });
+
+            return;
+        }
+
+        upload(req, res, (err) => {
+            // check if enctype is multipart form data
+            if (!req.is('multipart/form-data')) {
+                res.status(415);
+                res.json({
+                    error_code: "invalid_request_body",
+                    message: "Encode type not supported"
+                });
+
+                return;
+            }
+
+            // check if file contain data
+            if (!req.file) {
+                res.status(400);
+                res.json({
+                    error_code: "invalid_request",
+                    message: "Bad request"
+                });
+
+                return;
+            }
+
+            // A Multer error occurred when uploading
+            if (err instanceof multer.MulterError) {
+                if (err.code == 'LIMIT_FILE_SIZE') {
+                    res.status(400);
+                    res.json({
+                        error_code: "size_exceeded",
+                        message: "Image your uploading exceeded allowed size"
+                    });
+
+                    return;
+                }
+
+                // other multer errors
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+
+            } else if (err) { // An unknown error occurred when uploading
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            }
+
+            let file_path = req.file.path; // uploaded file location
+            let file_name = req.file.originalname;
+            const save_image_ext = 'png';
+
+            // read uploaded image as buffer
+            let image_buffer = fs.readFileSync(file_path);
+
+            // check file type and if is supported
+            let supported_images = [
+                'jpg',
+                'png',
+                'gif',
+                'jp2'
+            ];
+
+            // read minimum byte from buffer required to determine file mime
+            let file_mime = file_type(Buffer.from(image_buffer, 0, file_type.minimumBytes));
+
+            if (!(file_mime.mime.split('/')[0] == 'image' && supported_images.find(e => e == file_mime.ext))) {
+                // delete the uploaded file
+                fs.unlinkSync(file_path);
+
+                res.status(406);
+                res.json({
+                    error_code: "unsupported_format",
+                    message: "Uploaded image is not supported"
+                });
+
+                return;
+            }
+
+            // resize the image if it exceeded the maximum resolution
+            sharp(image_buffer)
+                .resize({
+                    height: 1080, // resize image using the set height
+                    withoutEnlargement: true
+                })
+                .toFormat(save_image_ext)
+                .toBuffer()
+                .then(outputBuffer => {
+                    // no higher than 1080 pixels
+                    // and no larger than the input image
+
+                    // upload buffer to aws s3 bucket
+                    // set aws s3 access credentials
+                    aws.config.update({
+                        apiVersion: '2006-03-01',
+                        accessKeyId: gConfig.AWS_ACCESS_ID,
+                        secretAccessKey: gConfig.AWS_SECRET_KEY,
+                        region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+                    });
+
+                    const s3 = new aws.S3();
+                    const object_unique_name = rand_token.uid(34) + '.' + save_image_ext;
+
+                    const upload_params = {
+                        Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                        Body: outputBuffer,
+                        Key: 'news/images/big/' + object_unique_name,
+                        ACL: gConfig.AWS_S3_BUCKET_PERMISSION
+                    };
+
+                    s3.upload(upload_params, (err, data) => {
+                        // delete the uploaded file
+                        fs.unlinkSync(file_path);
+
+                        if (err) {
+                            res.status(500);
+                            res.json({
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
+
+                            return;
+                        }
+
+                        if (data) { // file uploaded successfully
+                            // generate sixten digit unique id
+                            const image_id = rand_token.generate(16);
+                            const parse_url = url_parse(data.Location, true);
+
+                            // save file metadata and location to database
+                            gDB.query(
+                                'INSERT INTO news_media_contents (newsID, userID, mediaID, mediaRelativePath, ' +
+                                'mediaOriginalName, mediaType, mediaExt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                [
+                                    req.params.news_id,
+                                    req.params.user_id,
+                                    image_id,
+                                    'news/images/big/' + object_unique_name,
+                                    file_name,
+                                    file_mime.mime.split('/')[0],
+                                    save_image_ext,
+                                ]
+                            ).then(results => {
+                                // send result to client
+                                res.status(200);
+                                res.json({
+                                    image_id: image_id,
+                                    images: [{
+                                        url: data.Location,
+                                        size: 'big'
+                                    },
+                                    {
+                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/news/images/medium/' + object_unique_name,
+                                        size: 'medium'
+                                    },
+                                    {
+                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/news/images/small/' + object_unique_name,
+                                        size: 'small'
+                                    },
+                                    {
+                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/news/images/tiny/' + object_unique_name,
+                                        size: 'tiny'
+                                    }
+                                    ]
+                                });
+
+                            }).catch(err => {
+                                res.status(500);
+                                res.json({
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+
+                                return;
+                            });
+                        }
+                    });
+                })
+                .catch(err => {
+                    // delete the uploaded file
+                    fs.unlinkSync(file_path);
+
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // upload media contents for an article
 router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedScopes(['read:users']), (req, res) => {
     // check if user and article id is integer
