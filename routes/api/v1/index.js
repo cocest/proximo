@@ -1603,7 +1603,7 @@ router.get('/publications/:publication_type/categories', custom_utils.allowedSco
         return;
     }
 
-    const table_name = publication_type + '_categories';
+    const table_name = req.params.publication_type + '_categories';
 
     // retrieve categories from database
     gDB.query('SELECT categoryID AS id, categoryTitle AS category FROM ??', [table_name]).then(results => {
