@@ -31,7 +31,6 @@ router.use((req, res, next) => {
     } else {
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_request",
             message: "Bad request"
         });
@@ -48,7 +47,6 @@ router.use((req, res, next) => {
     } else {
         res.status(415);
         res.json({
-            status: 415,
             error_code: "invalid_request_body",
             message: "Unsupported body format"
         });
@@ -63,7 +61,6 @@ router.post('/authorize', (req, res) => {
     if (!req.body.response_type) {
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_request",
             message: "Bad request"
         });
@@ -76,7 +73,6 @@ router.post('/authorize', (req, res) => {
     } else {
         res.status(404);
         res.json({
-            status: 404,
             error_code: "unsupported_authentication",
             message: "Authorization flow not supported"
         });
@@ -91,7 +87,6 @@ router.post('/token', (req, res) => {
     if (!req.body.grant_type) {
         res.status(400);
         res.json({
-            status: 400,
             error_code: "invalid_request",
             message: "Bad request"
         });
@@ -104,7 +99,6 @@ router.post('/token', (req, res) => {
             if (!err) {
                 res.status(401);
                 res.json({
-                    status: 401,
                     error_code: "incomplete_credentials",
                     message: "Unauthorized"
                 });
@@ -126,7 +120,6 @@ router.post('/token', (req, res) => {
                         if (results.length < 1) {
                             res.status(401);
                             res.json({
-                                status: 401,
                                 error_code: "authentication_required",
                                 message: "Unauthorized"
                             });
@@ -140,7 +133,6 @@ router.post('/token', (req, res) => {
                             if (lasted_days > gConfig.REFRESH_TOKEN_EXPIRE_IN) {
                                 res.status(401);
                                 res.json({
-                                    status: 401,
                                     error_code: "refresh_token_expired",
                                     message: "Unauthorized"
                                 });
@@ -179,7 +171,6 @@ router.post('/token', (req, res) => {
                                         if (err) {
                                             res.status(500);
                                             res.json({
-                                                status: 500,
                                                 error_code: "internal_error",
                                                 message: "Internal error"
                                             });
@@ -208,7 +199,6 @@ router.post('/token', (req, res) => {
                     }).catch(reason => {
                         res.status(500);
                         res.json({
-                            status: 500,
                             error_code: "internal_error",
                             message: "Internal error"
                         });
@@ -223,7 +213,6 @@ router.post('/token', (req, res) => {
                     if (er.message == 'Bad input string') {
                         res.status(401);
                         res.json({
-                            status: 401,
                             error_code: "unauthorized_client",
                             message: "Unauthorized"
                         });
@@ -233,7 +222,6 @@ router.post('/token', (req, res) => {
                     } else {
                         res.status(500);
                         res.json({
-                            status: 500,
                             error_code: "internal_error",
                             message: "Internal error"
                         });
@@ -256,7 +244,6 @@ router.post('/token', (req, res) => {
             if (err) {
                 res.status(401);
                 res.json({
-                    status: 401,
                     error_code: "incomplete_credentials",
                     message: "Unauthorized"
                 });
@@ -272,7 +259,6 @@ router.post('/token', (req, res) => {
                     if (results.length < 1) {
                         res.status(401);
                         res.json({
-                            status: 401,
                             error_code: "unauthorized_client",
                             message: "Unauthorized"
                         });
@@ -285,7 +271,6 @@ router.post('/token', (req, res) => {
                             if (!hash_res) {
                                 res.status(401);
                                 res.json({
-                                    status: 401,
                                     error_code: "unauthorized_client",
                                     message: "Unauthorized"
                                 });
@@ -297,7 +282,6 @@ router.post('/token', (req, res) => {
                                 if (!results[0].permittedGrants.trim().split(' ').find(g => g == 'password')) {
                                     res.status(401);
                                     res.json({
-                                        status: 401,
                                         error_code: "authorization_not_allowed",
                                         message: "Unauthorized"
                                     });
@@ -317,7 +301,6 @@ router.post('/token', (req, res) => {
                                         if (results.length < 1) {
                                             res.status(401);
                                             res.json({
-                                                status: 401,
                                                 error_code: "unauthorized_user",
                                                 message: "Unauthorized"
                                             });
@@ -330,7 +313,6 @@ router.post('/token', (req, res) => {
                                                 if (!hash_res) {
                                                     res.status(401);
                                                     res.json({
-                                                        status: 401,
                                                         error_code: "unauthorized_user",
                                                         message: "Unauthorized"
                                                     });
@@ -394,7 +376,6 @@ router.post('/token', (req, res) => {
                                                                     if (err) {
                                                                         res.status(500);
                                                                         res.json({
-                                                                            status: 500,
                                                                             error_code: "internal_error",
                                                                             message: "Internal error"
                                                                         });
@@ -434,7 +415,6 @@ router.post('/token', (req, res) => {
                                                                             }).catch(reason => {
                                                                                 res.status(500);
                                                                                 res.json({
-                                                                                    status: 500,
                                                                                     error_code: "internal_error",
                                                                                     message: "Internal error"
                                                                                 });
@@ -448,7 +428,6 @@ router.post('/token', (req, res) => {
                                                                         } catch (er) { // catch the error just in case the crypto fail
                                                                             res.status(500);
                                                                             res.json({
-                                                                                status: 500,
                                                                                 error_code: "internal_error",
                                                                                 message: "Internal error"
                                                                             });
@@ -468,7 +447,6 @@ router.post('/token', (req, res) => {
                                             }).catch(reason => {
                                                 res.status(500);
                                                 res.json({
-                                                    status: 500,
                                                     error_code: "internal_error",
                                                     message: "Internal error"
                                                 });
@@ -483,7 +461,6 @@ router.post('/token', (req, res) => {
                                     }).catch(reason => {
                                         res.status(500);
                                         res.json({
-                                            status: 500,
                                             error_code: "internal_error",
                                             message: "Internal error"
                                         });
@@ -499,7 +476,6 @@ router.post('/token', (req, res) => {
                         }).catch(reason => {
                             res.status(500);
                             res.json({
-                                status: 500,
                                 error_code: "internal_error",
                                 message: "Internal error"
                             });
@@ -514,7 +490,6 @@ router.post('/token', (req, res) => {
                 }).catch(reason => {
                     res.status(500);
                     res.json({
-                        status: 500,
                         error_code: "internal_error",
                         message: "Internal error"
                     });
@@ -533,7 +508,6 @@ router.post('/token', (req, res) => {
             if (err) {
                 res.status(401);
                 res.json({
-                    status: 401,
                     error_code: "incomplete_credentials",
                     message: "Unauthorized"
                 });
@@ -549,7 +523,6 @@ router.post('/token', (req, res) => {
                     if (results.length < 1) {
                         res.status(401);
                         res.json({
-                            status: 401,
                             error_code: "unauthorized_client",
                             message: "Unauthorized"
                         });
@@ -562,7 +535,6 @@ router.post('/token', (req, res) => {
                             if (!hash_res) {
                                 res.status(401);
                                 res.json({
-                                    status: 401,
                                     error_code: "unauthorized_client",
                                     message: "Unauthorized"
                                 });
@@ -574,7 +546,6 @@ router.post('/token', (req, res) => {
                                 if (!results[0].permittedGrants.trim().split(' ').find(g => g == 'client_credentials')) {
                                     res.status(401);
                                     res.json({
-                                        status: 401,
                                         error_code: "authorization_not_allowed",
                                         message: "Unauthorized"
                                     });
@@ -597,7 +568,6 @@ router.post('/token', (req, res) => {
                                             } else if (err.errorCode == 'invalid_scope_definition') {
                                                 res.status(400);
                                                 res.json({
-                                                    status: 400,
                                                     error_code: "invalid_scope_definition",
                                                     message: "Bad request"
                                                 });
@@ -607,7 +577,6 @@ router.post('/token', (req, res) => {
                                             } else if (err.errorCode == 'internal_error') {
                                                 res.status(500);
                                                 res.json({
-                                                    status: 500,
                                                     error_code: "internal_error",
                                                     message: "Internal error"
                                                 });
@@ -640,7 +609,6 @@ router.post('/token', (req, res) => {
                                                     if (err) {
                                                         res.status(500);
                                                         res.json({
-                                                            status: 500,
                                                             error_code: "internal_error",
                                                             message: "Internal error"
                                                         });
@@ -671,7 +639,6 @@ router.post('/token', (req, res) => {
                         }).catch(reason => {
                             res.status(500);
                             res.json({
-                                status: 500,
                                 error_code: "internal_error",
                                 message: "Internal error"
                             });
@@ -686,7 +653,6 @@ router.post('/token', (req, res) => {
                 }).catch(reason => {
                     res.status(500);
                     res.json({
-                        status: 500,
                         error_code: "internal_error",
                         message: "Internal error"
                     });
@@ -702,7 +668,6 @@ router.post('/token', (req, res) => {
     } else {
         res.status(404);
         res.json({
-            status: 404,
             error_code: "unsupported_authentication",
             message: "Authorization flow not supported"
         });
