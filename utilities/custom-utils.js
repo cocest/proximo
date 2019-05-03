@@ -190,9 +190,14 @@ class Utilities {
         };
     }
 
-    static assignAPIPrivileges(req, call) {
+    static assignAPIPrivileges(req, allowed_roles, call) {
         const requested_scopes = req.body.scope.trim().split(' ');
         const role = requested_scopes[0].split('.');
+
+        // check if privilege(s) should be assign to this client
+        if (allowed_roles.find(elem => elem == role)) {
+            return call({errorCode: 'scope_not_allowed'}, []);
+        }
 
         if (role[0] == 'user' || role[0] == 'client') {
             if (!(role[1] == 'default' || role[1] == 'defined')) {

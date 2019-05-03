@@ -339,12 +339,20 @@ router.post('/token', (req, res) => {
 
                                                 } else {
                                                     // get access scope(s) or permission
-                                                    custom_utils.assignAPIPrivileges(req, (err, assign_scopes) => {
+                                                    custom_utils.assignAPIPrivileges(req, ['user'], (err, assign_scopes) => {
                                                         if (err) {
-                                                            if (err.errorCode == 'invalid_scope_definition') {
+                                                            if (err.errorCode == 'scope_not_allowed') {
+                                                                res.status(403);
+                                                                res.json({
+                                                                    error_code: "scope_not_allowed",
+                                                                    message: "Your are not allowed to use this scope"
+                                                                });
+
+                                                                return;
+
+                                                            } else if (err.errorCode == 'invalid_scope_definition') {
                                                                 res.status(400);
                                                                 res.json({
-                                                                    status: 400,
                                                                     error_code: "invalid_scope_definition",
                                                                     message: "Bad request"
                                                                 });
@@ -354,7 +362,6 @@ router.post('/token', (req, res) => {
                                                             } else if (err.errorCode == 'internal_error') {
                                                                 res.status(500);
                                                                 res.json({
-                                                                    status: 500,
                                                                     error_code: "internal_error",
                                                                     message: "Internal error"
                                                                 });
@@ -576,9 +583,18 @@ router.post('/token', (req, res) => {
 
                                 } else {
                                     // get access scope(s) or permission
-                                    custom_utils.assignAPIPrivileges(req, (err, assign_scopes) => {
+                                    custom_utils.assignAPIPrivileges(req, ['client'], (err, assign_scopes) => {
                                         if (err) {
-                                            if (err.errorCode == 'invalid_scope_definition') {
+                                            if (err.errorCode == 'scope_not_allowed') {
+                                                res.status(403);
+                                                res.json({
+                                                    error_code: "scope_not_allowed",
+                                                    message: "Your are not allowed to use this scope"
+                                                });
+
+                                                return;
+
+                                            } else if (err.errorCode == 'invalid_scope_definition') {
                                                 res.status(400);
                                                 res.json({
                                                     status: 400,
