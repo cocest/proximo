@@ -3715,7 +3715,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
 
             // fetch article stored in draft
             gDB.query(
-                'SELECT categoryID, featuredImageURL, title, highlight, content, published, ' +
+                'SELECT categoryID, publication, featuredImageURL, title, highlight, content, published, ' +
                 'publishedContentID FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
                 [req.params.draft_id, req.params.user_id]
             ).then(draft_results => {
