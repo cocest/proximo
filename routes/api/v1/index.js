@@ -3804,7 +3804,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                         },
                         {
                             query: 'UPDATE ?? SET featuredImageURL = ?, ' +
-                                'title = ?, highlight = ?, content = ? ?? articleID = ?',
+                                'title = ?, highlight = ?, content = ? WHERE ?? = ?',
                             post: [
                                 table_name,
                                 draft_results[0].featuredImageURL,
