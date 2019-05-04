@@ -3757,8 +3757,8 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                             post: [req.params.draft_id, req.params.user_id]
                         },
                         {
-                            query: 'INSERT INTO ?? (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
-                                'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                            query: 'INSERT INTO ?? (userID, categoryID, continentID, countryID, regionID, restrictedToLocation, ' + 
+                                'featuredImageURL, title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                             post: [
                                 table_name,
                                 req.params.user_id,
@@ -3766,6 +3766,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                                 region_results[0].continentID,
                                 region_results[0].countryID,
                                 req.query.locationID,
+                                req.query.restrict ? {'true': 1, 'false': 0}[req.query.restrict] : 0,
                                 draft_results[0].featuredImageURL,
                                 draft_results[0].title,
                                 draft_results[0].highlight,
