@@ -3776,7 +3776,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                     ).then(results => {
                         res.status(201);
                         res.json({
-                            article_id: results.insertId
+                            publication_id: results.insertId
                         });
 
                         return;
@@ -3818,7 +3818,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                     ).then(results => {
                         res.status(201);
                         res.json({
-                            article_id: draft_results[0].publishedContentID
+                            publication_id: draft_results[0].publishedContentID
                         });
 
                         return;
