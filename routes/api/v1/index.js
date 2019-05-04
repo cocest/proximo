@@ -2213,6 +2213,19 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
             return;
         });
     }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs,
+            message: "Query(s) value is invalid"
+        });
+
+        return;
+    }
 });
 
 /*
@@ -3003,7 +3016,7 @@ router.delete('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['r
 
     // delete draft in database
     gDB.query(
-        'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1', 
+        'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
         [req.params.draft_id, req.params.user_id]
     ).then(results => {
         return res.status(200).send();
@@ -3626,321 +3639,206 @@ router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedS
 // publish article or news save to draft and return the id
 router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
-    if (/^\d+$/.test(req.params.user_id)) {
-        // check if is accessing the right user or as a logged in user
-        if (!req.params.user_id == req.user.access_token.user_id) {
-            res.status(401);
-            res.json({
-                error_code: "unauthorized_user",
-                message: "Unauthorized"
-            });
+    if (!(/^\d+$/.test(req.params.user_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.draft_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
 
-            return;
-        }
+        return;
+    }
 
-        if (!req.body) { // check if body contains data
-            res.status(400);
-            res.json({
-                error_code: "invalid_request",
-                message: "Bad request"
-            });
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
 
-            return;
-        }
+        return;
+    }
 
-        if (!req.is('application/json')) { // check if content type is supported
-            res.status(415);
-            res.json({
-                error_code: "invalid_request_body",
-                message: "Unsupported body format"
-            });
+    // check if field(s) contain valid data
+    const invalid_inputs = [];
 
-            return;
-        }
+    // check if query is valid
+    if (req.query.restrict && !/^(true|false)$/.test(req.query.restrict)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "restrict",
+            message: "restrict value is invalid"
+        });
+    }
 
-        // check if field(s) contain valid data
-        const invalid_inputs = [];
+    if (!req.query.locationID) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "locationID",
+            message: "locationID has to be defined"
+        });
 
-        if (!req.body.restrict) {
-            invalid_inputs.push({
-                error_code: "undefined_data",
-                field: "restrict",
-                message: "restrict has to be defined"
-            });
+    } else if (!/^\d+$/.test(req.query.locationID)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "locationID",
+            message: "locationID value is invalid"
+        });
 
-        } else if (!/^(0|1)+$/.test(req.body.restrict)) {
-            invalid_inputs.push({
-                error_code: "invalid_data",
-                field: "restrict",
-                message: "restrict is not valid"
-            });
-        }
+    } else {
+        // check if location id exist and retrieve countryID and continentID
+        gDB.query(
+            'SELECT countryID, continentID FROM regions WHERE regionID = ? LIMIT 1', [req.query.locationID]
+        ).then(region_results => {
+            if (region_results.length < 1) {
+                // location id does not exist
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "locationID",
+                    message: "locationID doesn't exist"
+                });
+            }
 
-        if (!req.body.locationID) {
-            invalid_inputs.push({
-                error_code: "undefined_data",
-                field: "locationID",
-                message: "locationID has to be defined"
-            });
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_query",
+                    errors: invalid_inputs,
+                    message: "Query(s) value is invalid"
+                });
 
-            // send json error message to client
-            res.status(406);
-            res.json({
-                error_code: "invalid_field",
-                errors: invalid_inputs,
-                message: "Field(s) value not acceptable"
-            });
+                return;
+            }
 
-            return;
-
-        } else if (!/^\d+$/.test(req.body.locationID)) {
-            invalid_inputs.push({
-                error_code: "invalid_data",
-                field: "locationID",
-                message: "locationID is not valid"
-            });
-
-            // send json error message to client
-            res.status(406);
-            res.json({
-                error_code: "invalid_field",
-                errors: invalid_inputs,
-                message: "Field(s) value not acceptable"
-            });
-
-            return;
-
-        } else {
-            // check if location id exist and retrieve countryID and continentID
+            // fetch article stored in draft
             gDB.query(
-                'SELECT countryID, continentID FROM regions WHERE regionID = ? LIMIT 1', [req.body.locationID]
-            ).then(region_results => {
-                if (region_results.length < 1) {
-                    // location id does not exist
-                    invalid_inputs.push({
-                        error_code: "invalid_data",
-                        field: "locationID",
-                        message: "locationID doesn't exist"
-                    });
+                'SELECT categoryID, featuredImageURL, title, highlight, content, published, ' +
+                'publishedContentID FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                [req.params.draft_id, req.params.user_id]
+            ).then(draft_results => {
+                // check if draft exist 
+                if (draft_results.length < 1) {
+                    return res.status(204).send(); // draft doesn't exist
                 }
 
-                // check if any input is invalid
-                if (invalid_inputs.length > 0) {
+                // check if highlight is provided
+                if (draft_results[0].highlight.trim().length < 1) {
                     // send json error message to client
                     res.status(406);
                     res.json({
-                        error_code: "invalid_field",
-                        errors: invalid_inputs,
-                        message: "Field(s) value not acceptable"
+                        error_code: "field_not_defined",
+                        message: "Highlight for publication not provided"
                     });
 
                     return;
                 }
 
-                // fetch article stored in draft
-                gDB.query(
-                    'SELECT categoryID, featuredImageURL, title, content, published, ' +
-                    'publishedContentID FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-                    [req.params.draft_id, req.params.user_id]
-                ).then(draft_results => {
-                    // check if draft exist 
-                    if (draft_results.length < 1) {
-                        return res.status(204).send(); // draft doesn't exist
-                    }
+                let table_name;
+                let table_id;
 
-                    // check if is article or news
-                    if (draft_results[0].draftContentTypeID == 0) { // article
+                // check if is news or article
+                if (draft_results[0].publication == 'news') { // news
+                    table_name = 'news';
+                    table_id = 'newsID';
 
-                        // generate highlight or description from article content
-                        let article_highlight = 'sample sample sample'; // still debating on how it will be generated
+                } else { // article
+                    table_name = 'articles';
+                    table_id = 'articleID';
+                }
 
-                        // check if this article is published first time
-                        if (draft_results[0].published == 0) { // has not been published
-                            gDB.transaction({
-                                query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-                                post: [req.params.draft_id, req.params.user_id]
-                            }, {
-                                    query: 'INSERT INTO articles (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
-                                        'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                                    post: [
-                                        req.params.user_id,
-                                        results[0].categoryID,
-                                        region_results[0].continentID,
-                                        region_results[0].countryID,
-                                        req.body.locationID,
-                                        draft_results[0].featuredImageURL,
-                                        draft_results[0].title,
-                                        article_highlight,
-                                        draft_results[0].content
-                                    ]
-                                }).then(results => {
-                                    res.status(201);
-                                    res.json({
-                                        article_id: results.insertId,
-                                        message: "Article published successfully"
-                                    });
-
-                                    return;
-
-                                }).catch(reason => {
-                                    res.status(500);
-                                    res.json({
-                                        error_code: "internal_error",
-                                        message: "Internal error"
-                                    });
-
-                                    // log the error to log file
-                                    gLogger.log('error', reason.message, {
-                                        stack: reason.stack
-                                    });
-
-                                    return;
-                                });
-
-                        } else { // article has been published
-                            gDB.transaction({
-                                query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-                                post: [req.params.draft_id, req.params.user_id]
-                            }, {
-                                    query: 'UPDATE articles SET categoryID = ?, featuredImageURL = ?, ' +
-                                        'title = ?, highlight = ?, content = ? WHERE articleID = ?',
-                                    post: [
-                                        results[0].categoryID,
-                                        draft_results[0].featuredImageURL,
-                                        draft_results[0].title,
-                                        article_highlight,
-                                        draft_results[0].content,
-                                        draft_results[0].publishedContentID
-                                    ]
-                                }).then(results => {
-                                    res.status(201);
-                                    res.json({
-                                        article_id: draft_results[0].publishedContentID,
-                                        message: "Published successfully"
-                                    });
-
-                                    return;
-
-                                }).catch(reason => {
-                                    res.status(500);
-                                    res.json({
-                                        error_code: "internal_error",
-                                        message: "Internal error"
-                                    });
-
-                                    // log the error to log file
-                                    gLogger.log('error', reason.message, {
-                                        stack: reason.stack
-                                    });
-
-                                    return;
-                                });
+                // check if this article is published first time
+                if (draft_results[0].published == 0) { // has not been published
+                    gDB.transaction(
+                        {
+                            query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                            post: [req.params.draft_id, req.params.user_id]
+                        },
+                        {
+                            query: 'INSERT INTO ?? (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
+                                'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                            post: [
+                                table_name,
+                                req.params.user_id,
+                                results[0].categoryID,
+                                region_results[0].continentID,
+                                region_results[0].countryID,
+                                req.query.locationID,
+                                draft_results[0].featuredImageURL,
+                                draft_results[0].title,
+                                draft_results[0].highlight,
+                                draft_results[0].content
+                            ]
                         }
+                    ).then(results => {
+                        res.status(201);
+                        res.json({
+                            article_id: results.insertId
+                        });
 
-                    } else { // news
-                        // generate highlight or description from news content
-                        let news_highlight = 'sample sample sample'; // still debating on how it will be generated
+                        return;
 
-                        // check if this article is published first time
-                        if (draft_results[0].published == 0) { // has not been published
-                            gDB.transaction({
-                                query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-                                post: [req.params.draft_id, req.params.user_id]
-                            }, {
-                                    query: 'INSERT INTO news (userID, categoryID, continentID, countryID, regionID, featuredImageURL, ' +
-                                        'title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                                    post: [
-                                        req.params.user_id,
-                                        results[0].categoryID,
-                                        region_results[0].continentID,
-                                        region_results[0].countryID,
-                                        req.body.locationID,
-                                        draft_results[0].featuredImageURL,
-                                        draft_results[0].title,
-                                        news_highlight,
-                                        draft_results[0].content
-                                    ]
-                                }).then(results => {
-                                    res.status(201);
-                                    res.json({
-                                        news_id: results.insertId,
-                                        message: "Article published successfully"
-                                    });
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
 
-                                    return;
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
 
-                                }).catch(reason => {
-                                    res.status(500);
-                                    res.json({
-                                        error_code: "internal_error",
-                                        message: "Internal error"
-                                    });
-
-                                    // log the error to log file
-                                    gLogger.log('error', reason.message, {
-                                        stack: reason.stack
-                                    });
-
-                                    return;
-                                });
-
-                        } else { // news has been published
-                            gDB.transaction({
-                                query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-                                post: [req.params.draft_id, req.params.user_id]
-                            }, {
-                                    query: 'UPDATE news SET categoryID = ?, featuredImageURL = ?, ' +
-                                        'title = ?, highlight = ?, content = ? WHERE articleID = ?',
-                                    post: [
-                                        results[0].categoryID,
-                                        draft_results[0].featuredImageURL,
-                                        draft_results[0].title,
-                                        article_highlight,
-                                        draft_results[0].content,
-                                        draft_results[0].publishedContentID
-                                    ]
-                                }).then(results => {
-                                    res.status(201);
-                                    res.json({
-                                        news_id: draft_results[0].publishedContentID,
-                                        message: "Published successfully"
-                                    });
-
-                                    return;
-
-                                }).catch(reason => {
-                                    res.status(500);
-                                    res.json({
-                                        error_code: "internal_error",
-                                        message: "Internal error"
-                                    });
-
-                                    // log the error to log file
-                                    gLogger.log('error', reason.message, {
-                                        stack: reason.stack
-                                    });
-
-                                    return;
-                                });
-                        }
-                    }
-
-                }).catch(reason => {
-                    res.status(500);
-                    res.json({
-                        error_code: "internal_error",
-                        message: "Internal error"
+                        return;
                     });
 
-                    // log the error to log file
-                    gLogger.log('error', reason.message, {
-                        stack: reason.stack
+                } else { // has been published
+                    gDB.transaction(
+                        {
+                            query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                            post: [req.params.draft_id, req.params.user_id]
+                        },
+                        {
+                            query: 'UPDATE ?? SET featuredImageURL = ?, ' +
+                                'title = ?, highlight = ?, content = ? ?? articleID = ?',
+                            post: [
+                                table_name,
+                                draft_results[0].featuredImageURL,
+                                draft_results[0].title,
+                                draft_results[0].highlight,
+                                draft_results[0].content,
+                                table_id,
+                                draft_results[0].publishedContentID
+                            ]
+                        }
+                    ).then(results => {
+                        res.status(201);
+                        res.json({
+                            article_id: draft_results[0].publishedContentID
+                        });
+
+                        return;
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
                     });
+                }
 
-                    return;
-                });
-
-            }).catch(reason => {
+            }).catch(err => {
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -3948,19 +3846,37 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                 });
 
                 // log the error to log file
-                gLogger.log('error', reason.message, {
-                    stack: reason.stack
+                gLogger.log('error', err.message, {
+                    stack: err.stack
                 });
 
                 return;
             });
-        }
 
-    } else { // invalid id
-        res.status(400);
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
         res.json({
-            error_code: "invalid_user_id",
-            message: "Bad request"
+            error_code: "invalid_query",
+            errors: invalid_inputs,
+            message: "Query(s) value is invalid"
         });
 
         return;
@@ -4140,6 +4056,19 @@ router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['read:
                 field: "comment",
                 message: "comment exceed maximum allowed text"
             });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs,
+                message: "Field(s) value not acceptable"
+            });
+
+            return;
         }
 
         // generate sixten digit unique id
