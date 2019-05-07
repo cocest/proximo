@@ -2903,14 +2903,14 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
         });
 
         if (permitted_field_count < 1) {
-            select_query = 'SELECT draftID AS draft_id, publication, category, featuredImageURL AS featured_image_url, title, highlight, content, time FROM draft ';
+            select_query = 'SELECT draftID AS draft_id, publication, category, featuredImageURL AS featured_image_url, title, highlight, time FROM draft ';
 
         } else {
             select_query += 'FROM draft ';
         }
 
     } else { // no fields selection
-        select_query += 'publication, category, featuredImageURL AS featured_image_url, title, highlight, content, time FROM draft ';
+        select_query += 'publication, category, featuredImageURL AS featured_image_url, title, highlight, time FROM draft ';
     }
 
     // user publication
@@ -2932,13 +2932,13 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
         count_post.push(publication);
     }
 
+    // last drafting should come first
+    select_query += 'ORDER BY time DESC ';
+
     // set limit and offset
-    select_query += 'LIMIT ? OFFSET ? ';
+    select_query += 'LIMIT ? OFFSET ?';
     select_post.push(limit);
     select_post.push(offset);
-
-    // last drafting should come first
-    select_query += 'ORDER BY time DESC';
 
     // get metadata for user's publication
     gDB.query(count_query, count_post).then(count_results => {
@@ -3884,6 +3884,208 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
     }
 });
 
+// get all the user's published news
+router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // set limit and offset
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    const category_id = req.query.categoryID;
+    const invalid_inputs = [];
+
+    // check if query is valid
+    if (!/^\d+$/.test(category_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "categoryID",
+            message: "categoryID value is invalid"
+        });
+    }
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs,
+            message: "Query(s) value is invalid"
+        });
+
+        return;
+    }
+
+    if (pass_limit && pass_limit < limit) {
+        limit = pass_limit;
+    }
+
+    if (pass_offset) {
+        offset = pass_offset;
+    }
+
+    const mappped_field_name = new Map([
+        ['category', 'category'],
+        ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
+        ['title', 'title'],
+        ['highlight', 'highlight'],
+        ['time', 'time']
+    ]);
+    let select_query = 'SELECT newsID AS news_id, ';
+    let select_post = [];
+    let count_query = 'SELECT COUNT(*) AS total WHERE ';
+    let count_post = [];
+
+    // check if valid and required fields is given
+    if (req.query.fields) {
+        // split the provided fields
+        let req_fields = req.query.fields.split(',');
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+        const req_field_count = req_fields.length - 1;
+
+        req_fields.forEach((elem, index) => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (index == req_field_count) {
+                    select_query += `${mappped_field_name.get(elem)} `;
+
+                } else {
+                    select_query += `${mappped_field_name.get(elem)}, `;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        if (permitted_field_count < 1) {
+            select_query = 'SELECT newsID AS news_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
+
+        } else {
+            select_query += 'FROM news ';
+        }
+
+    } else { // no fields selection
+        select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
+    }
+
+    // user publication
+    select_query += 'WHERE userID = ? ';
+    select_post.push(req.params.user_id);
+
+    // count query
+    count_query += 'WHERE userID = ? ';
+    count_post.push(req.params.user_id);
+
+    // set the category
+    if (category_id) {
+        // category to select
+        select_query += 'AND categoryID = ? ';
+        select_post.push(publication);
+
+        // coount query
+        count_query += 'AND categoryID = ? ';
+        count_post.push(publication);
+    }
+
+    // last published news should come first
+    select_query += 'ORDER BY time DESC ';
+
+    // set limit and offset
+    select_query += 'LIMIT ? OFFSET ?';
+    select_post.push(limit);
+    select_post.push(offset);
+
+    // get metadata for user's publication
+    gDB.query(count_query, count_post).then(count_results => {
+        // get publication saved to draft
+        gDB.query(select_query, select_post).then(results => {
+            // send result to client
+            res.status(200);
+            res.json({
+                news: results,
+                metadata: {
+                    result_set: {
+                        count: results.length,
+                        offset: offset,
+                        limit: limit,
+                        total: count_results[0].total
+                    }
+                }
+            });
+
+            return;
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // retrieve an article
 router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
     // check if id is integer
@@ -4284,7 +4486,7 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
             gDB.query(
                 'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
                 'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
-                'AND A.replyToCommentID = ? LIMIT ? OFFSET ? ORDER BY A.time DESC',
+                'AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ? OFFSET ?',
                 [
                     req.params.article_id,
                     -1,
@@ -4639,7 +4841,7 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
                 gDB.query(
                     'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
                     'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
-                    'AND A.replyToCommentID = ? LIMIT ? OFFSET ? ORDER BY A.time DESC',
+                    'AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ? OFFSET ?',
                     [
                         req.params.article_id,
                         req.params.cmt_id,
