@@ -3757,7 +3757,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                             post: [req.params.draft_id, req.params.user_id]
                         },
                         {
-                            query: 'INSERT INTO ?? (userID, categoryID, continentID, countryID, regionID, restrictedToLocation, ' + 
+                            query: 'INSERT INTO ?? (userID, categoryID, continentID, countryID, regionID, restrictedToLocation, ' +
                                 'featuredImageURL, title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                             post: [
                                 table_name,
@@ -3766,7 +3766,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                                 region_results[0].continentID,
                                 region_results[0].countryID,
                                 req.query.locationID,
-                                req.query.restrict ? {'true': 1, 'false': 0}[req.query.restrict] : 0,
+                                req.query.restrict ? { 'true': 1, 'false': 0 }[req.query.restrict] : 0,
                                 draft_results[0].featuredImageURL,
                                 draft_results[0].title,
                                 draft_results[0].highlight,
@@ -4381,94 +4381,9 @@ router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes
 });
 
 // retrieve an article
-router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
     // check if id is integer
-    if (/^\d+$/.test(req.params.id)) {
-
-        const mappped_field_name = new Map([
-            ['categoryID', 'categoryID AS category_id'],
-            ['continentID', 'continentID AS continent_id'],
-            ['countryID', 'countryID AS country_id'],
-            ['regionID', 'regionID AS region_id'],
-            ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
-            ['title', 'title'],
-            ['highlight', 'highlight'],
-            ['content', 'content'],
-            ['time', 'time']
-        ]);
-        let query = 'SELECT ';
-
-        // check if valid and required fields is given
-        if (req.query.fields) {
-            // split the provided fields
-            let req_fields = req.query.fields.split(',');
-            let permitted_field_count = 0;
-            let field_already_exist = [];
-            const req_field_count = req_fields.length - 1;
-
-            req_fields.forEach((elem, index) => {
-                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                    if (index == req_field_count) {
-                        query += `${mappped_field_name.get(elem)} `;
-
-                    } else {
-                        query += `${mappped_field_name.get(elem)}, `;
-                    }
-
-                    field_already_exist.push(elem);
-                    permitted_field_count++; // increment by one
-                }
-            });
-
-            if (permitted_field_count < 1) {
-                query = 'SELECT categoryID AS category_id, continentID AS continent_id, countryID AS country_id, ' +
-                    'regionID AS region_id, featuredImageURL AS featured_image_url, ' +
-                    'title, highlight, content, time FROM articles WHERE articleID = ?';
-
-            } else {
-                query += 'FROM articles WHERE articleID = ?';
-            }
-
-        } else { // no fields selection
-            query += 'categoryID AS category_id, continentID AS continent_id, countryID AS country_id, regionID AS region_id, ' +
-                'featuredImageURL AS featured_image_url, title, highlight, content, time FROM articles WHERE articleID = ?';
-        }
-
-        // get publication saved to draft
-        gDB.query(query, [req.params.id]).then(results => {
-            // check if there is result
-            if (results.length < 1) {
-                res.status(404);
-                res.json({
-                    error_code: "file_not_found",
-                    message: "Article can't be found"
-                });
-
-                return;
-            }
-
-            // send result to client
-            res.status(200);
-            res.json(results[0]);
-
-            return;
-
-        }).catch(err => {
-            res.status(500);
-            res.json({
-                error_code: "internal_error",
-                message: "Internal error"
-            });
-
-            // log the error to log file
-            gLogger.log('error', err.message, {
-                stack: err.stack
-            });
-
-            return;
-        });
-
-    } else { // invalid id
+    if (!/^\d+$/.test(req.params.id)) {
         res.status(400);
         res.json({
             error_code: "invalid_id",
@@ -4476,7 +4391,189 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         });
 
         return;
+
     }
+
+    const mappped_field_name = new Map([
+        ['categoryID', 'categoryID AS category_id'],
+        ['continentID', 'continentID AS continent_id'],
+        ['countryID', 'countryID AS country_id'],
+        ['regionID', 'regionID AS region_id'],
+        ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
+        ['title', 'title'],
+        ['highlight', 'highlight'],
+        ['content', 'content'],
+        ['time', 'time']
+    ]);
+    let query = 'SELECT ';
+
+    // check if valid and required fields is given
+    if (req.query.fields) {
+        // split the provided fields
+        let req_fields = req.query.fields.split(',');
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+        const req_field_count = req_fields.length - 1;
+
+        req_fields.forEach((elem, index) => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (index == req_field_count) {
+                    query += `${mappped_field_name.get(elem)} `;
+
+                } else {
+                    query += `${mappped_field_name.get(elem)}, `;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        if (permitted_field_count < 1) {
+            query = 'SELECT categoryID AS category_id, continentID AS continent_id, countryID AS country_id, ' +
+                'regionID AS region_id, featuredImageURL AS featured_image_url, ' +
+                'title, highlight, content, time FROM news WHERE newsID = ?';
+
+        } else {
+            query += 'FROM news WHERE newsID = ?';
+        }
+
+    } else { // no fields selection
+        query += 'categoryID AS category_id, continentID AS continent_id, countryID AS country_id, regionID AS region_id, ' +
+            'featuredImageURL AS featured_image_url, title, highlight, content, time FROM news WHERE newsID = ?';
+    }
+
+    // get publication
+    gDB.query(query, [req.params.id]).then(results => {
+        // check if there is result
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News can't be found"
+            });
+
+            return;
+        }
+
+        // send result to client
+        res.status(200);
+        res.json(results[0]);
+
+        return;
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// retrieve an article
+router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+
+    }
+
+    const mappped_field_name = new Map([
+        ['categoryID', 'categoryID AS category_id'],
+        ['continentID', 'continentID AS continent_id'],
+        ['countryID', 'countryID AS country_id'],
+        ['regionID', 'regionID AS region_id'],
+        ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
+        ['title', 'title'],
+        ['highlight', 'highlight'],
+        ['content', 'content'],
+        ['time', 'time']
+    ]);
+    let query = 'SELECT ';
+
+    // check if valid and required fields is given
+    if (req.query.fields) {
+        // split the provided fields
+        let req_fields = req.query.fields.split(',');
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+        const req_field_count = req_fields.length - 1;
+
+        req_fields.forEach((elem, index) => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (index == req_field_count) {
+                    query += `${mappped_field_name.get(elem)} `;
+
+                } else {
+                    query += `${mappped_field_name.get(elem)}, `;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        if (permitted_field_count < 1) {
+            query = 'SELECT categoryID AS category_id, continentID AS continent_id, countryID AS country_id, ' +
+                'regionID AS region_id, featuredImageURL AS featured_image_url, ' +
+                'title, highlight, content, time FROM articles WHERE articleID = ?';
+
+        } else {
+            query += 'FROM articles WHERE articleID = ?';
+        }
+
+    } else { // no fields selection
+        query += 'categoryID AS category_id, continentID AS continent_id, countryID AS country_id, regionID AS region_id, ' +
+            'featuredImageURL AS featured_image_url, title, highlight, content, time FROM articles WHERE articleID = ?';
+    }
+
+    // get publication
+    gDB.query(query, [req.params.id]).then(results => {
+        // check if there is result
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article can't be found"
+            });
+
+            return;
+        }
+
+        // send result to client
+        res.status(200);
+        res.json(results[0]);
+
+        return;
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 // search article(s)
