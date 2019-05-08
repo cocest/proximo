@@ -2992,7 +2992,7 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
 });
 
 // deleting a draft
-router.delete('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read:users']), (req, res) => {
+router.delete('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
     if (!(/^\d+$/.test(req.params.user_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.draft_id))) {
         res.status(400);
         res.json({
@@ -3038,7 +3038,7 @@ router.delete('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['r
 });
 
 // deleting all user's draft
-router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']), (req, res) => {
+router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']), (req, res) => {
     if (!/^\d+$/.test(req.params.user_id)) {
         res.status(400);
         res.json({
@@ -4271,6 +4271,98 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
 
             return;
         });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete published news
+router.delete('/users/:user_id/news/:news_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.news_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // delete draft in database
+    gDB.query(
+        'DELETE FROM news WHERE newsID = ? AND userID = ? LIMIT 1',
+        [req.params.news_id, req.params.user_id]
+    ).then(results => {
+        return res.status(200).send();
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete published article
+router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // delete draft in database
+    gDB.query(
+        'DELETE FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
+        [req.params.article_id, req.params.user_id]
+    ).then(results => {
+        return res.status(200).send();
 
     }).catch(err => {
         res.status(500);
