@@ -4577,7 +4577,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
 });
 
 // search article(s)
-router.get('/news', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
     // set limit and offset
     let limit = 50;
     let offset = 0;
@@ -4585,6 +4585,7 @@ router.get('/news', custom_utils.allowedScopes(['read:articles', 'read:articles:
     let pass_offset = req.query.offset;
     const location_id = req.query.locationID;
     const category_id = req.query.categoryID;
+    let search = req.query.search;
     const invalid_inputs = [];
 
     // check if query location ID is provided
@@ -4691,7 +4692,7 @@ router.get('/news', custom_utils.allowedScopes(['read:articles', 'read:articles:
                 ['highlight', 'highlight'],
                 ['time', 'time']
             ]);
-            let select_query = 'SELECT articleID AS article_id, ';
+            let select_query = 'SELECT ';
             let select_post = [];
             let count_query = 'SELECT COUNT(*) AS total WHERE ';
             let count_post = [];
@@ -4719,33 +4720,42 @@ router.get('/news', custom_utils.allowedScopes(['read:articles', 'read:articles:
                 });
 
                 if (permitted_field_count < 1) {
-                    select_query = 'SELECT articleID AS article_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
+                    select_query = 'SELECT category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
 
                 } else {
-                    select_query += 'FROM articles ';
+                    select_query += 'FROM news ';
                 }
 
             } else { // no fields selection
-                select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
+                select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
             }
 
-            // user publication
-            select_query += 'WHERE userID = ? ';
-            select_post.push(req.params.user_id);
+            // user location
+            select_query += 'WHERE locationID = ? ';
+            select_post.push(location_id);
 
             // count query
-            count_query += 'WHERE userID = ? ';
-            count_post.push(req.params.user_id);
+            count_query += 'WHERE locationID = ? ';
+            count_post.push(location_id);
 
-            // set the category
+            // category to retrieve or search
             if (category_id) {
                 // category to select
                 select_query += 'AND categoryID = ? ';
-                select_post.push(publication);
+                select_post.push(category_id);
 
-                // coount query
+                // count query
                 count_query += 'AND categoryID = ? ';
-                count_post.push(publication);
+                count_post.push(category_id);
+            }
+
+            // check if user pass in search query
+            if (search) {
+                let temp_search = ' ' + search.toString().trim() + ' ';
+                temp_search = temp_search.replace(/\s+/g, ' % ');
+
+                select_query += `LIKE '${temp_search}' `;
+                count_query += `LIKE '${temp_search}' `;
             }
 
             // last published news should come first
@@ -4805,8 +4815,6 @@ router.get('/news', custom_utils.allowedScopes(['read:articles', 'read:articles:
 
                 return;
             });
-
-            // start here
 
         }).catch(err => {
             res.status(500);
