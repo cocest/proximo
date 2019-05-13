@@ -195,7 +195,7 @@ class Utilities {
         const role = requested_scopes[0].split('.');
 
         // check if privilege(s) should be assign to this client
-        if (allowed_roles.find(elem => elem == role)) {
+        if (!allowed_roles.find(elem => elem == role)) {
             return call({errorCode: 'scope_not_allowed'}, []);
         }
 
