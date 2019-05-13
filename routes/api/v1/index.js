@@ -4754,8 +4754,8 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                 let temp_search = ' ' + search.toString().trim() + ' ';
                 temp_search = temp_search.replace(/\s+/g, ' % ').trim();
 
-                select_query += `LIKE '${temp_search}' `;
-                count_query += `LIKE '${temp_search}' `;
+                select_query += `AND title LIKE '${temp_search}' `;
+                count_query += `AND title LIKE '${temp_search}' `;
             }
 
             // last published news should come first
