@@ -4767,11 +4767,11 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
 
                 } else { // from set preferred location
                     select_query += 'WHERE locationID = ? ';
-                    select_post.push(location_id);
+                    select_post.push(pref_location_id);
 
                     // count query
                     count_query += 'WHERE locationID = ? ';
-                    count_post.push(location_id);
+                    count_post.push(pref_location_id);
                 }
 
                 // check if preferred location is provided and not equal to each other
@@ -4797,7 +4797,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
 
                 // check if user pass in search query
                 if (search) {
-                    let temp_search = ' ' + search.toString().trim() + ' ';
+                    let temp_search = ' ' + decodeURIComponent(search.toString()).trim() + ' ';
                     temp_search = temp_search.replace(/\s+/g, ' % ').trim();
 
                     select_query += `AND title LIKE '${temp_search}' `;
@@ -5099,11 +5099,11 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
 
                 } else { // from set preferred location
                     select_query += 'WHERE locationID = ? ';
-                    select_post.push(location_id);
+                    select_post.push(pref_location_id);
 
                     // count query
                     count_query += 'WHERE locationID = ? ';
-                    count_post.push(location_id);
+                    count_post.push(pref_location_id);
                 }
 
                 // check if preferred location is provided and not equal to each other
@@ -5129,7 +5129,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
 
                 // check if user pass in search query
                 if (search) {
-                    let temp_search = ' ' + search.toString().trim() + ' ';
+                    let temp_search = ' ' + decodeURIComponent(search.toString()).trim() + ' ';
                     temp_search = temp_search.replace(/\s+/g, ' % ').trim();
 
                     select_query += `AND title LIKE '${temp_search}' `;
