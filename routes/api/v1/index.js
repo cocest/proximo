@@ -1811,7 +1811,7 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
             message: "long has to be defined"
         });
 
-    } else if (!/^(\d+.\d+|\d+)$/.test(req.query.lat)) {
+    } else if (!/^(\d+.\d+|\d+)$/.test(req.query.long)) {
         invalid_inputs.push({
             error_code: "invalid_value",
             field: "long",
