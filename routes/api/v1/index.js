@@ -3636,6 +3636,242 @@ router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedS
     });
 });
 
+// delete uploaded media content for news
+router.delete('/users/:user_id/news/:news_id/medias/:media_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if all the pass id in the URL is valid
+    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.news_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.media_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News can't be found"
+            });
+
+            return;
+        }
+
+        // check if media content to delete is still in database
+        gDB.query(
+            'SELECT mediaRelativePath FROM news_media_contents WHERE mediaID = ? LIMIT 1',
+            [req.params.media_id]
+        ).then(results => {
+            // media doesn't exist or has been deleted
+            if (results.length) {
+                return res.status(200).send();
+            }
+
+            // set aws s3 access credentials
+            aws.config.update({
+                apiVersion: '2006-03-01',
+                accessKeyId: gConfig.AWS_ACCESS_ID,
+                secretAccessKey: gConfig.AWS_SECRET_KEY,
+                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+            });
+
+            const s3 = new aws.S3();
+
+            // initialise objects to delete
+            const deleteParam = {
+                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                Delete: {
+                    Objects: [{
+                        Key: results[0].mediaRelativePath
+                    }]
+                }
+            };
+
+            s3.deleteObjects(deleteParam, (err, data) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+
+                }
+                
+                // content deleted successfully
+                return res.status(200).send();
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete uploaded media content for article
+router.delete('/users/:user_id/articles/:article_id/medias/:media_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if all the pass id in the URL is valid
+    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.media_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article can't be found"
+            });
+
+            return;
+        }
+
+        // check if media content to delete is still in database
+        gDB.query(
+            'SELECT mediaRelativePath FROM article_media_contents WHERE mediaID = ? LIMIT 1',
+            [req.params.media_id]
+        ).then(results => {
+            // media doesn't exist or has been deleted
+            if (results.length) {
+                return res.status(200).send();
+            }
+
+            // set aws s3 access credentials
+            aws.config.update({
+                apiVersion: '2006-03-01',
+                accessKeyId: gConfig.AWS_ACCESS_ID,
+                secretAccessKey: gConfig.AWS_SECRET_KEY,
+                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+            });
+
+            const s3 = new aws.S3();
+
+            // initialise objects to delete
+            const deleteParam = {
+                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                Delete: {
+                    Objects: [{
+                        Key: results[0].mediaRelativePath
+                    }]
+                }
+            };
+
+            s3.deleteObjects(deleteParam, (err, data) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+
+                }
+                
+                // content deleted successfully
+                return res.status(200).send();
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // publish article or news save to draft and return the id
 router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
