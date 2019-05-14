@@ -2877,7 +2877,7 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
     ]);
     let select_query = 'SELECT draftID AS draft_id, ';
     let select_post = [];
-    let count_query = 'SELECT COUNT(*) AS total WHERE ';
+    let count_query = 'SELECT COUNT(*) AS total FROM draft WHERE ';
     let count_post = [];
 
     // check if valid and required fields is given
@@ -3972,7 +3972,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     ]);
     let select_query = 'SELECT newsID AS news_id, ';
     let select_post = [];
-    let count_query = 'SELECT COUNT(*) AS total WHERE ';
+    let count_query = 'SELECT COUNT(*) AS total FROM news WHERE ';
     let count_post = [];
 
     // check if valid and required fields is given
@@ -4174,7 +4174,7 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     ]);
     let select_query = 'SELECT articleID AS article_id, ';
     let select_post = [];
-    let count_query = 'SELECT COUNT(*) AS total WHERE ';
+    let count_query = 'SELECT COUNT(*) AS total FROM articles WHERE ';
     let count_post = [];
 
     // check if valid and required fields is given
@@ -4585,6 +4585,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
     let pass_offset = req.query.offset;
     const location_id = req.query.locationID;
     const category_id = req.query.categoryID;
+    const pref_location_id = req.query.prefLocationID;
     let search = req.query.search;
     const invalid_inputs = [];
 
@@ -4596,11 +4597,20 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
             message: "locationID is not provided"
         });
 
-    } else if (location_id && !/^\d+$/.test(location_id)) {
+    } else if (!/^\d+$/.test(location_id)) {
         invalid_inputs.push({
             error_code: "invalid_value",
             field: "locationID",
             message: "locationID value is invalid"
+        });
+    }
+
+    // check if query is defined and valid
+    if (pref_location_id && !/^\d+$/.test(pref_location_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "prefLocationID",
+            message: "prefLocationID value is invalid"
         });
     }
 
@@ -4654,137 +4664,188 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
             });
         }
 
-        //check if category exist
-        gDB.query('SELECT 1 FROM news_categories WHERE categoryID = ? LIMIT 1', [category_id]).then(results => { 
-            if (results.length < 1) {
+        // check if set preferred location id exist if provided
+        gDB.query(
+            'SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1',
+            [pref_location_id ? pref_location_id : 0]
+        ).then(results => {
+            // check if prefLocationID is provided
+            if (pref_location_id && results.length < 1) {
                 invalid_inputs.push({
                     error_code: "invalid_value",
-                    field: "categoryID",
-                    message: "categoryID value is invalid"
+                    field: "prefLocationID",
+                    message: "prefLocationID value is invalid"
                 });
             }
 
-            // check if any input is invalid
-            if (invalid_inputs.length > 0) {
-                // send json error message to client
-                res.status(406);
-                res.json({
-                    error_code: "invalid_query",
-                    errors: invalid_inputs,
-                    message: "Query(s) value is invalid"
-                });
-
-                return;
-            }
-
-            if (pass_limit && pass_limit < limit) {
-                limit = pass_limit;
-            }
-
-            if (pass_offset) {
-                offset = pass_offset;
-            }
-
-            const mappped_field_name = new Map([
-                ['category', 'category'],
-                ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
-                ['title', 'title'],
-                ['highlight', 'highlight'],
-                ['time', 'time']
-            ]);
-            let select_query = 'SELECT ';
-            let select_post = [];
-            let count_query = 'SELECT COUNT(*) AS total WHERE ';
-            let count_post = [];
-
-            // check if valid and required fields is given
-            if (req.query.fields) {
-                // split the provided fields
-                let req_fields = req.query.fields.split(',');
-                let permitted_field_count = 0;
-                let field_already_exist = [];
-                const req_field_count = req_fields.length - 1;
-
-                req_fields.forEach((elem, index) => {
-                    if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                        if (index == req_field_count) {
-                            select_query += `${mappped_field_name.get(elem)} `;
-
-                        } else {
-                            select_query += `${mappped_field_name.get(elem)}, `;
-                        }
-
-                        field_already_exist.push(elem);
-                        permitted_field_count++; // increment by one
-                    }
-                });
-
-                if (permitted_field_count < 1) {
-                    select_query = 'SELECT category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
-
-                } else {
-                    select_query += 'FROM news ';
+            //check if category exist
+            gDB.query('SELECT 1 FROM news_categories WHERE categoryID = ? LIMIT 1', [category_id]).then(results => {
+                if (results.length < 1) {
+                    invalid_inputs.push({
+                        error_code: "invalid_value",
+                        field: "categoryID",
+                        message: "categoryID value is invalid"
+                    });
                 }
 
-            } else { // no fields selection
-                select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
-            }
-
-            // user location
-            select_query += 'WHERE locationID = ? ';
-            select_post.push(location_id);
-
-            // count query
-            count_query += 'WHERE locationID = ? ';
-            count_post.push(location_id);
-
-            // category to retrieve or search
-            if (category_id) {
-                // category to select
-                select_query += 'AND categoryID = ? ';
-                select_post.push(category_id);
-
-                // count query
-                count_query += 'AND categoryID = ? ';
-                count_post.push(category_id);
-            }
-
-            // check if user pass in search query
-            if (search) {
-                let temp_search = ' ' + search.toString().trim() + ' ';
-                temp_search = temp_search.replace(/\s+/g, ' % ').trim();
-
-                select_query += `AND title LIKE '${temp_search}' `;
-                count_query += `AND title LIKE '${temp_search}' `;
-            }
-
-            // last published news should come first
-            select_query += 'ORDER BY time DESC ';
-
-            // set limit and offset
-            select_query += 'LIMIT ? OFFSET ?';
-            select_post.push(limit);
-            select_post.push(offset);
-
-            // get metadata for user's publication
-            gDB.query(count_query, count_post).then(count_results => {
-                // get publication
-                gDB.query(select_query, select_post).then(results => {
-                    // send result to client
-                    res.status(200);
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
                     res.json({
-                        news: results,
-                        metadata: {
-                            result_set: {
-                                count: results.length,
-                                offset: offset,
-                                limit: limit,
-                                total: count_results[0].total
-                            }
-                        }
+                        error_code: "invalid_query",
+                        errors: invalid_inputs,
+                        message: "Query(s) value is invalid"
                     });
 
                     return;
+                }
+
+                if (pass_limit && pass_limit < limit) {
+                    limit = pass_limit;
+                }
+
+                if (pass_offset) {
+                    offset = pass_offset;
+                }
+
+                const mappped_field_name = new Map([
+                    ['category', 'category'],
+                    ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
+                    ['title', 'title'],
+                    ['highlight', 'highlight'],
+                    ['time', 'time']
+                ]);
+                let select_query = 'SELECT newsID AS news_id, ';
+                let select_post = [];
+                let count_query = 'SELECT COUNT(*) AS total FROM news ';
+                let count_post = [];
+
+                // check if valid and required fields is given
+                if (req.query.fields) {
+                    // split the provided fields
+                    let req_fields = req.query.fields.split(',');
+                    let permitted_field_count = 0;
+                    let field_already_exist = [];
+                    const req_field_count = req_fields.length - 1;
+
+                    req_fields.forEach((elem, index) => {
+                        if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                            if (index == req_field_count) {
+                                select_query += `${mappped_field_name.get(elem)} `;
+
+                            } else {
+                                select_query += `${mappped_field_name.get(elem)}, `;
+                            }
+
+                            field_already_exist.push(elem);
+                            permitted_field_count++; // increment by one
+                        }
+                    });
+
+                    if (permitted_field_count < 1) {
+                        select_query = 'SELECT newsID AS news_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
+
+                    } else {
+                        select_query += 'FROM news ';
+                    }
+
+                } else { // no fields selection
+                    select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
+                }
+
+                // from all published location
+                if (!pref_location_id) {
+                    select_query += 'WHERE (locationID = ? OR restrictedToLocation = ?) ';
+                    select_post.push(location_id);
+                    select_post.push(0);
+
+                    // count query
+                    count_query += 'WHERE (locationID = ? OR restrictedToLocation = ?) ';
+                    count_post.push(location_id);
+                    count_post.push(0);
+
+                } else { // from set preferred location
+                    select_query += 'WHERE locationID = ? ';
+                    select_post.push(location_id);
+
+                    // count query
+                    count_query += 'WHERE locationID = ? ';
+                    count_post.push(location_id);
+                }
+
+                // check if preferred location is provided and not equal to each other
+                if (pref_location_id && location_id != pref_location_id) {
+                    select_query += 'AND restrictedToLocation = ? ';
+                    select_post.push(0);
+
+                    // count query
+                    count_query += 'AND restrictedToLocation = ? ';
+                    count_post.push(0);
+                }
+
+                // category to retrieve or search
+                if (category_id) {
+                    // category to select
+                    select_query += 'AND categoryID = ? ';
+                    select_post.push(category_id);
+
+                    // count query
+                    count_query += 'AND categoryID = ? ';
+                    count_post.push(category_id);
+                }
+
+                // check if user pass in search query
+                if (search) {
+                    let temp_search = ' ' + search.toString().trim() + ' ';
+                    temp_search = temp_search.replace(/\s+/g, ' % ').trim();
+
+                    select_query += `AND title LIKE '${temp_search}' `;
+                    count_query += `AND title LIKE '${temp_search}' `;
+                }
+
+                // last published news should come first
+                select_query += 'ORDER BY time DESC ';
+
+                // set limit and offset
+                select_query += 'LIMIT ? OFFSET ?';
+                select_post.push(limit);
+                select_post.push(offset);
+
+                // get metadata for user's publication
+                gDB.query(count_query, count_post).then(count_results => {
+                    // get publication
+                    gDB.query(select_query, select_post).then(results => {
+                        // send result to client
+                        res.status(200);
+                        res.json({
+                            news: results,
+                            metadata: {
+                                result_set: {
+                                    count: results.length,
+                                    offset: offset,
+                                    limit: limit,
+                                    total: count_results[0].total
+                                }
+                            }
+                        });
+
+                        return;
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
 
                 }).catch(err => {
                     res.status(500);
@@ -4856,6 +4917,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
     let pass_offset = req.query.offset;
     const location_id = req.query.locationID;
     const category_id = req.query.categoryID;
+    const pref_location_id = req.query.prefLocationID;
     let search = req.query.search;
     const invalid_inputs = [];
 
@@ -4867,11 +4929,20 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
             message: "locationID is not provided"
         });
 
-    } else if (location_id && !/^\d+$/.test(location_id)) {
+    } else if (!/^\d+$/.test(location_id)) {
         invalid_inputs.push({
             error_code: "invalid_value",
             field: "locationID",
             message: "locationID value is invalid"
+        });
+    }
+
+    // check if query is defined and valid
+    if (pref_location_id && !/^\d+$/.test(pref_location_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "prefLocationID",
+            message: "prefLocationID value is invalid"
         });
     }
 
@@ -4925,137 +4996,188 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
             });
         }
 
-        //check if category exist
-        gDB.query('SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1', [category_id]).then(results => { 
-            if (results.length < 1) {
+        // check if set preferred location id exist if provided
+        gDB.query(
+            'SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1',
+            [pref_location_id ? pref_location_id : 0]
+        ).then(results => {
+            // check if prefLocationID is provided
+            if (pref_location_id && results.length < 1) {
                 invalid_inputs.push({
                     error_code: "invalid_value",
-                    field: "categoryID",
-                    message: "categoryID value is invalid"
+                    field: "prefLocationID",
+                    message: "prefLocationID value is invalid"
                 });
             }
 
-            // check if any input is invalid
-            if (invalid_inputs.length > 0) {
-                // send json error message to client
-                res.status(406);
-                res.json({
-                    error_code: "invalid_query",
-                    errors: invalid_inputs,
-                    message: "Query(s) value is invalid"
-                });
-
-                return;
-            }
-
-            if (pass_limit && pass_limit < limit) {
-                limit = pass_limit;
-            }
-
-            if (pass_offset) {
-                offset = pass_offset;
-            }
-
-            const mappped_field_name = new Map([
-                ['category', 'category'],
-                ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
-                ['title', 'title'],
-                ['highlight', 'highlight'],
-                ['time', 'time']
-            ]);
-            let select_query = 'SELECT ';
-            let select_post = [];
-            let count_query = 'SELECT COUNT(*) AS total WHERE ';
-            let count_post = [];
-
-            // check if valid and required fields is given
-            if (req.query.fields) {
-                // split the provided fields
-                let req_fields = req.query.fields.split(',');
-                let permitted_field_count = 0;
-                let field_already_exist = [];
-                const req_field_count = req_fields.length - 1;
-
-                req_fields.forEach((elem, index) => {
-                    if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                        if (index == req_field_count) {
-                            select_query += `${mappped_field_name.get(elem)} `;
-
-                        } else {
-                            select_query += `${mappped_field_name.get(elem)}, `;
-                        }
-
-                        field_already_exist.push(elem);
-                        permitted_field_count++; // increment by one
-                    }
-                });
-
-                if (permitted_field_count < 1) {
-                    select_query = 'SELECT category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
-
-                } else {
-                    select_query += 'FROM articles ';
+            //check if category exist
+            gDB.query('SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1', [category_id]).then(results => {
+                if (results.length < 1) {
+                    invalid_inputs.push({
+                        error_code: "invalid_value",
+                        field: "categoryID",
+                        message: "categoryID value is invalid"
+                    });
                 }
 
-            } else { // no fields selection
-                select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
-            }
-
-            // user location
-            select_query += 'WHERE locationID = ? ';
-            select_post.push(location_id);
-
-            // count query
-            count_query += 'WHERE locationID = ? ';
-            count_post.push(location_id);
-
-            // category to retrieve or search
-            if (category_id) {
-                // category to select
-                select_query += 'AND categoryID = ? ';
-                select_post.push(category_id);
-
-                // count query
-                count_query += 'AND categoryID = ? ';
-                count_post.push(category_id);
-            }
-
-            // check if user pass in search query
-            if (search) {
-                let temp_search = ' ' + search.toString().trim() + ' ';
-                temp_search = temp_search.replace(/\s+/g, ' % ').trim();
-
-                select_query += `AND title LIKE '${temp_search}' `;
-                count_query += `AND title LIKE '${temp_search}' `;
-            }
-
-            // last published news should come first
-            select_query += 'ORDER BY time DESC ';
-
-            // set limit and offset
-            select_query += 'LIMIT ? OFFSET ?';
-            select_post.push(limit);
-            select_post.push(offset);
-
-            // get metadata for user's publication
-            gDB.query(count_query, count_post).then(count_results => {
-                // get publication
-                gDB.query(select_query, select_post).then(results => {
-                    // send result to client
-                    res.status(200);
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
                     res.json({
-                        articles: results,
-                        metadata: {
-                            result_set: {
-                                count: results.length,
-                                offset: offset,
-                                limit: limit,
-                                total: count_results[0].total
-                            }
-                        }
+                        error_code: "invalid_query",
+                        errors: invalid_inputs,
+                        message: "Query(s) value is invalid"
                     });
 
                     return;
+                }
+
+                if (pass_limit && pass_limit < limit) {
+                    limit = pass_limit;
+                }
+
+                if (pass_offset) {
+                    offset = pass_offset;
+                }
+
+                const mappped_field_name = new Map([
+                    ['category', 'category'],
+                    ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
+                    ['title', 'title'],
+                    ['highlight', 'highlight'],
+                    ['time', 'time']
+                ]);
+                let select_query = 'SELECT articleID AS article_id, ';
+                let select_post = [];
+                let count_query = 'SELECT COUNT(*) AS total FROM articles ';
+                let count_post = [];
+
+                // check if valid and required fields is given
+                if (req.query.fields) {
+                    // split the provided fields
+                    let req_fields = req.query.fields.split(',');
+                    let permitted_field_count = 0;
+                    let field_already_exist = [];
+                    const req_field_count = req_fields.length - 1;
+
+                    req_fields.forEach((elem, index) => {
+                        if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                            if (index == req_field_count) {
+                                select_query += `${mappped_field_name.get(elem)} `;
+
+                            } else {
+                                select_query += `${mappped_field_name.get(elem)}, `;
+                            }
+
+                            field_already_exist.push(elem);
+                            permitted_field_count++; // increment by one
+                        }
+                    });
+
+                    if (permitted_field_count < 1) {
+                        select_query = 'SELECT articleID AS article_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
+
+                    } else {
+                        select_query += 'FROM articles ';
+                    }
+
+                } else { // no fields selection
+                    select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
+                }
+
+                // from all published location
+                if (!pref_location_id) {
+                    select_query += 'WHERE (locationID = ? OR restrictedToLocation = ?) ';
+                    select_post.push(location_id);
+                    select_post.push(0);
+
+                    // count query
+                    count_query += 'WHERE (locationID = ? OR restrictedToLocation = ?) ';
+                    count_post.push(location_id);
+                    count_post.push(0);
+
+                } else { // from set preferred location
+                    select_query += 'WHERE locationID = ? ';
+                    select_post.push(location_id);
+
+                    // count query
+                    count_query += 'WHERE locationID = ? ';
+                    count_post.push(location_id);
+                }
+
+                // check if preferred location is provided and not equal to each other
+                if (pref_location_id && location_id != pref_location_id) {
+                    select_query += 'AND restrictedToLocation = ? ';
+                    select_post.push(0);
+
+                    // count query
+                    count_query += 'AND restrictedToLocation = ? ';
+                    count_post.push(0);
+                }
+
+                // category to retrieve or search
+                if (category_id) {
+                    // category to select
+                    select_query += 'AND categoryID = ? ';
+                    select_post.push(category_id);
+
+                    // count query
+                    count_query += 'AND categoryID = ? ';
+                    count_post.push(category_id);
+                }
+
+                // check if user pass in search query
+                if (search) {
+                    let temp_search = ' ' + search.toString().trim() + ' ';
+                    temp_search = temp_search.replace(/\s+/g, ' % ').trim();
+
+                    select_query += `AND title LIKE '${temp_search}' `;
+                    count_query += `AND title LIKE '${temp_search}' `;
+                }
+
+                // last published news should come first
+                select_query += 'ORDER BY time DESC ';
+
+                // set limit and offset
+                select_query += 'LIMIT ? OFFSET ?';
+                select_post.push(limit);
+                select_post.push(offset);
+
+                // get metadata for user's publication
+                gDB.query(count_query, count_post).then(count_results => {
+                    // get publication
+                    gDB.query(select_query, select_post).then(results => {
+                        // send result to client
+                        res.status(200);
+                        res.json({
+                            articles: results,
+                            metadata: {
+                                result_set: {
+                                    count: results.length,
+                                    offset: offset,
+                                    limit: limit,
+                                    total: count_results[0].total
+                                }
+                            }
+                        });
+
+                        return;
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
 
                 }).catch(err => {
                     res.status(500);
