@@ -3081,7 +3081,7 @@ router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users
 });
 
 // upload media contents for an news
-router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes(['read:users']), (req, res) => {
+router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if user and article id is integer
     if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.news_id))) {
         res.status(400);
@@ -3359,7 +3359,7 @@ router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes([
 });
 
 // upload media contents for an article
-router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedScopes(['read:users']), (req, res) => {
+router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if user and article id is integer
     if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id))) {
         res.status(400);
