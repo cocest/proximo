@@ -3678,7 +3678,7 @@ router.delete('/users/:user_id/news/:news_id/medias/:media_id', custom_utils.all
             [req.params.media_id]
         ).then(results => {
             // media doesn't exist or has been deleted
-            if (results.length) {
+            if (results.length < 1) {
                 return res.status(200).send();
             }
 
@@ -3718,9 +3718,29 @@ router.delete('/users/:user_id/news/:news_id/medias/:media_id', custom_utils.all
                     return;
 
                 }
-                
-                // content deleted successfully
-                return res.status(200).send();
+
+                // remove media content from database
+                gDB.query(
+                    'DELETE FROM news_media_contents WHERE newsID = ? AND userID = ? AND mediaID = ?', 
+                    [req.params.news_id, req.params.user_id, req.params.media_id]
+                ).then(results => {
+                    // content deleted successfully
+                    return res.status(200).send();
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
             });
 
         }).catch(err => {
@@ -3796,7 +3816,7 @@ router.delete('/users/:user_id/articles/:article_id/medias/:media_id', custom_ut
             [req.params.media_id]
         ).then(results => {
             // media doesn't exist or has been deleted
-            if (results.length) {
+            if (results.length < 1) {
                 return res.status(200).send();
             }
 
@@ -3836,9 +3856,29 @@ router.delete('/users/:user_id/articles/:article_id/medias/:media_id', custom_ut
                     return;
 
                 }
-                
-                // content deleted successfully
-                return res.status(200).send();
+
+                // remove media content from database
+                gDB.query(
+                    'DELETE FROM article_media_contents WHERE articleID = ? AND userID = ? AND mediaID = ?', 
+                    [req.params.article_id, req.params.user_id, req.params.media_id]
+                ).then(results => {
+                    // content deleted successfully
+                    return res.status(200).send();
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
             });
 
         }).catch(err => {
