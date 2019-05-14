@@ -1283,7 +1283,7 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
 });
 
 // get user's profile pictures
-router.get('/users/:user_id/profile/picture', custom_utils.allowedScopes(['read:user']), (req, res) => {
+router.get('/users/:user_id/profile/picture', custom_utils.allowedScopes(['read:users']), (req, res) => {
     // check if user id is integer
     if (!/^\d+$/.test(req.params.user_id)) {
         res.status(400);
