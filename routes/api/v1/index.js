@@ -5552,8 +5552,8 @@ router.post('/news/:news_id/likes', custom_utils.allowedScopes(['write:users']),
         ).then(results => {
             // add user to like table
             gDB.query(
-                'IF NOT EXISTS (SELECT * FROM news_likes WHERE newsID = ? AND userID = ?) ' + 
-                'BEGIN INSERT INTO news_likes (newsID, userID) VALUES (?, ?) END', 
+                'IF NOT EXISTS (SELECT * FROM news_likes WHERE newsID = ? AND userID = ?) ' +
+                'BEGIN INSERT INTO news_likes (newsID, userID) VALUES (?, ?) END',
                 [req.params.news_id, user_id, req.params.news_id, user_id]
             ).then(results => {
                 return res.status(200).send();
@@ -5640,8 +5640,8 @@ router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['write:us
         ).then(results => {
             // add user to like table
             gDB.query(
-                'IF NOT EXISTS (SELECT * FROM article_likes WHERE articleID = ? AND userID = ?) ' + 
-                'BEGIN INSERT INTO article_likes (articleID, userID) VALUES (?, ?) END', 
+                'IF NOT EXISTS (SELECT * FROM article_likes WHERE articleID = ? AND userID = ?) ' +
+                'BEGIN INSERT INTO article_likes (articleID, userID) VALUES (?, ?) END',
                 [req.params.article_id, user_id, req.params.article_id, user_id]
             ).then(results => {
                 return res.status(200).send();
@@ -5727,7 +5727,21 @@ router.delete('/news/:news_id/like', custom_utils.allowedScopes(['write:users'])
             [req.params.news_id, user_id]
         ).then(results => {
             res.status(200).send();
-        })
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
 
     }).catch(err => {
         res.status(500);
@@ -5780,7 +5794,21 @@ router.delete('/articles/:article_id/like', custom_utils.allowedScopes(['write:u
             [req.params.article_id, user_id]
         ).then(results => {
             res.status(200).send();
-        })
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
 
     }).catch(err => {
         res.status(500);
@@ -5798,8 +5826,174 @@ router.delete('/articles/:article_id/like', custom_utils.allowedScopes(['write:u
     });
 });
 
-router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
-    //
+// get like metadata information for news
+router.head('/news/:news_id/likes', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.news_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // retrieve metadata information
+        gDB.query(
+            'SELECT COUNT(*) AS total FROM news_likes WHERE newsID = ?',
+            [req.params.news_id]
+        ).then(count_results => {
+            // check if user have like this news
+            gDB.query(
+                'SELECT 1 FROM news_likes WHERE newsID = ? AND userID = ? LIMIT 1', 
+                [req.params.news_id, user_id]
+            ).then(results => {
+                // send result to client
+                res.status(200);
+                res.json({
+                    metadata: {
+                        total: count_results[0].total,
+                        user_reaction: {
+                            liked: results.length > 0 ? 1 : 0
+                        }
+                    }
+                });
+
+                return;
+
+            })
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get like metadata information for article
+router.head('/articles/:article_id/likes', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.article_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article doesn't exist"
+            });
+
+            return;
+        }
+
+        // retrieve metadata information
+        gDB.query(
+            'SELECT COUNT(*) AS total FROM article_likes WHERE articleID = ?',
+            [req.params.news_id]
+        ).then(count_results => {
+            // check if user have like this article
+            gDB.query(
+                'SELECT 1 FROM article_likes WHERE articleID = ? AND userID = ? LIMIT 1', 
+                [req.params.news_id, user_id]
+            ).then(results => {
+                // send result to client
+                res.status(200);
+                res.json({
+                    metadata: {
+                        total: count_results[0].total,
+                        user_reaction: {
+                            liked: results.length > 0 ? 1 : 0
+                        }
+                    }
+                });
+
+                return;
+
+            })
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 // post comment for an article
