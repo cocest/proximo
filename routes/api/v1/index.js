@@ -5996,6 +5996,487 @@ router.head('/articles/:article_id/likes', custom_utils.allowedScopes(['read:use
     });
 });
 
+// start here
+// dislike published news
+router.post('/news/:news_id/dislikes', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.news_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if user has like this news and delete user like
+        gDB.query(
+            'DELETE FROM news_likes WHERE newsID = ? AND userID = ? LIMIT 1',
+            [req.params.news_id, user_id]
+        ).then(results => {
+            // add user to dislike table
+            gDB.query(
+                'IF NOT EXISTS (SELECT * FROM news_dislikes WHERE newsID = ? AND userID = ?) ' +
+                'BEGIN INSERT INTO news_dislikes (newsID, userID) VALUES (?, ?) END',
+                [req.params.news_id, user_id, req.params.news_id, user_id]
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// dislike published article
+router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.article_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if user has like this news and delete user like
+        gDB.query(
+            'DELETE FROM article_likes WHERE articleID = ? AND userID = ? LIMIT 1',
+            [req.params.article_id, user_id]
+        ).then(results => {
+            // add user to dislike table
+            gDB.query(
+                'IF NOT EXISTS (SELECT * FROM article_dislikes WHERE articleID = ? AND userID = ?) ' +
+                'BEGIN INSERT INTO article_dislikes (articleID, userID) VALUES (?, ?) END',
+                [req.params.article_id, user_id, req.params.article_id, user_id]
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+//undo dislike for published news
+router.delete('/news/:news_id/dislike', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.news_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // undo user dislike
+        gDB.query(
+            'DELETE FROM news_dislikes WHERE newsID = ? AND userID = ? LIMIT 1',
+            [req.params.news_id, user_id]
+        ).then(results => {
+            res.status(200).send();
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+//undo dislike for published article
+router.delete('/articles/:article_id/dislike', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.article_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article doesn't exist"
+            });
+
+            return;
+        }
+
+        // undo user dislike
+        gDB.query(
+            'DELETE FROM article_dislikes WHERE articleID = ? AND userID = ? LIMIT 1',
+            [req.params.article_id, user_id]
+        ).then(results => {
+            res.status(200).send();
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get dislike metadata information for news
+router.head('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.news_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // retrieve metadata information
+        gDB.query(
+            'SELECT COUNT(*) AS total FROM news_dislikes WHERE newsID = ?',
+            [req.params.news_id]
+        ).then(count_results => {
+            // check if user have dislike this news
+            gDB.query(
+                'SELECT 1 FROM news_dislikes WHERE newsID = ? AND userID = ? LIMIT 1', 
+                [req.params.news_id, user_id]
+            ).then(results => {
+                // send result to client
+                res.status(200);
+                res.json({
+                    metadata: {
+                        total: count_results[0].total,
+                        user_reaction: {
+                            disliked: results.length > 0 ? 1 : 0
+                        }
+                    }
+                });
+
+                return;
+
+            })
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get dislike metadata information for article
+router.head('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.article_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article doesn't exist"
+            });
+
+            return;
+        }
+
+        // retrieve metadata information
+        gDB.query(
+            'SELECT COUNT(*) AS total FROM article_dislikes WHERE articleID = ?',
+            [req.params.news_id]
+        ).then(count_results => {
+            // check if user have dislike this article
+            gDB.query(
+                'SELECT 1 FROM article_dislikes WHERE articleID = ? AND userID = ? LIMIT 1', 
+                [req.params.news_id, user_id]
+            ).then(results => {
+                // send result to client
+                res.status(200);
+                res.json({
+                    metadata: {
+                        total: count_results[0].total,
+                        user_reaction: {
+                            disliked: results.length > 0 ? 1 : 0
+                        }
+                    }
+                });
+
+                return;
+
+            })
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // post comment for an article
 router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
     // check if user id is integer
