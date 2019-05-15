@@ -3080,7 +3080,7 @@ router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users
     });
 });
 
-// upload media contents for an news
+// upload media contents for news
 router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if user and article id is integer
     if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.news_id))) {
@@ -3267,7 +3267,6 @@ router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes([
                         if (data) { // file uploaded successfully
                             // generate sixten digit unique id
                             const image_id = rand_token.generate(16);
-                            const parse_url = url_parse(data.Location, true);
 
                             // save file metadata and location to database
                             gDB.query(
@@ -3287,22 +3286,23 @@ router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes([
                                 res.status(200);
                                 res.json({
                                     image_id: image_id,
-                                    images: [{
-                                        url: data.Location,
-                                        size: 'big'
-                                    },
-                                    {
-                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/news/images/medium/' + object_unique_name,
-                                        size: 'medium'
-                                    },
-                                    {
-                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/news/images/small/' + object_unique_name,
-                                        size: 'small'
-                                    },
-                                    {
-                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/news/images/tiny/' + object_unique_name,
-                                        size: 'tiny'
-                                    }
+                                    images: [
+                                        {
+                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/big/' + object_unique_name,
+                                            size: 'big'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/medium/' + object_unique_name,
+                                            size: 'medium'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/small/' + object_unique_name,
+                                            size: 'small'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/tiny/' + object_unique_name,
+                                            size: 'tiny'
+                                        }
                                     ]
                                 });
 
@@ -3545,7 +3545,6 @@ router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedS
                         if (data) { // file uploaded successfully
                             // generate sixten digit unique id
                             const image_id = rand_token.generate(16);
-                            const parse_url = url_parse(data.Location, true);
 
                             // save file metadata and location to database
                             gDB.query(
@@ -3565,22 +3564,23 @@ router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedS
                                 res.status(200);
                                 res.json({
                                     image_id: image_id,
-                                    images: [{
-                                        url: data.Location,
-                                        size: 'big'
-                                    },
-                                    {
-                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/medium/' + object_unique_name,
-                                        size: 'medium'
-                                    },
-                                    {
-                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/small/' + object_unique_name,
-                                        size: 'small'
-                                    },
-                                    {
-                                        url: parse_url.origin + '/' + gConfig.AWS_S3_BUCKET_NAME + '/article/images/tiny/' + object_unique_name,
-                                        size: 'tiny'
-                                    }
+                                    images: [
+                                        {
+                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/article/images/big/' + object_unique_name,
+                                            size: 'big'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/article/images/medium/' + object_unique_name,
+                                            size: 'medium'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/article/images/small/' + object_unique_name,
+                                            size: 'small'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/article/images/tiny/' + object_unique_name,
+                                            size: 'tiny'
+                                        }
                                     ]
                                 });
 
@@ -3721,7 +3721,7 @@ router.delete('/users/:user_id/news/:news_id/medias/:media_id', custom_utils.all
 
                 // remove media content from database
                 gDB.query(
-                    'DELETE FROM news_media_contents WHERE newsID = ? AND userID = ? AND mediaID = ?', 
+                    'DELETE FROM news_media_contents WHERE newsID = ? AND userID = ? AND mediaID = ?',
                     [req.params.news_id, req.params.user_id, req.params.media_id]
                 ).then(results => {
                     // content deleted successfully
@@ -3859,7 +3859,7 @@ router.delete('/users/:user_id/articles/:article_id/medias/:media_id', custom_ut
 
                 // remove media content from database
                 gDB.query(
-                    'DELETE FROM article_media_contents WHERE articleID = ? AND userID = ? AND mediaID = ?', 
+                    'DELETE FROM article_media_contents WHERE articleID = ? AND userID = ? AND mediaID = ?',
                     [req.params.article_id, req.params.user_id, req.params.media_id]
                 ).then(results => {
                     // content deleted successfully
