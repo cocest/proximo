@@ -5516,6 +5516,190 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
     });
 });
 
+// like published news
+router.post('/news/:news_id/likes', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.news_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if user has dislike this news and delete user dislike
+        gDB.query(
+            'DELETE FROM news_dislikes WHERE newsID = ? AND userID = ? LIMIT 1',
+            [req.params.news_id, user_id]
+        ).then(results => {
+            // add user to like table
+            gDB.query(
+                'IF NOT EXISTS (SELECT * FROM news_likes WHERE newsID = ? AND userID = ?) ' + 
+                'BEGIN INSERT INTO news_likes (newsID, userID) VALUES (?, ?) END', 
+                [req.params.news_id, user_id, req.params.news_id, user_id]
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// like published news
+router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.article_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if user has dislike this news and delete user dislike
+        gDB.query(
+            'DELETE FROM article_dislikes WHERE articleID = ? AND userID = ? LIMIT 1',
+            [req.params.article_id, user_id]
+        ).then(results => {
+            // add user to like table
+            gDB.query(
+                'IF NOT EXISTS (SELECT * FROM article_likes WHERE articleID = ? AND userID = ?) ' + 
+                'BEGIN INSERT INTO article_likes (articleID, userID) VALUES (?, ?) END', 
+                [req.params.article_id, user_id, req.params.article_id, user_id]
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    //
+});
+
+router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+    //
+});
+
 // post comment for an article
 router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
     // check if user id is integer
@@ -6262,23 +6446,6 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
 
         return;
     });
-});
-
-router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
-    //
-});
-
-router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
-    //
-});
-
-router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
-    //
-});
-
-router.get('/hellos', custom_utils.allowedScopes(['read:hellos:all']), (req, res) => {
-    res.status(200);
-    res.send('Welcome you all to REST API version 1');
 });
 
 router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read:hellos:all']), (req, res) => {
