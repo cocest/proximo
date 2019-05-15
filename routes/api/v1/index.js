@@ -5604,7 +5604,7 @@ router.post('/news/:news_id/likes', custom_utils.allowedScopes(['write:users']),
     });
 });
 
-// like published news
+// like published article
 router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.article_id)) {
@@ -5692,8 +5692,110 @@ router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['write:us
     });
 });
 
-router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
-    //
+//undo like for published news
+router.delete('/news/:news_id/like', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.news_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // undo user like
+        gDB.query(
+            'DELETE FROM news_likes WHERE newsID = ? AND userID = ? LIMIT 1',
+            [req.params.news_id, user_id]
+        ).then(results => {
+            res.status(200).send();
+        })
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+//undo like for published article
+router.delete('/articles/:article_id/like', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if id is valid
+    if (!/^\d+$/.test(req.params.article_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // get user ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article doesn't exist"
+            });
+
+            return;
+        }
+
+        // undo user like
+        gDB.query(
+            'DELETE FROM article_likes WHERE articleID = ? AND userID = ? LIMIT 1',
+            [req.params.article_id, user_id]
+        ).then(results => {
+            res.status(200).send();
+        })
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
