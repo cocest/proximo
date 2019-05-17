@@ -5517,7 +5517,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
 });
 
 // like published news
-router.post('/news/:news_id/likes', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.post('/news/:news_id/likes', custom_utils.allowedScopes(['write:news', 'write:news:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.news_id)) {
         res.status(400);
@@ -5605,7 +5605,7 @@ router.post('/news/:news_id/likes', custom_utils.allowedScopes(['write:users']),
 });
 
 // like published article
-router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['write:article', 'write:article:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.article_id)) {
         res.status(400);
@@ -5693,7 +5693,7 @@ router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['write:us
 });
 
 //undo like for published news
-router.delete('/news/:news_id/like', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.delete('/news/:news_id/like', custom_utils.allowedScopes(['write:news', 'write:news:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.news_id)) {
         res.status(400);
@@ -5760,7 +5760,7 @@ router.delete('/news/:news_id/like', custom_utils.allowedScopes(['write:users'])
 });
 
 //undo like for published article
-router.delete('/articles/:article_id/like', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.delete('/articles/:article_id/like', custom_utils.allowedScopes(['write:article', 'write:article:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.article_id)) {
         res.status(400);
@@ -5827,7 +5827,7 @@ router.delete('/articles/:article_id/like', custom_utils.allowedScopes(['write:u
 });
 
 // get like metadata information for news
-router.head('/news/:news_id/likes', custom_utils.allowedScopes(['read:users']), (req, res) => {
+router.head('/news/:news_id/likes', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.news_id)) {
         res.status(400);
@@ -5862,7 +5862,7 @@ router.head('/news/:news_id/likes', custom_utils.allowedScopes(['read:users']), 
         ).then(count_results => {
             // check if user have like this news
             gDB.query(
-                'SELECT 1 FROM news_likes WHERE newsID = ? AND userID = ? LIMIT 1', 
+                'SELECT 1 FROM news_likes WHERE newsID = ? AND userID = ? LIMIT 1',
                 [req.params.news_id, user_id]
             ).then(results => {
                 // send result to client
@@ -5912,7 +5912,7 @@ router.head('/news/:news_id/likes', custom_utils.allowedScopes(['read:users']), 
 });
 
 // get like metadata information for article
-router.head('/articles/:article_id/likes', custom_utils.allowedScopes(['read:users']), (req, res) => {
+router.head('/articles/:article_id/likes', custom_utils.allowedScopes(['read:article', 'read:article:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.article_id)) {
         res.status(400);
@@ -5947,7 +5947,7 @@ router.head('/articles/:article_id/likes', custom_utils.allowedScopes(['read:use
         ).then(count_results => {
             // check if user have like this article
             gDB.query(
-                'SELECT 1 FROM article_likes WHERE articleID = ? AND userID = ? LIMIT 1', 
+                'SELECT 1 FROM article_likes WHERE articleID = ? AND userID = ? LIMIT 1',
                 [req.params.news_id, user_id]
             ).then(results => {
                 // send result to client
@@ -5996,9 +5996,8 @@ router.head('/articles/:article_id/likes', custom_utils.allowedScopes(['read:use
     });
 });
 
-// start here
 // dislike published news
-router.post('/news/:news_id/dislikes', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.post('/news/:news_id/dislikes', custom_utils.allowedScopes(['write:news', 'write:news:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.news_id)) {
         res.status(400);
@@ -6086,7 +6085,7 @@ router.post('/news/:news_id/dislikes', custom_utils.allowedScopes(['write:users'
 });
 
 // dislike published article
-router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['write:article', 'write:article:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.article_id)) {
         res.status(400);
@@ -6174,7 +6173,7 @@ router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['write
 });
 
 //undo dislike for published news
-router.delete('/news/:news_id/dislike', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.delete('/news/:news_id/dislike', custom_utils.allowedScopes(['write:news', 'write:news:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.news_id)) {
         res.status(400);
@@ -6241,7 +6240,7 @@ router.delete('/news/:news_id/dislike', custom_utils.allowedScopes(['write:users
 });
 
 //undo dislike for published article
-router.delete('/articles/:article_id/dislike', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.delete('/articles/:article_id/dislike', custom_utils.allowedScopes(['write:article', 'write:article:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.article_id)) {
         res.status(400);
@@ -6308,7 +6307,7 @@ router.delete('/articles/:article_id/dislike', custom_utils.allowedScopes(['writ
 });
 
 // get dislike metadata information for news
-router.head('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:users']), (req, res) => {
+router.head('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.news_id)) {
         res.status(400);
@@ -6343,7 +6342,7 @@ router.head('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:users']
         ).then(count_results => {
             // check if user have dislike this news
             gDB.query(
-                'SELECT 1 FROM news_dislikes WHERE newsID = ? AND userID = ? LIMIT 1', 
+                'SELECT 1 FROM news_dislikes WHERE newsID = ? AND userID = ? LIMIT 1',
                 [req.params.news_id, user_id]
             ).then(results => {
                 // send result to client
@@ -6393,7 +6392,7 @@ router.head('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:users']
 });
 
 // get dislike metadata information for article
-router.head('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:users']), (req, res) => {
+router.head('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:article', 'read:article:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.article_id)) {
         res.status(400);
@@ -6424,12 +6423,12 @@ router.head('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:
         // retrieve metadata information
         gDB.query(
             'SELECT COUNT(*) AS total FROM article_dislikes WHERE articleID = ?',
-            [req.params.news_id]
+            [req.params.article_id]
         ).then(count_results => {
             // check if user have dislike this article
             gDB.query(
-                'SELECT 1 FROM article_dislikes WHERE articleID = ? AND userID = ? LIMIT 1', 
-                [req.params.news_id, user_id]
+                'SELECT 1 FROM article_dislikes WHERE articleID = ? AND userID = ? LIMIT 1',
+                [req.params.article_id, user_id]
             ).then(results => {
                 // send result to client
                 res.status(200);
@@ -6477,8 +6476,144 @@ router.head('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:
     });
 });
 
+// post comment for a news
+router.post('/news/:news_id/comments', custom_utils.allowedScopes(['write:news', 'write:news:all']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.news_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if some field contain valid data
+        const invalid_inputs = [];
+
+        if (!req.body.comment) {
+            invalid_inputs.push({
+                error_code: "undefined_data",
+                field: "comment",
+                message: "comment has to be defined"
+            });
+
+        } else if (!(typeof req.body.comment == 'string' && req.body.comment.trim().length > 0)) {
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "comment",
+                message: "comment is not acceptable"
+            });
+
+        } else if (req.body.comment.trim().length > 5000) {
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "comment",
+                message: "comment exceed maximum allowed text"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs,
+                message: "Field(s) value not acceptable"
+            });
+
+            return;
+        }
+
+        // generate sixten digit unique id
+        const comment_id = rand_token.generate(16);
+
+        // insert comment into database
+        gDB.query(
+            'INSERT INTO news_comments (newsID, commentID, userID, ' +
+            'comment) VALUES (?, ?, ?, ?)',
+            [
+                req.params.news_id,
+                comment_id,
+                req.user.access_token.user_id,
+                req.body.comment.trim()
+            ]
+        ).then(results => {
+            res.status(201);
+            res.json({
+                comment_id: comment_id
+            });
+
+            return;
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // post comment for an article
-router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['write:articles', 'write:articles:all']), (req, res) => {
     // check if user id is integer
     if (!/^\d+$/.test(req.params.article_id)) {
         res.status(400);
@@ -6613,6 +6748,86 @@ router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['read:
     });
 });
 
+// get comment for a news
+router.get('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
+    // check if user id is integer and comment id is valid
+    if (!(/^\d+$/.test(req.params.article_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.cmt_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    //get comment from database
+    gDB.query(
+        'SELECT userID, comment, replyCount, time FROM news_comments WHERE newsID = ? AND commentID = ? LIMIT 1',
+        [req.params.news_id, req.params.cmt_id]
+    ).then(cmt_results => {
+        // check if there is result
+        if (cmt_results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Comment can't be found"
+            });
+
+            return;
+        }
+
+        // get user's information that commented
+        gDB.query(
+            'SELECT firstName, lastName, profilePictureSmallURL FROM user WHERE userID = ? LIMIT 1',
+            [cmt_results[0].userID]
+        ).then(results => {
+            // prepare the results
+            res.status(200);
+            res.json({
+                comment: cmt_results[0].comment,
+                reply_count: cmt_results[0].replyCount,
+                time: cmt_results[0].time,
+                user: {
+                    name: results[0].lastName + ' ' + results[0].firstName,
+                    image: {
+                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
+                        size: 'small'
+                    }
+                }
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // get comment for an article
 router.get('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
     // check if user id is integer and comment id is valid
@@ -6660,6 +6875,173 @@ router.get('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(
                         size: 'small'
                     }
                 }
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get all the comment for a news
+router.get('/news/:news_id/comments', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.news_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // set limit and offset
+        let limit = 50;
+        let offset = 0;
+        let pass_limit = req.query.limit;
+        let pass_offset = req.query.offset;
+        const invalid_inputs = [];
+
+        // check if query is valid
+        if (pass_limit && !/^\d+$/.test(pass_limit)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "limit",
+                message: "value must be integer"
+            });
+        }
+
+        if (pass_offset && !/^\d+$/.test(pass_offset)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "offset",
+                message: "value must be integer"
+            });
+        }
+
+        // check if any query is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_query",
+                errors: invalid_inputs,
+                message: "Query(s) value is invalid"
+            });
+
+            return;
+        }
+
+        if (pass_limit && pass_limit < limit) {
+            limit = pass_limit;
+        }
+
+        if (pass_offset) {
+            offset = pass_offset;
+        }
+
+        // get total count of comment with "replyToCommentID" equal to -1
+        gDB.query(
+            'SELECT COUNT(*) AS total FROM news_comments WHERE newsID = ? AND replyToCommentID = ?',
+            [req.params.news_id, -1]
+        ).then(cmt_results => {
+            // get all comment
+            gDB.query(
+                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
+                'FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
+                'AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ? OFFSET ?',
+                [
+                    req.params.news_id,
+                    -1,
+                    limit,
+                    offset
+                ]
+            ).then(results => {
+                let comments = [];
+                for (let i = 0; i < results.length; i++) {
+                    comments.push({
+                        comment: results[i].comment,
+                        id: results[i].commentID,
+                        reply_count: results[i].replyCount,
+                        time: results[i].time,
+                        user: {
+                            name: results[i].lastName + ' ' + results[i].firstName,
+                            image: {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                size: 'small'
+                            }
+                        }
+                    });
+                }
+
+                // send results to client
+                res.status(200);
+                res.json({
+                    comments: comments,
+                    metadata: {
+                        result_set: {
+                            count: results.length,
+                            offset: offset,
+                            limit: limit,
+                            total: cmt_results[0].total
+                        }
+                    }
+                });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
             });
 
         }).catch(err => {
@@ -6799,11 +7181,16 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
                 }
 
                 // send results to client
-                res.status(201);
+                res.status(200);
                 res.json({
                     comments: comments,
-                    summary: {
-                        total_count: cmt_results[0].total
+                    metadata: {
+                        result_set: {
+                            count: results.length,
+                            offset: offset,
+                            limit: limit,
+                            total: cmt_results[0].total
+                        }
                     }
                 });
 
@@ -6855,8 +7242,185 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
     });
 });
 
+// post reply for comment for a news
+router.post('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes(['write:news', 'write:news:all']), (req, res) => {
+    // check if user id is integer and comment id is valid
+    if (!(/^\d+$/.test(req.params.news_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.cmt_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if comment exist
+        gDB.query(
+            'SELECT 1 FROM news_comments WHERE newsID = ? AND commentID = ? LIMIT 1',
+            [req.params.news_id, req.params.cmt_id]
+        ).then(results => {
+            if (results.length < 1) {
+                // article doesn't exist
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Comment doesn't exist"
+                });
+
+                return;
+            }
+
+            // check if some field contain valid data
+            const invalid_inputs = [];
+
+            if (!req.body.comment) {
+                invalid_inputs.push({
+                    error_code: "undefined_data",
+                    field: "comment",
+                    message: "comment has to be defined"
+                });
+
+            } else if (!(typeof req.body.comment == 'string' && req.body.comment.trim().length > 0)) {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "comment",
+                    message: "comment is not acceptable"
+                });
+
+            } else if (req.body.comment.trim().length > 5000) {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "comment",
+                    message: "comment exceed maximum allowed text"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_field",
+                    errors: invalid_inputs,
+                    message: "Field(s) value not acceptable"
+                });
+
+                return;
+            }
+
+            // generate sixten digit unique id
+            const comment_id = rand_token.generate(16);
+
+            // insert comment into database
+            gDB.transaction(
+                {
+                    query: 'UPDATE news_comments SET replyCount = replyCount + 1 WHERE newsID = ? AND commentID = ? LIMIT 1',
+                    post: [
+                        req.params.news_id,
+                        req.params.cmt_id
+                    ]
+                },
+                {
+                    query: 'INSERT INTO news_comments (newsID, commentID, userID, ' +
+                        'comment, replyToCommentID) VALUES (?, ?, ?, ?, ?)',
+                    post: [
+                        req.params.news_id,
+                        comment_id,
+                        req.user.access_token.user_id,
+                        req.body.comment.trim(),
+                        req.params.cmt_id
+                    ]
+                }
+            ).then(results => {
+                res.status(201);
+                res.json({
+                    comment_id: comment_id
+                });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // post reply for comment for an article
-router.post('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
+router.post('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowedScopes(['write:articles', 'write:articles:all']), (req, res) => {
     // check if user id is integer and comment id is valid
     if (!(/^\d+$/.test(req.params.article_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.cmt_id))) {
         res.status(400);
@@ -7032,7 +7596,205 @@ router.post('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allow
     });
 });
 
-// get all the replies for a comment
+// get all the replies for a comment (news)
+router.get('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.news_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // news doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if comment exist
+        gDB.query(
+            'SELECT 1 FROM news_comments WHERE newsID = ? AND commentID = ? LIMIT 1',
+            [req.params.news_id, req.params.cmt_id]
+        ).then(results => {
+            if (results.length < 1) {
+                // news doesn't exist
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Comment doesn't exist"
+                });
+
+                return;
+            }
+
+            // set limit and offset
+            let limit = 50;
+            let offset = 0;
+            let pass_limit = req.query.limit;
+            let pass_offset = req.query.offset;
+            const invalid_inputs = [];
+
+            // check if query is valid
+            if (pass_limit && !/^\d+$/.test(pass_limit)) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "limit",
+                    message: "value must be integer"
+                });
+            }
+
+            if (pass_offset && !/^\d+$/.test(pass_offset)) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "offset",
+                    message: "value must be integer"
+                });
+            }
+
+            // check if any query is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_query",
+                    errors: invalid_inputs,
+                    message: "Query(s) value is invalid"
+                });
+
+                return;
+            }
+
+            if (pass_limit && pass_limit < limit) {
+                limit = pass_limit;
+            }
+
+            if (pass_offset) {
+                offset = pass_offset;
+            }
+
+            // count the replies to a comment
+            gDB.query(
+                'SELECT COUNT(*) AS total FROM news_comments WHERE newsID = ? AND replyToCommentID = ?',
+                [req.params.news_id, req.params.cmt_id]
+            ).then(cmt_results => {
+                // get all comment
+                gDB.query(
+                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
+                    'FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
+                    'AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ? OFFSET ?',
+                    [
+                        req.params.news_id,
+                        req.params.cmt_id,
+                        limit,
+                        offset
+                    ]
+                ).then(results => {
+                    let comments = [];
+                    for (let i = 0; i < results.length; i++) {
+                        comments.push({
+                            comment: results[i].comment,
+                            id: results[i].commentID,
+                            reply_count: results[i].replyCount,
+                            time: results[i].time,
+                            user: {
+                                name: results[i].lastName + ' ' + results[i].firstName,
+                                image: {
+                                    url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                    size: 'small'
+                                }
+                            }
+                        });
+                    }
+
+                    // send results to client
+                    res.status(201);
+                    res.json({
+                        comments: comments,
+                        metadata: {
+                            result_set: {
+                                count: results.length,
+                                offset: offset,
+                                limit: limit,
+                                total: cmt_results[0].total
+                            }
+                        }
+                    });
+
+                    return;
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get all the replies for a comment (article)
 router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
     // check if user id is integer
     if (!/^\d+$/.test(req.params.article_id)) {
@@ -7157,8 +7919,13 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
                     res.status(201);
                     res.json({
                         comments: comments,
-                        summary: {
-                            total_count: cmt_results[0].total
+                        metadata: {
+                            result_set: {
+                                count: results.length,
+                                offset: offset,
+                                limit: limit,
+                                total: cmt_results[0].total
+                            }
                         }
                     });
 
