@@ -8320,6 +8320,216 @@ router.put('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(
     });
 });
 
+// Delete comment for news
+router.delete('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['write:news', 'write:news:all']), (req, res) => {
+    // check if user id is integer and comment id is valid
+    if (!(/^\d+$/.test(req.params.news_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.cmt_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if news exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            // news doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "News doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if comment exist
+        gDB.query(
+            'SELECT userID FROM news_comments WHERE newsID = ? AND commentID = ? LIMIT 1',
+            [req.params.news_id, req.params.cmt_id]
+        ).then(results => {
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Comment doesn't exist"
+                });
+
+                return;
+            }
+
+            // check if user is the one that post the comment
+            if (!req.user.access_token.user_id == results[0].userID) {
+                res.status(401);
+                res.json({
+                    error_code: "unauthorized_user",
+                    message: "Unauthorized"
+                });
+
+                return;
+            }
+
+            // delete user's comment
+            gDB.query(
+                'DELETE FROM news_comments WHERE newsID = ? AND (commentID = ? OR replyToCommentID = ?)', 
+                [req.params.news_id, req.params.cmt_id, req.params.cmt_id]
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// Delete comment for article
+router.delete('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(['write:articles', 'write:articles:all']), (req, res) => {
+    // check if user id is integer and comment id is valid
+    if (!(/^\d+$/.test(req.params.article_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.cmt_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if article exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            // article doesn't exist
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Article doesn't exist"
+            });
+
+            return;
+        }
+
+        // check if comment exist
+        gDB.query(
+            'SELECT userID FROM article_comments WHERE articleID = ? AND commentID = ? LIMIT 1',
+            [req.params.article_id, req.params.cmt_id]
+        ).then(results => {
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Comment doesn't exist"
+                });
+
+                return;
+            }
+
+            // check if user is the one that post the comment
+            if (!req.user.access_token.user_id == results[0].userID) {
+                res.status(401);
+                res.json({
+                    error_code: "unauthorized_user",
+                    message: "Unauthorized"
+                });
+
+                return;
+            }
+
+            // delete user's comment
+            gDB.query(
+                'DELETE FROM article_comments WHERE articleID = ? AND (commentID = ? OR replyToCommentID = ?)', 
+                [req.params.article_id, req.params.cmt_id, req.params.cmt_id]
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read:hellos:all']), (req, res) => {
     const token_user_id = parseInt(req.user.access_token.user_id, 10);
     const user_id = parseInt(req.params[0], 10);
