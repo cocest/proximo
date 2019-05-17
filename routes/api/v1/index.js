@@ -4587,12 +4587,125 @@ router.delete('/users/:user_id/news/:news_id', custom_utils.allowedScopes(['writ
         return;
     }
 
-    // delete draft in database
-    gDB.query(
-        'DELETE FROM news WHERE newsID = ? AND userID = ? LIMIT 1',
-        [req.params.news_id, req.params.user_id]
-    ).then(results => {
-        return res.status(200).send();
+    // check if news exist. Just return 200 OK if doesn't exist
+    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+        if (results.length < 1) {
+            return res.status(200).send();
+        }
+
+        // get all the uploaded media content
+        gDB.query(
+            'SELECT mediaRelativePath FROM news_media_contents WHERE newsID = ? AND userID = ?',
+            [req.params.news_id, req.params.user_id]
+        ).then(results => {
+            let delete_objs = [];
+
+            // add object(s) to delete
+            for (let i = 0; i < results.length; i++) {
+                delete_objs.push({ Key: results[i].mediaRelativePath });
+            }
+
+            // set aws s3 access credentials
+            aws.config.update({
+                apiVersion: '2006-03-01',
+                accessKeyId: gConfig.AWS_ACCESS_ID,
+                secretAccessKey: gConfig.AWS_SECRET_KEY,
+                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+            });
+
+            const s3 = new aws.S3();
+
+            // initialise objects to delete
+            const deleteParam = {
+                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                Delete: {
+                    Objects: delete_objs
+                }
+            };
+
+            s3.deleteObjects(deleteParam, (err, data) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                }
+
+                // delete news and all the related contents
+                gDB.transaction(
+                    {
+                        query: 'DELETE FROM news WHERE newsID = ? AND userID = ?',
+                        post: [
+                            req.params.news_id,
+                            req.params.user_id
+                        ]
+                    },
+                    {
+                        query: 'DELETE FROM news_media_contents WHERE newsID = ? AND userID = ?',
+                        post: [
+                            req.params.news_id,
+                            req.params.user_id
+                        ]
+                    },
+                    {
+                        query: 'DELETE FROM news_likes WHERE newsID = ? AND userID = ?',
+                        post: [
+                            req.params.news_id,
+                            req.params.user_id
+                        ]
+                    },
+                    {
+                        query: 'DELETE FROM news_dislikes WHERE newsID = ? AND userID = ?',
+                        post: [
+                            req.params.news_id,
+                            req.params.user_id
+                        ]
+                    },
+                    {
+                        query: 'DELETE FROM news_comments WHERE newsID = ?',
+                        post: [req.params.news_id]
+                    }
+                ).then(results => {
+                    return res.status(200).send();
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
 
     }).catch(err => {
         res.status(500);
@@ -4633,12 +4746,125 @@ router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes
         return;
     }
 
-    // delete draft in database
-    gDB.query(
-        'DELETE FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
-        [req.params.article_id, req.params.user_id]
-    ).then(results => {
-        return res.status(200).send();
+    // check if article exist. Just return 200 OK if doesn't exist
+    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+        if (results.length < 1) {
+            return res.status(200).send();
+        }
+
+        // get all the uploaded media content
+        gDB.query(
+            'SELECT mediaRelativePath FROM article_media_contents WHERE articleID = ? AND userID = ?',
+            [req.params.article_id, req.params.user_id]
+        ).then(results => {
+            let delete_objs = [];
+
+            // add object(s) to delete
+            for (let i = 0; i < results.length; i++) {
+                delete_objs.push({ Key: results[i].mediaRelativePath });
+            }
+
+            // set aws s3 access credentials
+            aws.config.update({
+                apiVersion: '2006-03-01',
+                accessKeyId: gConfig.AWS_ACCESS_ID,
+                secretAccessKey: gConfig.AWS_SECRET_KEY,
+                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+            });
+
+            const s3 = new aws.S3();
+
+            // initialise objects to delete
+            const deleteParam = {
+                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                Delete: {
+                    Objects: delete_objs
+                }
+            };
+
+            s3.deleteObjects(deleteParam, (err, data) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                }
+
+                // delete news and all the related contents
+                gDB.transaction(
+                    {
+                        query: 'DELETE FROM articles WHERE newsID = ? AND userID = ?',
+                        post: [
+                            req.params.article_id,
+                            req.params.user_id
+                        ]
+                    },
+                    {
+                        query: 'DELETE FROM article_media_contents WHERE articleID = ? AND userID = ?',
+                        post: [
+                            req.params.article_id,
+                            req.params.user_id
+                        ]
+                    },
+                    {
+                        query: 'DELETE FROM article_likes WHERE articleID = ? AND userID = ?',
+                        post: [
+                            req.params.article_id,
+                            req.params.user_id
+                        ]
+                    },
+                    {
+                        query: 'DELETE FROM article_dislikes WHERE articleID = ? AND userID = ?',
+                        post: [
+                            req.params.article_id,
+                            req.params.user_id
+                        ]
+                    },
+                    {
+                        query: 'DELETE FROM article_comments WHERE articleID = ?',
+                        post: [req.params.article_id]
+                    }
+                ).then(results => {
+                    return res.status(200).send();
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
 
     }).catch(err => {
         res.status(500);
@@ -8105,7 +8331,7 @@ router.put('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['write
 
             // update user's comment
             gDB.query(
-                'UPDATE news_comments SET comment = ? WHERE newsID = ? AND commentID = ? LIMIT 1', 
+                'UPDATE news_comments SET comment = ? WHERE newsID = ? AND commentID = ? LIMIT 1',
                 [req.body.comment.trim(), req.params.news_id, req.params.cmt_id]
             ).then(results => {
                 return res.status(200).send();
@@ -8269,7 +8495,7 @@ router.put('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(
 
             // update user's comment
             gDB.query(
-                'UPDATE article_comments SET comment = ? WHERE articleID = ? AND commentID = ? LIMIT 1', 
+                'UPDATE article_comments SET comment = ? WHERE articleID = ? AND commentID = ? LIMIT 1',
                 [req.body.comment.trim(), req.params.article_id, req.params.cmt_id]
             ).then(results => {
                 return res.status(200).send();
@@ -8374,7 +8600,7 @@ router.delete('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['wr
 
             // delete user's comment
             gDB.query(
-                'DELETE FROM news_comments WHERE newsID = ? AND (commentID = ? OR replyToCommentID = ?)', 
+                'DELETE FROM news_comments WHERE newsID = ? AND (commentID = ? OR replyToCommentID = ?)',
                 [req.params.news_id, req.params.cmt_id, req.params.cmt_id]
             ).then(results => {
                 return res.status(200).send();
@@ -8479,7 +8705,7 @@ router.delete('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScop
 
             // delete user's comment
             gDB.query(
-                'DELETE FROM article_comments WHERE articleID = ? AND (commentID = ? OR replyToCommentID = ?)', 
+                'DELETE FROM article_comments WHERE articleID = ? AND (commentID = ? OR replyToCommentID = ?)',
                 [req.params.article_id, req.params.cmt_id, req.params.cmt_id]
             ).then(results => {
                 return res.status(200).send();
