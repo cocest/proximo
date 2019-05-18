@@ -6765,7 +6765,7 @@ router.post('/news/:news_id/comments', custom_utils.allowedScopes(['write:news',
                 message: "comment is not acceptable"
             });
 
-        } else if (req.body.comment.trim().length > 5000) {
+        } else if (req.body.comment.trim().length > 1500) {
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "comment",
@@ -6901,7 +6901,7 @@ router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['write
                 message: "comment is not acceptable"
             });
 
-        } else if (req.body.comment.trim().length > 5000) {
+        } else if (req.body.comment.trim().length > 1500) {
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "comment",
@@ -7547,7 +7547,7 @@ router.post('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScope
                     message: "comment is not acceptable"
                 });
 
-            } else if (req.body.comment.trim().length > 5000) {
+            } else if (req.body.comment.trim().length > 1500) {
                 invalid_inputs.push({
                     error_code: "invalid_data",
                     field: "comment",
@@ -7724,7 +7724,7 @@ router.post('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allow
                     message: "comment is not acceptable"
                 });
 
-            } else if (req.body.comment.trim().length > 5000) {
+            } else if (req.body.comment.trim().length > 1500) {
                 invalid_inputs.push({
                     error_code: "invalid_data",
                     field: "comment",
