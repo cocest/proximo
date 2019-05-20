@@ -40,6 +40,105 @@ const router = express.Router();
 // check and validate access token (JWT)
 router.use(custom_utils.validateToken);
 
+// check if user's account has been verified
+router.use((req, res, next) => {
+    // check if OAuth2 JWT role is user
+    if (!req.user.access_token.role == 'user') {
+        // is not user, don't check if account is verified
+        return next();
+    }
+
+    // Redis access key
+    const access_key = 'accountverified:' + req.user.access_token.user_id;
+
+    // check if the key has been set
+    gRedisClient.get(access_key, (err, reply) => {
+        if (err) {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        }
+
+        // reply is null when the key is not defined
+        if (reply) { // key exist
+            // check if user's account has been verified
+            if (reply == 1) {
+                return next();
+
+            } else { // account not verified
+                res.status(401);
+                res.json({
+                    error_code: "account_not_verified",
+                    message: "User should verify their email"
+                });
+
+                return;
+            }
+        }
+
+        // key doesn't exist
+        // get user's account verified status and save it to Redis
+        gDB.query(
+            'SELECT accountActivated FROM user WHERE userID = ? LIMIT 1',
+            [req.user.access_token.user_id]
+        ).then(results => {
+            gRedisClient.set(access_key, results[0].accountActivated, 'EX', 60 * 5, (err, reply) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                }
+
+                // check if user's account is verified
+                if (results[0].accountActivated == 1) {
+                    return next();
+
+                } else { // account not verified
+                    res.status(401);
+                    res.json({
+                        error_code: "account_not_verified",
+                        message: "User should verify their email"
+                    });
+
+                    return;
+                }
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+    });
+});
+
 // rate limit incomming request
 router.use((req, res, next) => {
     // check if rate limiting for each user request is enable
@@ -241,7 +340,7 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
         });
     }
 
-    const dob = typeof req.body.dateOfBirth == 'undefined' ? null : req.body.dateOfBirth.split('-');
+    const dob = req.body.dateOfBirth ? req.body.dateOfBirth.split('-') : null;
 
     if (!req.body.dateOfBirth) {
         invalid_inputs.push({
@@ -340,21 +439,22 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
                 // hash user's password before storing to database
                 bcrypt.hash(req.body.password, 10).then(hash => {
                     // generate hash of 40 characters length from user's email address 
-                    let search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
+                    const search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
 
                     // store user's information to database
-                    gDB.transaction({
-                        query: 'INSERT INTO user (firstName, lastName, emailAddress, searchEmailHash, dateOfBirth, gender) VALUES (?, ?, ?, ?, ?, ?)',
-                        post: [
-                            req.body.firstName,
-                            req.body.lastName,
-                            req.body.email,
-                            search_email_hash,
-                            req.body.dateOfBirth,
-                            req.body.gender
-                        ]
-                    }, {
-                            query: 'SELECT @user_id:=userID FROM user WHERE searchEmailHash = ?',
+                    gDB.transaction(
+                        {
+                            query: 'INSERT INTO user (firstName, lastName, emailAddress, searchEmailHash, dateOfBirth, gender) VALUES (?, ?, ?, ?, ?, ?)',
+                            post: [
+                                req.body.firstName,
+                                req.body.lastName,
+                                req.body.email,
+                                search_email_hash,
+                                req.body.dateOfBirth,
+                                req.body.gender
+                            ]
+                        }, {
+                            query: 'SELECT @user_id:=userID FROM user WHERE searchEmailHash = ? LIMIT 1',
                             post: [search_email_hash]
                         }, {
                             query: 'INSERT INTO userauthentication (userID, searchEmailHash, password) VALUES (@user_id, ?, ?)',
@@ -437,6 +537,628 @@ router.post('/users', custom_utils.allowedScopes(['write:users:all']), (req, res
 
         return;
     }
+});
+
+// update some user's signup information
+router.put('/users/:user_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // check if some field contain invalid data
+    const invalid_inputs = [];
+
+    if (req.body.firstName && !/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.firstName)) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "firstName",
+            message: "Firstname is not acceptable"
+        });
+    }
+
+    if (req.body.lastName && !/^[a-zA-Z]+[']?[a-zA-Z]+$/.test(req.body.lastName)) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "lastName",
+            message: "Lastname is not acceptable"
+        });
+    }
+
+    const dob = req.body.dateOfBirth ? req.body.dateOfBirth.split('-') : null;
+
+    if (dob && !(dob.length == 3 && custom_utils.validateDate({
+        year: dob[0],
+        month: dob[1],
+        day: dob[2]
+    }))) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "dateOfBirth",
+            message: "Date of birth is invalid"
+        });
+    }
+
+    if (req.body.email && !validator.isEmail(req.body.email)) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "email",
+            message: "Email is not acceptable"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_field",
+            errors: invalid_inputs,
+            message: "Field(s) value not acceptable"
+        });
+
+        return;
+    }
+
+    // update some user's profile information 
+    let field_count = 0;
+    let update_account_info = false;
+    let query = 'UPDATE user SET ';
+    let post = [];
+
+    if (req.body.firstName) {
+        query += 'firstName = ?';
+        post.push(req.body.firstName);
+
+        field_count++;
+        update_account_info = true;
+    }
+
+    if (req.body.lastName) {
+        if (field_count < 1) {
+            query += 'lastName = ?';
+            post.push(req.body.lastName);
+
+        } else {
+            query += ', lastName = ?';
+            post.push(req.body.lastName);
+        }
+
+        field_count++;
+        update_account_info = true;
+    }
+
+    if (req.body.dateOfBirth) {
+        if (field_count < 1) {
+            query += 'dateOfBirth = ?';
+            post.push(req.body.dateOfBirth);
+
+        } else {
+            query += ', dateOfBirth = ?';
+            post.push(req.body.dateOfBirth);
+        }
+
+        field_count++;
+        update_account_info = true;
+    }
+
+    // check if email is not provided
+    if (!req.body.email) {
+        if (!update_account_info) {
+            return res.status(200).send();
+        }
+
+        // last part of query
+        query += ' WHERE userID = ? LIMIT 1';
+        post.push(req.params.user_id);
+
+        // update user's account information
+        gDB.query(query, post).then(results => {
+            return res.status(200).send();
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+
+    } else { // email is provided
+        // generate hash of 40 characters length from user's email address 
+        const search_email_hash = crypto.createHash("sha1").update(req.body.email, "binary").digest("hex");
+
+        // check if email has been used by another
+        gDB.query(
+            'SELECT userID, emailAddress FROM user WHERE searchEmailHash = ? LIMIT 1',
+            [search_email_hash]
+        ).then(results => {
+            // email has been used
+            if (results.length > 0 && results[0].userID != req.params.user_id) {
+                invalid_inputs.push({
+                    error_code: "input_exist",
+                    field: "email",
+                    message: "Email address has been claimed"
+                });
+
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_field",
+                    errors: invalid_inputs,
+                    message: "Field(s) value not acceptable"
+                });
+
+                return;
+            }
+
+            // check if this is a user's new email address
+            if (results.length < 1 || results[0].emailAddress != req.body.email) {
+                // set sql update query for email
+                query += ', emailAddress = ?, accountActivated = ?';
+                post.push(req.body.email);
+                post.push(1);
+
+                update_account_info = true;
+            }
+
+            // last part of query
+            query += ' WHERE userID = ? LIMIT 1';
+            post.push(req.params.user_id);
+
+            if (!update_account_info) {
+                return res.status(200).send();
+            }
+
+            // update user's account information
+            gDB.query(query, post).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+    }
+});
+
+// update user's sign-in password
+router.post('/users/:user_id/updatePassword', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // check if some field contain invalid data
+    const invalid_inputs = [];
+
+    if (!req.body.currentPassword) {
+        invalid_inputs.push({
+            error_code: "undefined_input",
+            field: "currentPassword",
+            message: "Password has to be defined"
+        });
+    }
+
+    if (!req.body.newPassword) {
+        invalid_inputs.push({
+            error_code: "undefined_input",
+            field: "newPassword",
+            message: "password has to be defined"
+        });
+
+    } else if (zxcvbn(req.body.newPassword).score < 2) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "newPassword",
+            message: "Password is too weak"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0 && !req.body.currentPassword) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_field",
+            errors: invalid_inputs,
+            message: "Field(s) value not acceptable"
+        });
+
+        return;
+    }
+
+    // check if current password is correct
+    gDB.query(
+        'SELECT password FROM userauthentication WHERE userID = ? LIMIT 1',
+        [req.params.user_id]
+    ).then(results => {
+        // compare password to hash in database
+        bcrypt.compare(req.body.currentPassword, results[0].password).then(hash_res => {
+            if (!hash_res) {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "currentPassword",
+                    message: "Password is incorrect"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_field",
+                    errors: invalid_inputs,
+                    message: "Field(s) value not acceptable"
+                });
+
+                return;
+            }
+
+            // hash user's password before storing to database
+            bcrypt.hash(req.body.password, 10).then(hash => {
+                // update user's password
+                gDB.query(
+                    'UPDATE userauthentication SET password = ? WHERE userID = ? LIMIT 1',
+                    [hash, req.params.user_id]
+                ).then(results => {
+                    return res.status(200).send();
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(reason => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', reason.message, { stack: reason.stack });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// generate sign-in password for the user that lost their password
+router.post('/users/:user_id/generateSignInPassword', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    const invalid_inputs = [];
+
+    if (!req.query.email) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "email",
+            message: "email has to be defined"
+        });
+
+    } else if (!validator.isEmail(req.query.email)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "email",
+            message: "email address is not acceptable"
+        });
+    }
+
+    // check if any query is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs,
+            message: "Query(s) value is invalid"
+        });
+
+        return;
+    }
+
+    // check if email exist
+    gDB.query(
+        'SELECT firstName, emailAddress FROM user WHERE userID = ? LIMIT 1',
+        [req.query.email]
+    ).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "match_not_found",
+                message: "Email address doesn't exist"
+            });
+
+            return;
+        }
+
+        // generate eight digit unique id
+        const gen_password = rand_token.generate(8);
+
+        // hash generated password before storing to database
+        bcrypt.hash(gen_password, 10).then(hash => {
+            // send email first
+            // set up the relative path
+            let file_path = path.resolve(__dirname, '../views/signinpassword.ejs');
+
+            // temporary store rendered file as string
+            let rendered_file_str;
+
+            ejs.renderFile(
+                file_path, {
+                    username: results[0].firstName,
+                    password: gen_password,
+                    year: (new Date()).getFullYear()
+                }, (err, str) => {
+                    rendered_file_str = str;
+                }
+            );
+
+            // set up the mailer
+            let transporter = node_mailer.createTransport({
+                host: gConfig.SMTP_SERVER,
+                port: gConfig.SMTP_PORT,
+                secure: true,
+                auth: {
+                    user: gConfig.SMTP_USERNAME,
+                    pass: gConfig.SMTP_PASSWORD
+                }
+            });
+
+            let mail_options = {
+                from: `"Proximonet" <${gConfig.SMTP_FROM}>`,
+                to: results[0].emailAddress,
+                subject: 'Your account sign-in password',
+                html: rendered_file_str
+            };
+
+            transporter.sendMail(mail_options, (err, info) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Message can't be sent"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                }
+
+                // check if email is rejected
+                if (info.rejected.length > 0) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Email was rejected by the server"
+                    });
+
+                    return;
+
+                } else { // email sent successfully
+                    // update user's password
+                    gDB.query(
+                        'UPDATE userauthentication SET password = ? WHERE userID = ? LIMIT 1',
+                        [hash, req.params.user_id]
+                    ).then(results => {
+                        return res.status(200).send();
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+                }
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 // validate registration fields or inputs
@@ -537,7 +1259,7 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
                     return res.status(200).send();
                 }
 
-            }).catch(reason => {
+            }).catch(err => {
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -545,8 +1267,8 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
                 });
 
                 // log the error to log file
-                gLogger.log('error', reason.message, {
-                    stack: reason.stack
+                gLogger.log('error', err.message, {
+                    stack: err.stack
                 });
 
                 return;
@@ -2034,7 +2756,7 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
     }
 
     // check if some field contain valid data
-    const invalid_inputs = [];
+    let invalid_inputs = [];
 
     // check if query is valid
     if (!req.query.publication) {
@@ -2070,7 +2792,7 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
         // check if category id exist
         gDB.query(
             'SELECT categoryTitle FROM ?? WHERE categoryID = ? LIMIT 1',
-            [req.query.publication + '_categories', req.body.categoryID]
+            [req.query.publication + '_categories', req.query.categoryID]
         ).then(results => {
             if (results.length < 1) { // the SQL query is fast enough
                 // category does not exist
@@ -2093,6 +2815,9 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
 
                 return;
             }
+
+            // re-define array to clear previous data
+            invalid_inputs = [];
 
             // check if featured image URL is valid if is provided
             if (req.body.featuredImageURL && validator.isURL(req.body.featuredImageURL)) {
@@ -2295,7 +3020,7 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
                     news_results[0].highlight,
                     news_results[0].content,
                     1, // already published
-                    req.query.news_id
+                    req.params.news_id
                 ]
             ).then(results => {
                 res.status(201);
@@ -2426,7 +3151,7 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
                     article_results[0].highlight,
                     article_results[0].content,
                     1, // already published
-                    req.query.news_id
+                    req.params.news_id
                 ]
             ).then(results => {
                 // since article highlight is autogenerated don't return it to client for edit
