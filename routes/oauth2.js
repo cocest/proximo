@@ -21,7 +21,7 @@ const custom_utils = require('../utilities/custom-utils');
 const router = express.Router();
 
 // parse application/x-www-form-urlencoded parser
-router.use(body_parser.urlencoded({extended: false}));
+router.use(body_parser.urlencoded({ extended: false }));
 
 // check if body is empty
 router.use((req, res, next) => {
@@ -108,9 +108,15 @@ router.post('/token', (req, res) => {
             } else {
                 try {
                     // decrypt refresh token
-                    const decipher = crypto.createDecipher('sha256', gConfig.REFRESH_TOKEN_ENCRYPT_SECRET);
-                    let decrypted_rf_token = decipher.update(req.body.refresh_token, 'hex', 'utf8');
-                    decrypted_rf_token += decipher.final('utf8');
+                    let encryptedText = Buffer.from(req.body.refresh_token, 'hex');
+                    let decipher = crypto.createDecipheriv(
+                        'aes-256-cbc', 
+                        Buffer.from(Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_SECRET, 'hex')), 
+                        Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_IV, 'hex')
+                    );
+                    let decrypted = decipher.update(encryptedText);
+                    decrypted = Buffer.concat([decrypted, decipher.final()]);
+                    let decrypted_rf_token = decrypted.toString();
 
                     // get refresh token from database
                     gDB.query(
@@ -144,7 +150,7 @@ router.post('/token', (req, res) => {
 
                                 ).catch(reason => {
                                     // log the error to log file
-                                    gLogger.log('error', reason.message, {stack: reason.stack});
+                                    gLogger.log('error', reason.message, { stack: reason.stack });
 
                                     return;
                                 });
@@ -154,12 +160,12 @@ router.post('/token', (req, res) => {
                                 let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
 
                                 jwt.sign({
-                                        iss: gConfig.JWT_ISSUER,
-                                        exp: expires_in,
-                                        role: results[0].role,
-                                        user_id: results[0].userID,
-                                        scopes: results[0].assignedScopes.trim().split(' ')
-                                    },
+                                    iss: gConfig.JWT_ISSUER,
+                                    exp: expires_in,
+                                    role: results[0].role,
+                                    user_id: results[0].userID,
+                                    scopes: results[0].assignedScopes.trim().split(' ')
+                                },
 
                                     gConfig.JWT_ENCRYPT_SECRET,
 
@@ -176,7 +182,7 @@ router.post('/token', (req, res) => {
                                             });
 
                                             // log the error to log file
-                                            gLogger.log('error', err.message, {stack: err.stack});
+                                            gLogger.log('error', err.message, { stack: err.stack });
 
                                             return;
 
@@ -204,7 +210,7 @@ router.post('/token', (req, res) => {
                         });
 
                         // log the error to log file
-                        gLogger.log('error', reason.message, {stack: reason.stack});
+                        gLogger.log('error', reason.message, { stack: reason.stack });
 
                         return;
                     });
@@ -227,7 +233,7 @@ router.post('/token', (req, res) => {
                         });
 
                         // log the error to log file
-                        gLogger.log('error', er.message, {stack: er.stack});
+                        gLogger.log('error', er.message, { stack: er.stack });
 
                         return;
                     }
@@ -349,7 +355,7 @@ router.post('/token', (req, res) => {
                                                                 });
 
                                                                 // log the error to log file
-                                                                gLogger.log('error', err.message, {stack: err.stack});
+                                                                gLogger.log('error', err.message, { stack: err.stack });
 
                                                                 return;
                                                             }
@@ -359,12 +365,12 @@ router.post('/token', (req, res) => {
                                                             let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); //valid for 10 minutes
 
                                                             jwt.sign({
-                                                                    iss: gConfig.JWT_ISSUER,
-                                                                    exp: expires_in,
-                                                                    role: role,
-                                                                    user_id: results[0].userID,
-                                                                    scopes: assign_scopes
-                                                                },
+                                                                iss: gConfig.JWT_ISSUER,
+                                                                exp: expires_in,
+                                                                role: role,
+                                                                user_id: results[0].userID,
+                                                                scopes: assign_scopes
+                                                            },
 
                                                                 gConfig.JWT_ENCRYPT_SECRET,
 
@@ -381,7 +387,7 @@ router.post('/token', (req, res) => {
                                                                         });
 
                                                                         // log the error to log file
-                                                                        gLogger.log('error', err.message, {stack: err.stack})
+                                                                        gLogger.log('error', err.message, { stack: err.stack })
 
                                                                         return;
 
@@ -391,9 +397,14 @@ router.post('/token', (req, res) => {
 
                                                                         try {
                                                                             // encrypt the refresh token
-                                                                            const cipher = crypto.createCipher('sha256', gConfig.REFRESH_TOKEN_ENCRYPT_SECRET);
-                                                                            let encrypted_token = cipher.update(refresh_token, 'utf8', 'hex');
-                                                                            encrypted_token += cipher.final('hex');
+                                                                            let cipher = crypto.createCipheriv(
+                                                                                'aes-256-cbc',
+                                                                                Buffer.from(Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_SECRET, 'hex')),
+                                                                                Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_IV, 'hex')
+                                                                            );
+                                                                            let encrypted = cipher.update(refresh_token);
+                                                                            encrypted = Buffer.concat([encrypted, cipher.final()]);
+                                                                            let encrypted_token = encrypted.toString('hex');
 
                                                                             // store refresh token to database
                                                                             gDB.query(
@@ -420,7 +431,7 @@ router.post('/token', (req, res) => {
                                                                                 });
 
                                                                                 // log the error to log file
-                                                                                gLogger.log('error', reason.message, {stack: reason.stack});
+                                                                                gLogger.log('error', reason.message, { stack: reason.stack });
 
                                                                                 return;
                                                                             });
@@ -433,7 +444,7 @@ router.post('/token', (req, res) => {
                                                                             });
 
                                                                             // log the error to log file
-                                                                            gLogger.log('error', er.message, {stack: er.stack});
+                                                                            gLogger.log('error', er.message, { stack: er.stack });
 
                                                                             return;
                                                                         }
@@ -452,7 +463,7 @@ router.post('/token', (req, res) => {
                                                 });
 
                                                 // log the error to log file
-                                                gLogger.log('error', reason.message, {stack: reason.stack});
+                                                gLogger.log('error', reason.message, { stack: reason.stack });
 
                                                 return;
                                             });
@@ -466,7 +477,7 @@ router.post('/token', (req, res) => {
                                         });
 
                                         // log the error to log file
-                                        gLogger.log('error', reason.message, {stack: reason.stack});
+                                        gLogger.log('error', reason.message, { stack: reason.stack });
 
                                         return;
                                     });
@@ -481,7 +492,7 @@ router.post('/token', (req, res) => {
                             });
 
                             // log the error to log file
-                            gLogger.log('error', reason.message, {stack: reason.stack});
+                            gLogger.log('error', reason.message, { stack: reason.stack });
 
                             return;
                         });
@@ -495,7 +506,7 @@ router.post('/token', (req, res) => {
                     });
 
                     // log the error to log file
-                    gLogger.log('error', reason.message, {stack: reason.stack});
+                    gLogger.log('error', reason.message, { stack: reason.stack });
 
                     return;
                 });
@@ -582,7 +593,7 @@ router.post('/token', (req, res) => {
                                                 });
 
                                                 // log the error to log file
-                                                gLogger.log('error', err.message, {stack: err.stack});
+                                                gLogger.log('error', err.message, { stack: err.stack });
 
                                                 return;
                                             }
@@ -592,12 +603,12 @@ router.post('/token', (req, res) => {
                                             let expires_in = Math.floor(Date.now() / 1000) + (60 * 10); // valid for 10 minutes
 
                                             jwt.sign({
-                                                    iss: gConfig.JWT_ISSUER,
-                                                    exp: expires_in,
-                                                    role: role,
-                                                    user_id: req.body.client_id,
-                                                    scopes: assign_scopes
-                                                },
+                                                iss: gConfig.JWT_ISSUER,
+                                                exp: expires_in,
+                                                role: role,
+                                                user_id: req.body.client_id,
+                                                scopes: assign_scopes
+                                            },
 
                                                 gConfig.JWT_ENCRYPT_SECRET,
 
@@ -614,7 +625,7 @@ router.post('/token', (req, res) => {
                                                         });
 
                                                         // log the error to log file
-                                                        gLogger.log('error', err.message, {stack: err.stack})
+                                                        gLogger.log('error', err.message, { stack: err.stack })
 
                                                         return;
 
@@ -644,7 +655,7 @@ router.post('/token', (req, res) => {
                             });
 
                             // log the error to log file
-                            gLogger.log('error', reason.message, {stack: reason.stack});
+                            gLogger.log('error', reason.message, { stack: reason.stack });
 
                             return;
                         });
@@ -658,7 +669,7 @@ router.post('/token', (req, res) => {
                     });
 
                     // log the error to log file
-                    gLogger.log('error', reason.message, {stack: reason.stack});
+                    gLogger.log('error', reason.message, { stack: reason.stack });
 
                     return;
                 });

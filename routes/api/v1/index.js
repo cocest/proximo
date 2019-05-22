@@ -42,8 +42,18 @@ router.use(custom_utils.validateToken);
 
 // check if user's account has been verified
 router.use((req, res, next) => {
+    // set variable
+    if (!req.user) {
+        req.user = {
+            account_verified: null
+        };
+
+    } else {
+        req.user.account_verified = null;
+    }
+
     // check if OAuth2 JWT role is user
-    if (!req.user.access_token.role == 'user') {
+    if (req.user.access_token.role != 'user') {
         // is not user, don't check if account is verified
         return next();
     }
@@ -72,17 +82,13 @@ router.use((req, res, next) => {
         if (reply) { // key exist
             // check if user's account has been verified
             if (reply == 1) {
-                return next();
+                req.user.account_verified = 1;
 
             } else { // account not verified
-                res.status(401);
-                res.json({
-                    error_code: "account_not_verified",
-                    message: "User should verify their email"
-                });
-
-                return;
+                req.user.account_verified = 0;
             }
+
+            return next();
         }
 
         // key doesn't exist
@@ -109,17 +115,13 @@ router.use((req, res, next) => {
 
                 // check if user's account is verified
                 if (results[0].accountActivated == 1) {
-                    return next();
+                    req.user.account_verified = 1;
 
                 } else { // account not verified
-                    res.status(401);
-                    res.json({
-                        error_code: "account_not_verified",
-                        message: "User should verify their email"
-                    });
-
-                    return;
+                    req.user.account_verified = 0;
                 }
+
+                return next();
             });
 
         }).catch(err => {
@@ -1313,7 +1315,7 @@ router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:us
 });
 
 // send verification code to user's email address
-router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['write:users:all']), (req, res) => {
+router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['write:users', 'write:users:all']), (req, res) => {
     // check if id is interger
     if (/^\d+$/.test(req.params.id)) {
         // get user email address
@@ -1492,7 +1494,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
 });
 
 // confirm verification entered by the user
-router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes(['write:users:all']), (req, res) => {
+router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes(['write:users', 'write:users:all']), (req, res) => {
     if (!req.body) { // check if body contain data
         res.status(400);
         res.json({
@@ -2325,6 +2327,17 @@ router.get('/publications/:publication_type/categories', custom_utils.allowedSco
         return;
     }
 
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     const table_name = req.params.publication_type + '_categories';
 
     // retrieve categories from database
@@ -2361,6 +2374,17 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
         res.json({
             error_code: "file_not_found",
             message: "File not found"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
@@ -2508,6 +2532,17 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
 
 // get a region or nearest region if user is not in any launch region on map
 router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) => {
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     // validate pass in query values
     const invalid_inputs = [];
 
@@ -2719,6 +2754,17 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
         res.json({
             error_code: "invalid_id",
             message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
@@ -2960,7 +3006,8 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
  * For already published news, you can't change it location
  */
 router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['write:users']), (req, res) => {
-    if (!/^\d+$/.test(req.params.user_id)) {
+    // check if id is valid
+    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.news_id))) {
         res.status(400);
         res.json({
             error_code: "invalid_id",
@@ -2976,6 +3023,17 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
         res.json({
             error_code: "unauthorized_user",
             message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
@@ -3091,7 +3149,8 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
  * For already published articles, you can't change it location
  */
 router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedScopes(['write:users']), (req, res) => {
-    if (!/^\d+$/.test(req.params.user_id)) {
+    // check if id is valid
+    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id))) {
         res.status(400);
         res.json({
             error_code: "invalid_id",
@@ -3107,6 +3166,17 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
         res.json({
             error_code: "unauthorized_user",
             message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
@@ -3234,6 +3304,17 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
         res.json({
             error_code: "unauthorized_user",
             message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
@@ -3431,6 +3512,17 @@ router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read
         return;
     }
 
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     const mappped_field_name = new Map([
         ['publication', 'production'],
         ['category', 'category'],
@@ -3530,6 +3622,17 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
         res.json({
             error_code: "unauthorized_user",
             message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
@@ -3739,6 +3842,17 @@ router.delete('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['w
         return;
     }
 
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     // delete draft in database
     gDB.query(
         'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
@@ -3785,6 +3899,17 @@ router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users
         return;
     }
 
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     // delete all user's draft in database
     gDB.query('DELETE FROM draft WHERE userID = ?', [req.params.draft_id, req.params.user_id]).then(results => {
         return res.status(200).send();
@@ -3824,6 +3949,17 @@ router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes([
         res.json({
             error_code: "unauthorized_user",
             message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
@@ -4107,6 +4243,17 @@ router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedS
         return;
     }
 
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     // check if article for the user exist
     gDB.query(
         'SELECT 1 FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
@@ -4385,6 +4532,17 @@ router.delete('/users/:user_id/news/:news_id/medias/:media_id', custom_utils.all
         return;
     }
 
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     // check if news exist
     gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
         if (results.length < 1) {
@@ -4523,6 +4681,17 @@ router.delete('/users/:user_id/articles/:article_id/medias/:media_id', custom_ut
         return;
     }
 
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     // check if article exist
     gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
         if (results.length < 1) {
@@ -4656,6 +4825,17 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
         res.json({
             error_code: "unauthorized_user",
             message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
@@ -4908,6 +5088,17 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
         return;
     }
 
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     // set limit and offset
     let limit = 50;
     let offset = 0;
@@ -5105,6 +5296,17 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
         res.json({
             error_code: "unauthorized_user",
             message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
@@ -5312,6 +5514,17 @@ router.delete('/users/:user_id/news/:news_id', custom_utils.allowedScopes(['writ
         return;
     }
 
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
     // check if news exist. Just return 200 OK if doesn't exist
     gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
         if (results.length < 1) {
@@ -5466,6 +5679,17 @@ router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes
         res.json({
             error_code: "unauthorized_user",
             message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
         });
 
         return;
