@@ -192,7 +192,8 @@ router.post('/token', (req, res) => {
                                             res.json({
                                                 token_type: 'Bearer',
                                                 expires_in: expires_in,
-                                                access_token: token
+                                                access_token: token,
+                                                user_id: results[0].userID
                                             });
 
                                             return;
@@ -216,27 +217,13 @@ router.post('/token', (req, res) => {
                     });
 
                 } catch (er) {
-                    if (er.message == 'Bad input string') {
-                        res.status(401);
-                        res.json({
-                            error_code: "unauthorized_client",
-                            message: "Unauthorized"
-                        });
+                    res.status(401);
+                    res.json({
+                        error_code: "unauthorized_client",
+                        message: "Unauthorized"
+                    });
 
-                        return;
-
-                    } else {
-                        res.status(500);
-                        res.json({
-                            error_code: "internal_error",
-                            message: "Internal error"
-                        });
-
-                        // log the error to log file
-                        gLogger.log('error', er.message, { stack: er.stack });
-
-                        return;
-                    }
+                    return;
                 }
             }
         });
