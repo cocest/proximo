@@ -402,17 +402,41 @@ router.post('/token', (req, res) => {
                                                                         ).then(results => {
                                                                             // check if refresh token exist and hasn't expired
                                                                             if (results.length > 0 && ((Date.now() / 1000 - results[0].time) / 86400) < gConfig.REFRESH_TOKEN_EXPIRE_IN) {
-                                                                                // send the JWT token to requester
-                                                                                res.status(200);
-                                                                                res.json({
-                                                                                    token_type: 'Bearer',
-                                                                                    expires_in: expires_in,
-                                                                                    access_token: token,
-                                                                                    refresh_token: results[0].refreshToken,
-                                                                                    user_id: user_id
-                                                                                });
+                                                                                try {
+                                                                                    // encrypt the refresh token again
+                                                                                    let cipher = crypto.createCipheriv(
+                                                                                        'aes-256-cbc',
+                                                                                        Buffer.from(Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_SECRET, 'hex')),
+                                                                                        Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_IV, 'hex')
+                                                                                    );
+                                                                                    let encrypted = cipher.update(results[0].refreshToken);
+                                                                                    encrypted = Buffer.concat([encrypted, cipher.final()]);
+                                                                                    let encrypted_token = encrypted.toString('hex');
 
-                                                                                return;
+                                                                                    // send the JWT token to requester
+                                                                                    res.status(200);
+                                                                                    res.json({
+                                                                                        token_type: 'Bearer',
+                                                                                        expires_in: expires_in,
+                                                                                        access_token: token,
+                                                                                        refresh_token: encrypted_token,
+                                                                                        user_id: user_id
+                                                                                    });
+
+                                                                                    return;
+
+                                                                                } catch (er) { // catch the error just in case the crypto fail
+                                                                                    res.status(500);
+                                                                                    res.json({
+                                                                                        error_code: "internal_error",
+                                                                                        message: "Internal error"
+                                                                                    });
+
+                                                                                    // log the error to log file
+                                                                                    gLogger.log('error', er.message, { stack: er.stack });
+
+                                                                                    return;
+                                                                                }
                                                                             }
 
                                                                             // generate refresh token
