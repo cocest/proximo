@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This module implement the OAuth 2.0 specification which is a flexibile
  * authorization framework for a number of grants (“methods”)
  * for a client application to acquire an access token (which represents
@@ -392,6 +392,9 @@ router.post('/token', (req, res) => {
                                                                         return;
 
                                                                     } else {
+                                                                        // user ID
+                                                                        let user_id = results[0].userID;
+
                                                                         // generate refresh token
                                                                         let refresh_token = rand_token.generate(32);
 
@@ -409,7 +412,7 @@ router.post('/token', (req, res) => {
                                                                             // store refresh token to database
                                                                             gDB.query(
                                                                                 'INSERT INTO apirefreshtoken (clientID, userID, role, refreshToken, assignedScopes) VALUES (?, ?, ?, ?, ?)',
-                                                                                [req.body.client_id, results[0].userID, role, refresh_token, assign_scopes.join(' ')]
+                                                                                [req.body.client_id, user_id, role, refresh_token, assign_scopes.join(' ')]
                                                                             ).then(results => {
                                                                                 // send the JWT token to requester
                                                                                 res.status(200);
@@ -418,7 +421,7 @@ router.post('/token', (req, res) => {
                                                                                     expires_in: expires_in,
                                                                                     access_token: token,
                                                                                     refresh_token: encrypted_token,
-                                                                                    user_id: results[0].userID
+                                                                                    user_id: user_id
                                                                                 });
 
                                                                                 return;
