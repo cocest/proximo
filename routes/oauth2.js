@@ -96,7 +96,7 @@ router.post('/token', (req, res) => {
     } else if (req.body.grant_type == 'refresh_token') {
         // issue JWT token to user using refresh token
         custom_utils.checkOAuth2TokenCrendentials(req.body.grant_type, req.body, err => {
-            if (!err) {
+            if (err) {
                 res.status(401);
                 res.json({
                     error_code: "incomplete_credentials",
