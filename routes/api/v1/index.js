@@ -744,7 +744,7 @@ router.put('/users/:user_id', custom_utils.allowedScopes(['write:users']), (req,
                 // set sql update query for email
                 query += ', emailAddress = ?, accountActivated = ?';
                 post.push(req.body.email);
-                post.push(1);
+                post.push(0);
 
                 update_account_info = true;
             }
@@ -905,7 +905,7 @@ router.post('/users/:user_id/updatePassword', custom_utils.allowedScopes(['write
             }
 
             // hash user's password before storing to database
-            bcrypt.hash(req.body.password, 10).then(hash => {
+            bcrypt.hash(req.body.newPassword, 10).then(hash => {
                 // update user's password
                 gDB.query(
                     'UPDATE userauthentication SET password = ? WHERE userID = ? LIMIT 1',
@@ -996,51 +996,11 @@ router.post('/users/:user_id/generateSignInPassword', custom_utils.allowedScopes
         return;
     }
 
-    const invalid_inputs = [];
-
-    if (!req.query.email) {
-        invalid_inputs.push({
-            error_code: "undefined_query",
-            field: "email",
-            message: "email has to be defined"
-        });
-
-    } else if (!validator.isEmail(req.query.email)) {
-        invalid_inputs.push({
-            error_code: "invalid_value",
-            field: "email",
-            message: "email address is not acceptable"
-        });
-    }
-
-    // check if any query is invalid
-    if (invalid_inputs.length > 0) {
-        // send json error message to client
-        res.status(406);
-        res.json({
-            error_code: "invalid_query",
-            errors: invalid_inputs,
-            message: "Query(s) value is invalid"
-        });
-
-        return;
-    }
-
-    // check if email exist
+    // get user's email address
     gDB.query(
         'SELECT firstName, emailAddress FROM user WHERE userID = ? LIMIT 1',
-        [req.query.email]
+        [req.params.user_id]
     ).then(results => {
-        if (results.length < 1) {
-            res.status(404);
-            res.json({
-                error_code: "match_not_found",
-                message: "Email address doesn't exist"
-            });
-
-            return;
-        }
-
         // generate eight digit unique id
         const gen_password = rand_token.generate(8);
 
@@ -1164,7 +1124,7 @@ router.post('/users/:user_id/generateSignInPassword', custom_utils.allowedScopes
 });
 
 // validate registration fields or inputs
-router.post('/users/validateSignUpInputs', custom_utils.allowedScopes(['write:users:all']), (req, res) => {
+router.post('/user/validateSignUpInputs', custom_utils.allowedScopes(['write:users:all']), (req, res) => {
     if (!req.body) { // check if body contain data
         res.status(400);
         res.json({
