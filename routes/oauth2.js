@@ -145,7 +145,7 @@ router.post('/token', (req, res) => {
 
                                 // Refresh token has expired. Remove from database
                                 gDB.query(
-                                    'DELETE FROM apirefreshtoken WHERE clientID = ? AND decrypted_rf_token = ? LIMIT 1',
+                                    'DELETE FROM apirefreshtoken WHERE clientID = ? AND refreshToken = ? LIMIT 1',
                                     [req.body.client_id, decrypted_rf_token]
 
                                 ).catch(reason => {
