@@ -118,13 +118,10 @@ router.post('/token', (req, res) => {
                     decrypted = Buffer.concat([decrypted, decipher.final()]);
                     let decrypted_rf_token = decrypted.toString();
 
-                    // generate hash of 40 characters length
-                    const search_rt_hash = crypto.createHash("sha1").update(decrypted_rf_token, "binary").digest("hex");
-
                     // get refresh token from database
                     gDB.query(
-                        'SELECT * FROM apirefreshtoken WHERE clientID = ? AND searchRefreshTokenHash = ? LIMIT 1',
-                        [req.body.client_id, search_rt_hash]
+                        'SELECT * FROM apirefreshtoken WHERE clientID = ? AND refreshToken = ? LIMIT 1',
+                        [req.body.client_id, decrypted_rf_token]
                     ).then(results => {
                         if (results.length < 1) {
                             res.status(401);
@@ -148,8 +145,8 @@ router.post('/token', (req, res) => {
 
                                 // Refresh token has expired. Remove from database
                                 gDB.query(
-                                    'DELETE FROM apirefreshtoken WHERE clientID = ? AND searchRefreshTokenHash = ? LIMIT 1',
-                                    [req.body.client_id, search_rt_hash]
+                                    'DELETE FROM apirefreshtoken WHERE clientID = ? AND decrypted_rf_token = ? LIMIT 1',
+                                    [req.body.client_id, decrypted_rf_token]
 
                                 ).catch(reason => {
                                     // log the error to log file
@@ -432,15 +429,12 @@ router.post('/token', (req, res) => {
                                                                                 encrypted = Buffer.concat([encrypted, cipher.final()]);
                                                                                 let encrypted_token = encrypted.toString('hex');
 
-                                                                                // generate hash of 40 characters length
-                                                                                const search_rt_hash = crypto.createHash("sha1").update(encrypted_token, "binary").digest("hex");
-
                                                                                 // check if refresh token doesn't exit
                                                                                 if (results.length < 1) {
                                                                                     // store refresh token to database
                                                                                     gDB.query(
-                                                                                        'INSERT INTO apirefreshtoken (userID, clientID, refreshToken, searchRefreshTokenHash, role, assignedScopes) VALUES (?, ?, ?, ?, ?, ?)',
-                                                                                        [user_id, req.body.client_id, refresh_token, search_rt_hash, role, assign_scopes.join(' ')]
+                                                                                        'INSERT INTO apirefreshtoken (userID, clientID, refreshToken, role, assignedScopes) VALUES (?, ?, ?, ?, ?)',
+                                                                                        [user_id, req.body.client_id, refresh_token, role, assign_scopes.join(' ')]
                                                                                     ).then(results => {
                                                                                         // send the JWT token to requester
                                                                                         res.status(200);
@@ -470,8 +464,8 @@ router.post('/token', (req, res) => {
                                                                                 } else { // refresh token has expired
                                                                                     // update refresh token in database
                                                                                     gDB.query(
-                                                                                        'UPDATE apirefreshtoken SET refreshToken = ?, searchRefreshTokenHash = ?, role = ?, assignedScopes = ? WHERE userID = ? AND clientID = ? LIMIT 1',
-                                                                                        [refresh_token, search_rt_hash, role, assign_scopes.join(' '), user_id, req.body.client_id]
+                                                                                        'UPDATE apirefreshtoken SET refreshToken = ?, role = ?, assignedScopes = ? WHERE userID = ? AND clientID = ? LIMIT 1',
+                                                                                        [refresh_token, role, assign_scopes.join(' '), user_id, req.body.client_id]
                                                                                     ).then(results => {
                                                                                         // send the JWT token to requester
                                                                                         res.status(200);
