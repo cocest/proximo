@@ -110,18 +110,21 @@ router.post('/token', (req, res) => {
                     // decrypt refresh token
                     let encryptedText = Buffer.from(req.body.refresh_token, 'hex');
                     let decipher = crypto.createDecipheriv(
-                        'aes-256-cbc', 
-                        Buffer.from(Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_SECRET, 'hex')), 
+                        'aes-256-cbc',
+                        Buffer.from(Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_SECRET, 'hex')),
                         Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_IV, 'hex')
                     );
                     let decrypted = decipher.update(encryptedText);
                     decrypted = Buffer.concat([decrypted, decipher.final()]);
                     let decrypted_rf_token = decrypted.toString();
 
+                    // generate hash of 40 characters length
+                    const search_rt_hash = crypto.createHash("sha1").update(decrypted_rf_token, "binary").digest("hex");
+
                     // get refresh token from database
                     gDB.query(
-                        'SELECT * FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
-                        [decrypted_rf_token, req.body.client_id]
+                        'SELECT * FROM apirefreshtoken WHERE clientID = ? AND searchRefreshTokenHash = ? LIMIT 1',
+                        [req.body.client_id, search_rt_hash]
                     ).then(results => {
                         if (results.length < 1) {
                             res.status(401);
@@ -145,8 +148,8 @@ router.post('/token', (req, res) => {
 
                                 // Refresh token has expired. Remove from database
                                 gDB.query(
-                                    'DELETE FROM apirefreshtoken WHERE refreshToken = ? AND clientID = ? LIMIT 1',
-                                    [decrypted_rf_token, req.body.client_id]
+                                    'DELETE FROM apirefreshtoken WHERE clientID = ? AND searchRefreshTokenHash = ? LIMIT 1',
+                                    [req.body.client_id, search_rt_hash]
 
                                 ).catch(reason => {
                                     // log the error to log file
@@ -395,38 +398,108 @@ router.post('/token', (req, res) => {
                                                                         // user ID
                                                                         let user_id = results[0].userID;
 
-                                                                        // generate refresh token
-                                                                        let refresh_token = rand_token.generate(32);
-
-                                                                        try {
-                                                                            // encrypt the refresh token
-                                                                            let cipher = crypto.createCipheriv(
-                                                                                'aes-256-cbc',
-                                                                                Buffer.from(Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_SECRET, 'hex')),
-                                                                                Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_IV, 'hex')
-                                                                            );
-                                                                            let encrypted = cipher.update(refresh_token);
-                                                                            encrypted = Buffer.concat([encrypted, cipher.final()]);
-                                                                            let encrypted_token = encrypted.toString('hex');
-
-                                                                            // store refresh token to database
-                                                                            gDB.query(
-                                                                                'INSERT INTO apirefreshtoken (clientID, userID, role, refreshToken, assignedScopes) VALUES (?, ?, ?, ?, ?)',
-                                                                                [req.body.client_id, user_id, role, refresh_token, assign_scopes.join(' ')]
-                                                                            ).then(results => {
+                                                                        // get client refresh token if it exist
+                                                                        gDB.query(
+                                                                            'SELECT refreshToken, time FROM apirefreshtoken WHERE userID = ? AND clientID = ? LIMIT 1',
+                                                                            [user_id, req.body.client_id]
+                                                                        ).then(results => {
+                                                                            // check if refresh token exist and hasn't expired
+                                                                            if (results.length > 0 && ((Date.now() / 1000 - results[0].time) / 86400) < gConfig.REFRESH_TOKEN_EXPIRE_IN) {
                                                                                 // send the JWT token to requester
                                                                                 res.status(200);
                                                                                 res.json({
                                                                                     token_type: 'Bearer',
                                                                                     expires_in: expires_in,
                                                                                     access_token: token,
-                                                                                    refresh_token: encrypted_token,
+                                                                                    refresh_token: results[0].refreshToken,
                                                                                     user_id: user_id
                                                                                 });
 
                                                                                 return;
+                                                                            }
 
-                                                                            }).catch(reason => {
+                                                                            // generate refresh token
+                                                                            let refresh_token = rand_token.generate(32);
+
+                                                                            try {
+                                                                                // encrypt the refresh token
+                                                                                let cipher = crypto.createCipheriv(
+                                                                                    'aes-256-cbc',
+                                                                                    Buffer.from(Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_SECRET, 'hex')),
+                                                                                    Buffer.from(gConfig.REFRESH_TOKEN_ENCRYPT_IV, 'hex')
+                                                                                );
+                                                                                let encrypted = cipher.update(refresh_token);
+                                                                                encrypted = Buffer.concat([encrypted, cipher.final()]);
+                                                                                let encrypted_token = encrypted.toString('hex');
+
+                                                                                // generate hash of 40 characters length
+                                                                                const search_rt_hash = crypto.createHash("sha1").update(encrypted_token, "binary").digest("hex");
+
+                                                                                // check if refresh token doesn't exit
+                                                                                if (results.length < 1) {
+                                                                                    // store refresh token to database
+                                                                                    gDB.query(
+                                                                                        'INSERT INTO apirefreshtoken (userID, clientID, refreshToken, searchRefreshTokenHash, role, assignedScopes) VALUES (?, ?, ?, ?, ?, ?)',
+                                                                                        [user_id, req.body.client_id, refresh_token, search_rt_hash, role, assign_scopes.join(' ')]
+                                                                                    ).then(results => {
+                                                                                        // send the JWT token to requester
+                                                                                        res.status(200);
+                                                                                        res.json({
+                                                                                            token_type: 'Bearer',
+                                                                                            expires_in: expires_in,
+                                                                                            access_token: token,
+                                                                                            refresh_token: encrypted_token,
+                                                                                            user_id: user_id
+                                                                                        });
+
+                                                                                        return;
+
+                                                                                    }).catch(reason => {
+                                                                                        res.status(500);
+                                                                                        res.json({
+                                                                                            error_code: "internal_error",
+                                                                                            message: "Internal error"
+                                                                                        });
+
+                                                                                        // log the error to log file
+                                                                                        gLogger.log('error', reason.message, { stack: reason.stack });
+
+                                                                                        return;
+                                                                                    });
+
+                                                                                } else { // refresh token has expired
+                                                                                    // update refresh token in database
+                                                                                    gDB.query(
+                                                                                        'UPDATE apirefreshtoken SET refreshToken = ?, searchRefreshTokenHash = ?, role = ?, assignedScopes = ? WHERE userID = ? AND clientID = ? LIMIT 1',
+                                                                                        [refresh_token, search_rt_hash, role, assign_scopes.join(' '), user_id, req.body.client_id]
+                                                                                    ).then(results => {
+                                                                                        // send the JWT token to requester
+                                                                                        res.status(200);
+                                                                                        res.json({
+                                                                                            token_type: 'Bearer',
+                                                                                            expires_in: expires_in,
+                                                                                            access_token: token,
+                                                                                            refresh_token: encrypted_token,
+                                                                                            user_id: user_id
+                                                                                        });
+
+                                                                                        return;
+
+                                                                                    }).catch(reason => {
+                                                                                        res.status(500);
+                                                                                        res.json({
+                                                                                            error_code: "internal_error",
+                                                                                            message: "Internal error"
+                                                                                        });
+
+                                                                                        // log the error to log file
+                                                                                        gLogger.log('error', reason.message, { stack: reason.stack });
+
+                                                                                        return;
+                                                                                    });
+                                                                                }
+
+                                                                            } catch (er) { // catch the error just in case the crypto fail
                                                                                 res.status(500);
                                                                                 res.json({
                                                                                     error_code: "internal_error",
@@ -434,12 +507,12 @@ router.post('/token', (req, res) => {
                                                                                 });
 
                                                                                 // log the error to log file
-                                                                                gLogger.log('error', reason.message, { stack: reason.stack });
+                                                                                gLogger.log('error', er.message, { stack: er.stack });
 
                                                                                 return;
-                                                                            });
+                                                                            }
 
-                                                                        } catch (er) { // catch the error just in case the crypto fail
+                                                                        }).catch(reason => {
                                                                             res.status(500);
                                                                             res.json({
                                                                                 error_code: "internal_error",
@@ -447,10 +520,10 @@ router.post('/token', (req, res) => {
                                                                             });
 
                                                                             // log the error to log file
-                                                                            gLogger.log('error', er.message, { stack: er.stack });
+                                                                            gLogger.log('error', reason.message, { stack: reason.stack });
 
                                                                             return;
-                                                                        }
+                                                                        });
                                                                     }
                                                                 }
                                                             );
