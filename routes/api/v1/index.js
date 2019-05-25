@@ -2457,7 +2457,7 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
         if (req.params.location == 'countries') {
             // select countries from database
             gDB.query(
-                'SELECT countryID AS id, name AS country FROM map_countries LIMIT ? OFFSET ?', [limit, offset]
+                `SELECT countryID AS id, name AS country FROM map_countries LIMIT ${limit} OFFSET ${offset}`
             ).then(results => {
                 res.status(200);
                 res.json({
@@ -2489,51 +2489,76 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
                 return;
             });
 
-        } else { //regions
-            let query;
-            let post;
-
+        } else { // regions
             // get country to select regions from
             if (country_id) {
-                query = 'SELECT regionID AS id, name AS region FROM map_regions WHERE countryID = ? LIMIT ? OFFSET ?';
-                post = [country_id, limit, offset];
+                gDB.query(
+                    `SELECT regionID AS id, name AS region FROM map_regions WHERE countryID = ? LIMIT ${limit} OFFSET ${offset}`, 
+                    [country_id]
+                ).then(results => {
+                    res.status(200);
+                    res.json({
+                        regions: results,
+                        metadata: {
+                            result_set: {
+                                count: results.length,
+                                offset: offset,
+                                limit: limit,
+                                total: count_results[0].total
+                            }
+                        }
+                    });
+
+                    return;
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
 
             } else {
-                query = 'SELECT regionID AS id, name AS region FROM map_regions LIMIT ? OFFSET ?';
-                post = [limit, offset];
-            }
-
-            // select regions from database
-            gDB.query(query, post).then(results => {
-                res.status(200);
-                res.json({
-                    regions: results,
-                    metadata: {
-                        result_set: {
-                            count: results.length,
-                            offset: offset,
-                            limit: limit,
-                            total: count_results[0].total
+                // select regions from database
+                gDB.query(`SELECT regionID AS id, name AS region FROM map_regions LIMIT ${limit} OFFSET ${offset}`).then(results => {
+                    res.status(200);
+                    res.json({
+                        regions: results,
+                        metadata: {
+                            result_set: {
+                                count: results.length,
+                                offset: offset,
+                                limit: limit,
+                                total: count_results[0].total
+                            }
                         }
-                    }
+                    });
+
+                    return;
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
                 });
-
-                return;
-
-            }).catch(reason => {
-                res.status(500);
-                res.json({
-                    error_code: "internal_error",
-                    message: "Internal error"
-                });
-
-                // log the error to log file
-                gLogger.log('error', reason.message, {
-                    stack: reason.stack
-                });
-
-                return;
-            });
+            }
         }
     });
 });
@@ -3770,9 +3795,7 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
     select_query += 'ORDER BY time DESC ';
 
     // set limit and offset
-    select_query += 'LIMIT ? OFFSET ?';
-    select_post.push(limit);
-    select_post.push(offset);
+    select_query += `LIMIT ${limit} OFFSET ${offset}`;
 
     // get metadata for user's publication
     gDB.query(count_query, count_post).then(count_results => {
@@ -5228,9 +5251,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     select_query += 'ORDER BY time DESC ';
 
     // set limit and offset
-    select_query += 'LIMIT ? OFFSET ?';
-    select_post.push(limit);
-    select_post.push(offset);
+    select_query += `LIMIT ${limit} OFFSET ${offset}`;
 
     // get metadata for user's publication
     gDB.query(count_query, count_post).then(count_results => {
@@ -5440,9 +5461,7 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     select_query += 'ORDER BY time DESC ';
 
     // set limit and offset
-    select_query += 'LIMIT ? OFFSET ?';
-    select_post.push(limit);
-    select_post.push(offset);
+    select_query += `LIMIT ${limit} OFFSET ${offset}`;
 
     // get metadata for user's publication
     gDB.query(count_query, count_post).then(count_results => {
@@ -6260,9 +6279,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                 select_query += 'ORDER BY time DESC ';
 
                 // set limit and offset
-                select_query += 'LIMIT ? OFFSET ?';
-                select_post.push(limit);
-                select_post.push(offset);
+                select_query += `LIMIT ${limit} OFFSET ${offset}`;
 
                 // get metadata for user's publication
                 gDB.query(count_query, count_post).then(count_results => {
@@ -6591,9 +6608,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                 select_query += 'ORDER BY time DESC ';
 
                 // set limit and offset
-                select_query += 'LIMIT ? OFFSET ?';
-                select_post.push(limit);
-                select_post.push(offset);
+                select_query += `LIMIT ${limit} OFFSET ${offset}`;
 
                 // get metadata for user's publication
                 gDB.query(count_query, count_post).then(count_results => {
@@ -8163,12 +8178,10 @@ router.get('/news/:news_id/comments', custom_utils.allowedScopes(['read:news', '
             gDB.query(
                 'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
                 'FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
-                'AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ? OFFSET ?',
+                `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                 [
                     req.params.news_id,
-                    -1,
-                    limit,
-                    offset
+                    -1
                 ]
             ).then(results => {
                 let comments = [];
@@ -8330,12 +8343,10 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
             gDB.query(
                 'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
                 'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
-                'AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ? OFFSET ?',
+                `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                 [
                     req.params.article_id,
-                    -1,
-                    limit,
-                    offset
+                    -1
                 ]
             ).then(results => {
                 let comments = [];
@@ -8867,12 +8878,10 @@ router.get('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes
                 gDB.query(
                     'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
                     'FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
-                    'AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ? OFFSET ?',
+                    `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                     [
                         req.params.news_id,
-                        req.params.cmt_id,
-                        limit,
-                        offset
+                        req.params.cmt_id
                     ]
                 ).then(results => {
                     let comments = [];
@@ -9065,12 +9074,10 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
                 gDB.query(
                     'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
                     'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
-                    'AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ? OFFSET ?',
+                    `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                     [
                         req.params.article_id,
-                        req.params.cmt_id,
-                        limit,
-                        offset
+                        req.params.cmt_id
                     ]
                 ).then(results => {
                     let comments = [];
