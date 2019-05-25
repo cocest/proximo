@@ -2272,15 +2272,14 @@ router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:users'])
         let req_fields = req.query.fields.split(',');
         let permitted_field_count = 0;
         let field_already_exist = [];
-        const req_field_count = req_fields.length - 1;
 
         req_fields.forEach((elem, index) => {
             if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
-                if (index == req_field_count) {
-                    query += `${elem} `;
+                if (index == 0) {
+                    query += `${elem}`;
 
                 } else {
-                    query += `${elem}, `;
+                    query += `, ${elem}`;
                 }
 
                 field_already_exist.push(elem);
@@ -2292,7 +2291,7 @@ router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:users'])
             query = 'SELECT bio, about FROM user WHERE userID = ? LIMIT 1';
 
         } else {
-            query += 'FROM user WHERE userID = ? LIMIT 1';
+            query += ' FROM user WHERE userID = ? LIMIT 1';
         }
 
     } else { // no fields selection
@@ -3549,15 +3548,14 @@ router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read
         let req_fields = req.query.fields.split(',');
         let permitted_field_count = 0;
         let field_already_exist = [];
-        const req_field_count = req_fields.length - 1;
 
         req_fields.forEach((elem, index) => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == req_field_count) {
-                    query += `${mappped_field_name.get(elem)} `;
+                if (index == 0) {
+                    query += `${mappped_field_name.get(elem)}`;
 
                 } else {
-                    query += `${mappped_field_name.get(elem)}, `;
+                    query += `, ${mappped_field_name.get(elem)}`;
                 }
 
                 field_already_exist.push(elem);
@@ -3570,7 +3568,7 @@ router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read
                 'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
 
         } else {
-            query += 'FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
+            query += ' FROM draft WHERE draftID = ? AND userID = ? LIMIT 1';
         }
 
     } else { // no fields selection
@@ -3723,15 +3721,14 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
         let req_fields = req.query.fields.split(',');
         let permitted_field_count = 0;
         let field_already_exist = [];
-        const req_field_count = req_fields.length - 1;
 
         req_fields.forEach((elem, index) => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == req_field_count) {
-                    select_query += `${mappped_field_name.get(elem)} `;
+                if (index == 0) {
+                    select_query += `${mappped_field_name.get(elem)}`;
 
                 } else {
-                    select_query += `${mappped_field_name.get(elem)}, `;
+                    select_query += `, ${mappped_field_name.get(elem)}`;
                 }
 
                 field_already_exist.push(elem);
@@ -3743,7 +3740,7 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
             select_query = 'SELECT draftID AS draft_id, publication, category, featuredImageURL AS featured_image_url, title, highlight, time FROM draft ';
 
         } else {
-            select_query += 'FROM draft ';
+            select_query += ' FROM draft ';
         }
 
     } else { // no fields selection
@@ -5182,15 +5179,14 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
         let req_fields = req.query.fields.split(',');
         let permitted_field_count = 0;
         let field_already_exist = [];
-        const req_field_count = req_fields.length - 1;
 
         req_fields.forEach((elem, index) => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == req_field_count) {
-                    select_query += `${mappped_field_name.get(elem)} `;
+                if (index == 0) {
+                    select_query += `${mappped_field_name.get(elem)}`;
 
                 } else {
-                    select_query += `${mappped_field_name.get(elem)}, `;
+                    select_query += `, ${mappped_field_name.get(elem)}`;
                 }
 
                 field_already_exist.push(elem);
@@ -5202,7 +5198,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
             select_query = 'SELECT newsID AS news_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
 
         } else {
-            select_query += 'FROM news ';
+            select_query += ' FROM news ';
         }
 
     } else { // no fields selection
@@ -5395,15 +5391,14 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
         let req_fields = req.query.fields.split(',');
         let permitted_field_count = 0;
         let field_already_exist = [];
-        const req_field_count = req_fields.length - 1;
 
         req_fields.forEach((elem, index) => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == req_field_count) {
-                    select_query += `${mappped_field_name.get(elem)} `;
+                if (index == 0) {
+                    select_query += `${mappped_field_name.get(elem)}`;
 
                 } else {
-                    select_query += `${mappped_field_name.get(elem)}, `;
+                    select_query += `, ${mappped_field_name.get(elem)}`;
                 }
 
                 field_already_exist.push(elem);
@@ -5415,7 +5410,7 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
             select_query = 'SELECT articleID AS article_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
 
         } else {
-            select_query += 'FROM articles ';
+            select_query += ' FROM articles ';
         }
 
     } else { // no fields selection
@@ -5873,15 +5868,14 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         let req_fields = req.query.fields.split(',');
         let permitted_field_count = 0;
         let field_already_exist = [];
-        const req_field_count = req_fields.length - 1;
 
         req_fields.forEach((elem, index) => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == req_field_count) {
-                    query += `${mappped_field_name.get(elem)} `;
+                if (index == 0) {
+                    query += `${mappped_field_name.get(elem)}`;
 
                 } else {
-                    query += `${mappped_field_name.get(elem)}, `;
+                    query += `, ${mappped_field_name.get(elem)}`;
                 }
 
                 field_already_exist.push(elem);
@@ -5895,7 +5889,7 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
                 'title, highlight, content, time FROM news WHERE newsID = ?';
 
         } else {
-            query += 'FROM news WHERE newsID = ?';
+            query += ' FROM news WHERE newsID = ?';
         }
 
     } else { // no fields selection
@@ -5971,15 +5965,14 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         let req_fields = req.query.fields.split(',');
         let permitted_field_count = 0;
         let field_already_exist = [];
-        const req_field_count = req_fields.length - 1;
 
         req_fields.forEach((elem, index) => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == req_field_count) {
-                    query += `${mappped_field_name.get(elem)} `;
+                if (index == 0) {
+                    query += `${mappped_field_name.get(elem)}`;
 
                 } else {
-                    query += `${mappped_field_name.get(elem)}, `;
+                    query += `, ${mappped_field_name.get(elem)},`;
                 }
 
                 field_already_exist.push(elem);
@@ -5993,7 +5986,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
                 'title, highlight, content, time FROM articles WHERE articleID = ?';
 
         } else {
-            query += 'FROM articles WHERE articleID = ?';
+            query += ' FROM articles WHERE articleID = ?';
         }
 
     } else { // no fields selection
@@ -6187,15 +6180,14 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                     let req_fields = req.query.fields.split(',');
                     let permitted_field_count = 0;
                     let field_already_exist = [];
-                    const req_field_count = req_fields.length - 1;
 
                     req_fields.forEach((elem, index) => {
                         if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                            if (index == req_field_count) {
-                                select_query += `${mappped_field_name.get(elem)} `;
+                            if (index == 0) {
+                                select_query += `${mappped_field_name.get(elem)}`;
 
                             } else {
-                                select_query += `${mappped_field_name.get(elem)}, `;
+                                select_query += `, ${mappped_field_name.get(elem)}`;
                             }
 
                             field_already_exist.push(elem);
@@ -6207,7 +6199,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                         select_query = 'SELECT newsID AS news_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
 
                     } else {
-                        select_query += 'FROM news ';
+                        select_query += ' FROM news ';
                     }
 
                 } else { // no fields selection
@@ -6519,15 +6511,14 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                     let req_fields = req.query.fields.split(',');
                     let permitted_field_count = 0;
                     let field_already_exist = [];
-                    const req_field_count = req_fields.length - 1;
 
                     req_fields.forEach((elem, index) => {
                         if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                            if (index == req_field_count) {
-                                select_query += `${mappped_field_name.get(elem)} `;
+                            if (index == 0) {
+                                select_query += `${mappped_field_name.get(elem)}`;
 
                             } else {
-                                select_query += `${mappped_field_name.get(elem)}, `;
+                                select_query += `, ${mappped_field_name.get(elem)}`;
                             }
 
                             field_already_exist.push(elem);
@@ -6539,7 +6530,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                         select_query = 'SELECT articleID AS article_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
 
                     } else {
-                        select_query += 'FROM articles ';
+                        select_query += ' FROM articles ';
                     }
 
                 } else { // no fields selection
