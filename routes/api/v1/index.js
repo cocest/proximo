@@ -2336,7 +2336,7 @@ router.get('/publications/:publication_type/categories', custom_utils.allowedSco
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -2388,7 +2388,7 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -2541,7 +2541,7 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
 // get a region or nearest region if user is not in any launch region on map
 router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) => {
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -2768,7 +2768,7 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -3037,7 +3037,7 @@ router.post('/users/:user_id/news/:news_id/edit', custom_utils.allowedScopes(['w
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -3180,7 +3180,7 @@ router.post('/users/:user_id/articles/:article_id/edit', custom_utils.allowedSco
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -3318,7 +3318,7 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -3521,7 +3521,7 @@ router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -3635,7 +3635,7 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -3849,7 +3849,7 @@ router.delete('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['w
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -3906,7 +3906,7 @@ router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -3961,7 +3961,7 @@ router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes([
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -4250,7 +4250,7 @@ router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedS
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -4539,7 +4539,7 @@ router.delete('/users/:user_id/news/:news_id/medias/:media_id', custom_utils.all
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -4688,7 +4688,7 @@ router.delete('/users/:user_id/articles/:article_id/medias/:media_id', custom_ut
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -4837,7 +4837,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -5095,7 +5095,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -5307,7 +5307,7 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -5519,7 +5519,7 @@ router.delete('/users/:user_id/news/:news_id', custom_utils.allowedScopes(['writ
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
@@ -5689,7 +5689,7 @@ router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes
     }
 
     // check if account is verified
-    if (req.user.account_verified) {
+    if (!req.user.account_verified) {
         res.status(401);
         res.json({
             error_code: "account_not_verified",
