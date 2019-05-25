@@ -1426,7 +1426,7 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
                 return;
             }
 
-        }).catch(reason => {
+        }).catch(err => {
             res.status(500);
             res.json({
                 error_code: "internal_error",
@@ -1434,9 +1434,8 @@ router.post('/users/:id/email/sendVerification', custom_utils.allowedScopes(['wr
             });
 
             // log the error to log file
-            gLogger.log({
-                level: 'error',
-                message: reason
+            gLogger.log('error', err.message, {
+                stack: err.stack
             });
 
             return;
@@ -1526,7 +1525,7 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
                     ).then(results => {
                         return res.status(200).send();
 
-                    }).catch(reason => {
+                    }).catch(err => {
                         res.status(500);
                         res.json({
                             error_code: "internal_error",
@@ -1534,8 +1533,8 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
                         });
 
                         // log the error to log file
-                        gLogger.log('error', reason.message, {
-                            stack: reason.stack
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
                         });
 
                         return;
@@ -1562,6 +1561,56 @@ router.post('/users/:id/email/confirmVerification', custom_utils.allowedScopes([
 
         return;
     }
+});
+
+// check account status
+router.get('/users/:user_id/accountStatus', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    // get user's account state
+    gDB.query(
+        'SELECT accountActivated FROM user WHERE userID = ? LIMIT 1',
+        [req.params.user_id]
+    ).then(results => {
+        res.status(200);
+        res.json({
+            account_verified: results[0].accountActivated
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 // upload profile picture for the user
@@ -1773,9 +1822,9 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
                             gDB.query(
                                 'UPDATE user SET profilePictureSmallURL = ?, profilePictureMediumURL = ?, profilePictureBigURL = ? WHERE userID = ? LIMIT 1',
                                 [
-                                    url_parse(dm.get(50).Location, true).pathname.replace(`/${gConfig.AWS_S3_BUCKET_NAME}/`, ''),
-                                    url_parse(dm.get(120).Location, true).pathname.replace(`/${gConfig.AWS_S3_BUCKET_NAME}/`, ''),
-                                    url_parse(dm.get(280).Location, true).pathname.replace(`/${gConfig.AWS_S3_BUCKET_NAME}/`, ''),
+                                    url_parse(dm.get(50).Location, true).pathname.replace('/', ''),
+                                    url_parse(dm.get(120).Location, true).pathname.replace('/', ''),
+                                    url_parse(dm.get(280).Location, true).pathname.replace('/', ''),
                                     req.params.user_id
                                 ]
                             ).then(results => {

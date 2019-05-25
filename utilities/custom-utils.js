@@ -18,9 +18,9 @@ class Utilities {
             case 1:
                 return (y % 4 == 0 && y % 100) || y % 400 == 0 ? 29 : 28;
 
-            case 8: 
-            case 3: 
-            case 5: 
+            case 8:
+            case 3:
+            case 5:
             case 10:
                 return 30;
 
@@ -31,7 +31,7 @@ class Utilities {
 
     static validateDate(date) {
         if (!(/^[1-9][0-9]{3}$/.test(date.year) &&
-                parseInt(date.year) <= (new Date()).getFullYear())) {
+            parseInt(date.year) <= (new Date()).getFullYear())) {
 
             return false;
         }
@@ -96,9 +96,8 @@ class Utilities {
         if (!auth_header) {
             res.status(403);
             res.json({
-                status: 403,
-                error_code: "invalid_request",
-                message: "Forbidden"
+                error_code: "authorization_not_defined",
+                message: "Authorization header not defined"
             });
 
             return;
@@ -118,7 +117,6 @@ class Utilities {
                         if (err.name == 'TokenExpiredError') {
                             res.status(401);
                             res.json({
-                                status: 401,
                                 error_code: "token_expired",
                                 message: "Unauthorized"
                             });
@@ -128,7 +126,6 @@ class Utilities {
                         } else {
                             res.status(401);
                             res.json({
-                                status: 401,
                                 error_code: "invalid_token",
                                 message: "Unauthorized"
                             });
@@ -154,7 +151,6 @@ class Utilities {
             } else {
                 res.status(400);
                 res.json({
-                    status: 400,
                     error_code: "invalid_authorization_header",
                     message: "Bad request"
                 });
@@ -196,7 +192,7 @@ class Utilities {
 
         // check if privilege(s) should be assign to this client
         if (!allowed_roles.find(elem => elem == role[0])) {
-            return call({errorCode: 'scope_not_allowed'}, []);
+            return call({ errorCode: 'scope_not_allowed' }, []);
         }
 
         if (role[0] == 'user' || role[0] == 'client') {
@@ -276,7 +272,7 @@ class Utilities {
 
         // iterate the polys
         for (let i = 1; i < polyline_count; i++) {
-            p_x1 = polys[i][0];            
+            p_x1 = polys[i][0];
             p_y1 = polys[i][1];
 
             // check if line should be skiped by determining if it fall completely at right side
@@ -327,23 +323,23 @@ class Utilities {
          * pythagoras without taking the square root
          * 
          */
-         
-         let point_x = point.x;
-         let point_y = point.y;
-         let d_x = point_x - obj[0][0];
-         let d_y = point_y - obj[0][1];
-         let r1 = d_x * d_x + d_y * d_y; // distance of point A from point B of object
-         let r2;
 
-         for (let i = 1; i < obj.length; i++) {
-             d_x = point_x - obj[i][0]; // x component distance
-             d_y = point_y - obj[i][1]; // y component distance
+        let point_x = point.x;
+        let point_y = point.y;
+        let d_x = point_x - obj[0][0];
+        let d_y = point_y - obj[0][1];
+        let r1 = d_x * d_x + d_y * d_y; // distance of point A from point B of object
+        let r2;
 
-             r2 = d_x * d_x + d_y * d_y; // distance of point A from point B of object
-             if (r2 < r1) r1 = r2; // replace with smaller distance
-         }
+        for (let i = 1; i < obj.length; i++) {
+            d_x = point_x - obj[i][0]; // x component distance
+            d_y = point_y - obj[i][1]; // y component distance
 
-         return r1;
+            r2 = d_x * d_x + d_y * d_y; // distance of point A from point B of object
+            if (r2 < r1) r1 = r2; // replace with smaller distance
+        }
+
+        return r1;
     }
 }
 
