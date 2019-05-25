@@ -2967,7 +2967,7 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
             // save news or article to user's draft
             gDB.query(
                 'INSERT INTO draft (draftID, userID, categoryID, category, publication, ' +
-                'featuredImageURL, title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                'featuredImageURL, title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     draft_id,
                     req.params.user_id,
@@ -2987,7 +2987,7 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
 
                 return;
 
-            }).catch(reason => {
+            }).catch(err => {
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -2995,14 +2995,14 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
                 });
 
                 // log the error to log file
-                gLogger.log('error', reason.message, {
-                    stack: reason.stack
+                gLogger.log('error', err.message, {
+                    stack: err.stack
                 });
 
                 return;
             });
 
-        }).catch(reason => {
+        }).catch(err => {
             res.status(500);
             res.json({
                 error_code: "internal_error",
@@ -3010,8 +3010,8 @@ router.post('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users']
             });
 
             // log the error to log file
-            gLogger.log('error', reason.message, {
-                stack: reason.stack
+            gLogger.log('error', err.message, {
+                stack: err.stack
             });
 
             return;
