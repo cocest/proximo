@@ -96,7 +96,7 @@ class Utilities {
         if (!auth_header) {
             res.status(403);
             res.json({
-                error_code: "authorization_not_defined",
+                error_code: "access_token_required",
                 message: "Authorization header not defined"
             });
 

@@ -2273,9 +2273,9 @@ router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:users'])
         let permitted_field_count = 0;
         let field_already_exist = [];
 
-        req_fields.forEach((elem, index) => {
+        req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
-                if (index == 0) {
+                if (permitted_field_count == 0) {
                     query += `${elem}`;
 
                 } else {
@@ -3574,9 +3574,9 @@ router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read
         let permitted_field_count = 0;
         let field_already_exist = [];
 
-        req_fields.forEach((elem, index) => {
+        req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == 0) {
+                if (permitted_field_count == 0) {
                     query += `${mappped_field_name.get(elem)}`;
 
                 } else {
@@ -3747,9 +3747,9 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
         let permitted_field_count = 0;
         let field_already_exist = [];
 
-        req_fields.forEach((elem, index) => {
+        req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == 0) {
+                if (permitted_field_count == 0) {
                     select_query += `${mappped_field_name.get(elem)}`;
 
                 } else {
@@ -5203,9 +5203,9 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
         let permitted_field_count = 0;
         let field_already_exist = [];
 
-        req_fields.forEach((elem, index) => {
+        req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == 0) {
+                if (permitted_field_count == 0) {
                     select_query += `${mappped_field_name.get(elem)}`;
 
                 } else {
@@ -5413,9 +5413,9 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
         let permitted_field_count = 0;
         let field_already_exist = [];
 
-        req_fields.forEach((elem, index) => {
+        req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == 0) {
+                if (permitted_field_count == 0) {
                     select_query += `${mappped_field_name.get(elem)}`;
 
                 } else {
@@ -5888,9 +5888,9 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         let permitted_field_count = 0;
         let field_already_exist = [];
 
-        req_fields.forEach((elem, index) => {
+        req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == 0) {
+                if (permitted_field_count == 0) {
                     query += `${mappped_field_name.get(elem)}`;
 
                 } else {
@@ -5985,9 +5985,9 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         let permitted_field_count = 0;
         let field_already_exist = [];
 
-        req_fields.forEach((elem, index) => {
+        req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                if (index == 0) {
+                if (permitted_field_count == 0) {
                     query += `${mappped_field_name.get(elem)}`;
 
                 } else {
@@ -6200,9 +6200,9 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                     let permitted_field_count = 0;
                     let field_already_exist = [];
 
-                    req_fields.forEach((elem, index) => {
+                    req_fields.forEach(elem => {
                         if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                            if (index == 0) {
+                            if (permitted_field_count == 0) {
                                 select_query += `${mappped_field_name.get(elem)}`;
 
                             } else {
@@ -6529,9 +6529,9 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                     let permitted_field_count = 0;
                     let field_already_exist = [];
 
-                    req_fields.forEach((elem, index) => {
+                    req_fields.forEach(elem => {
                         if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                            if (index == 0) {
+                            if (permitted_field_count == 0) {
                                 select_query += `${mappped_field_name.get(elem)}`;
 
                             } else {
