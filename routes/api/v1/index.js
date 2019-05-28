@@ -4864,10 +4864,32 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
 
                                 }).catch(err => {
                                     // delete newly inserted row for news or article
-                                    gDB.query(
-                                        'DELETE FROM ?? WHERE ?? = ? LIMIT 1',
-                                        [table_name, table_id_name, publication_id]
-                                    ).then(results => {
+                                    if (draft_results[0].published == 0) {
+                                        gDB.query(
+                                            'DELETE FROM ?? WHERE ?? = ? LIMIT 1',
+                                            [table_name, table_id_name, publication_id]
+                                        ).then(results => {
+                                            res.status(204).send();
+
+                                            // log the error to log file
+                                            gLogger.log('error', err.message, {
+                                                stack: err.stack
+                                            });
+
+                                            return;
+
+                                        }).catch(err => {
+                                            res.status(204).send();
+
+                                            // log the error to log file
+                                            gLogger.log('error', err.message, {
+                                                stack: err.stack
+                                            });
+
+                                            return;
+                                        });
+
+                                    } else {
                                         res.status(204).send();
 
                                         // log the error to log file
@@ -4876,17 +4898,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                                         });
 
                                         return;
-
-                                    }).catch(err => {
-                                        res.status(204).send();
-
-                                        // log the error to log file
-                                        gLogger.log('error', err.message, {
-                                            stack: err.stack
-                                        });
-
-                                        return;
-                                    });
+                                    }
                                 });
 
                             }).catch(err => {
