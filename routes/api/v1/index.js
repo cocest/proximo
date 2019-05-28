@@ -1961,15 +1961,16 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
                     const deleteParam = {
                         Bucket: gConfig.AWS_S3_BUCKET_NAME,
                         Delete: {
-                            Objects: [{
-                                Key: results[0].profilePictureSmallURL
-                            },
-                            {
-                                Key: results[0].profilePictureMediumURL
-                            },
-                            {
-                                Key: results[0].profilePictureBigURL
-                            }
+                            Objects: [
+                                {
+                                    Key: results[0].profilePictureSmallURL
+                                },
+                                {
+                                    Key: results[0].profilePictureMediumURL
+                                },
+                                {
+                                    Key: results[0].profilePictureBigURL
+                                }
                             ]
                         }
                     };
@@ -2493,7 +2494,7 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
             // get country to select regions from
             if (country_id) {
                 gDB.query(
-                    `SELECT regionID AS id, name AS region FROM map_regions WHERE countryID = ? LIMIT ${limit} OFFSET ${offset}`, 
+                    `SELECT regionID AS id, name AS region FROM map_regions WHERE countryID = ? LIMIT ${limit} OFFSET ${offset}`,
                     [country_id]
                 ).then(results => {
                     res.status(200);
@@ -3557,7 +3558,7 @@ router.get('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['read
     }
 
     const mappped_field_name = new Map([
-        ['publication', 'production'],
+        ['publication', 'publication'],
         ['category', 'category'],
         ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
         ['title', 'title'],
@@ -3728,16 +3729,16 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
     }
 
     const mappped_field_name = new Map([
-        ['publication', 'production'],
+        ['publication', 'publication'],
         ['category', 'category'],
         ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
         ['title', 'title'],
         ['highlight', 'highlight'],
         ['time', 'time']
     ]);
-    let select_query = 'SELECT draftID AS draft_id, ';
+    let select_query = 'SELECT draftID AS draft_id';
     let select_post = [];
-    let count_query = 'SELECT COUNT(*) AS total FROM draft WHERE ';
+    let count_query = 'SELECT COUNT(*) AS total FROM draft ';
     let count_post = [];
 
     // check if valid and required fields is given
@@ -3750,7 +3751,7 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
         req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
                 if (permitted_field_count == 0) {
-                    select_query += `${mappped_field_name.get(elem)}`;
+                    select_query += `, ${mappped_field_name.get(elem)}`;
 
                 } else {
                     select_query += `, ${mappped_field_name.get(elem)}`;
@@ -3769,7 +3770,7 @@ router.get('/users/:user_id/drafts', custom_utils.allowedScopes(['read:users']),
         }
 
     } else { // no fields selection
-        select_query += 'publication, category, featuredImageURL AS featured_image_url, title, highlight, time FROM draft ';
+        select_query += ', publication, category, featuredImageURL AS featured_image_url, title, highlight, time FROM draft ';
     }
 
     // user publication
@@ -3882,12 +3883,93 @@ router.delete('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['w
         return;
     }
 
-    // delete draft in database
+    // get all the uploaded media contents during drafting of publication
     gDB.query(
-        'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-        [req.params.draft_id, req.params.user_id]
+        'SELECT mediaRelativePath FROM draft_media_contents WHERE userID = ? AND draftID = ?',
+        [req.params.user_id, req.params.draft_id]
     ).then(results => {
-        return res.status(200).send();
+        let delete_objs = [];
+
+        // add object(s) to delete
+        for (let i = 0; i < results.length; i++) {
+            delete_objs.push({ Key: results[i].mediaRelativePath });
+        }
+
+        // set aws s3 access credentials
+        aws.config.update({
+            apiVersion: '2006-03-01',
+            accessKeyId: gConfig.AWS_ACCESS_ID,
+            secretAccessKey: gConfig.AWS_SECRET_KEY,
+            region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+        });
+
+        const s3 = new aws.S3();
+
+        // initialise objects to delete
+        const deleteParam = {
+            Bucket: gConfig.AWS_S3_BUCKET_NAME,
+            Delete: {
+                Objects: delete_objs
+            }
+        };
+
+        s3.deleteObjects(deleteParam, (err, data) => {
+            if (err) {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            }
+
+            // delete a draft and all the related contents
+            gDB.transaction(
+                {
+                    query: 'DELETE FROM draft WHERE draftID = ? AND userID = ?',
+                    post: [
+                        req.params.draft_id,
+                        req.params.user_id
+                    ]
+                },
+                {
+                    query: 'DELETE FROM draft_media_contents WHERE draftID = ? AND userID = ?',
+                    post: [
+                        req.params.draft_id,
+                        req.params.user_id
+                    ]
+                },
+                {
+                    query: 'DELETE FROM delete_media_contents WHERE draftID = ? AND userID = ?',
+                    post: [
+                        req.params.draft_id,
+                        req.params.user_id
+                    ]
+                }
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+        });
 
     }).catch(err => {
         res.status(500);
@@ -3939,9 +4021,90 @@ router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users
         return;
     }
 
-    // delete all user's draft in database
-    gDB.query('DELETE FROM draft WHERE userID = ?', [req.params.draft_id, req.params.user_id]).then(results => {
-        return res.status(200).send();
+    // get all the uploaded media contents during drafting of publication
+    gDB.query(
+        'SELECT mediaRelativePath FROM draft_media_contents WHERE userID = ?',
+        [req.params.user_id]
+    ).then(results => {
+        let delete_objs = [];
+
+        // add object(s) to delete
+        for (let i = 0; i < results.length; i++) {
+            delete_objs.push({ Key: results[i].mediaRelativePath });
+        }
+
+        // set aws s3 access credentials
+        aws.config.update({
+            apiVersion: '2006-03-01',
+            accessKeyId: gConfig.AWS_ACCESS_ID,
+            secretAccessKey: gConfig.AWS_SECRET_KEY,
+            region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+        });
+
+        const s3 = new aws.S3();
+
+        // initialise objects to delete
+        const deleteParam = {
+            Bucket: gConfig.AWS_S3_BUCKET_NAME,
+            Delete: {
+                Objects: delete_objs
+            }
+        };
+
+        s3.deleteObjects(deleteParam, (err, data) => {
+            if (err) {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            }
+
+            // delete all draft and all the related contents
+            gDB.transaction(
+                {
+                    query: 'DELETE FROM draft WHERE userID = ?',
+                    post: [
+                        req.params.user_id
+                    ]
+                },
+                {
+                    query: 'DELETE FROM draft_media_contents WHERE userID = ?',
+                    post: [
+                        req.params.user_id
+                    ]
+                },
+                {
+                    query: 'DELETE FROM delete_media_contents WHERE userID = ?',
+                    post: [
+                        req.params.user_id
+                    ]
+                }
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+        });
 
     }).catch(err => {
         res.status(500);
@@ -3959,25 +4122,14 @@ router.delete('/users/:user_id/drafts', custom_utils.allowedScopes(['write:users
     });
 });
 
-// upload media contents for news
-router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes(['write:users']), (req, res) => {
-    // check if user and article id is integer
-    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.news_id))) {
+// upload media contents for publication
+router.post('/drafts/:draft_id/medias', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if draft id is valid
+    if (!/^[a-zA-Z0-9]{16}$/.test(req.params.draft_id)) {
         res.status(400);
         res.json({
             error_code: "invalid_id",
             message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
         });
 
         return;
@@ -3994,16 +4146,16 @@ router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes([
         return;
     }
 
-    // check if article for the user exist
+    // check if draft exist
     gDB.query(
-        'SELECT 1 FROM news WHERE newsID = ? AND userID = ? LIMIT 1',
-        [req.params.news_id, req.params.user_id]
+        'SELECT publication FROM draft_media_contents WHERE draftID = ? AND userID = ? LIMIT 1',
+        [req.params.draft_id, req.user.access_token.user_id]
     ).then(results => {
         if (results.length < 1) {
             res.status(404);
             res.json({
                 error_code: "file_not_found",
-                message: "Publication can't be found"
+                message: "Draft can't be found"
             });
 
             return;
@@ -4155,18 +4307,27 @@ router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes([
                         }
 
                         if (data) { // file uploaded successfully
-                            // generate sixten digit unique id
-                            const image_id = rand_token.generate(16);
+                            // generate 32 digit unique id
+                            const image_id = rand_token.generate(32);
+                            let img_path;
+
+                            // check if is news or article
+                            if (results[0].publication == 'news') { // news
+                                img_path = 'news/images/big/' + object_unique_name;
+
+                            } else { // article
+                                img_path = 'article/images/big/' + object_unique_name;
+                            }
 
                             // save file metadata and location to database
                             gDB.query(
-                                'INSERT INTO news_media_contents (newsID, userID, mediaID, mediaRelativePath, ' +
+                                'INSERT INTO draft_media_contents (draftID, userID, mediaID, mediaRelativePath, ' +
                                 'mediaOriginalName, mediaType, mediaExt) VALUES (?, ?, ?, ?, ?, ?, ?)',
                                 [
-                                    req.params.news_id,
-                                    req.params.user_id,
+                                    req.params.draft_id,
+                                    req.user.access_token.user_id,
                                     image_id,
-                                    'news/images/big/' + object_unique_name,
+                                    img_path,
                                     file_name,
                                     file_mime.mime.split('/')[0],
                                     save_image_ext,
@@ -4248,25 +4409,14 @@ router.post('/users/:user_id/news/:news_id/medias', custom_utils.allowedScopes([
     });
 });
 
-// upload media contents for an article
-router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedScopes(['write:users']), (req, res) => {
-    // check if user and article id is integer
-    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id))) {
+// delete uploaded media content for publication
+router.delete('/drafts/:draft_id/medias/:media_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
+    // check if all the pass id in the URL is valid
+    if (!(/^[a-zA-Z0-9]{16}$/.test(req.params.draft_id) && /^[a-zA-Z0-9]{32}$/.test(req.params.media_id))) {
         res.status(400);
         res.json({
             error_code: "invalid_id",
             message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
         });
 
         return;
@@ -4283,57 +4433,38 @@ router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedS
         return;
     }
 
-    // check if article for the user exist
+    // check if draft exist
     gDB.query(
-        'SELECT 1 FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
-        [req.params.article_id, req.params.user_id]
-    ).then(results => {
+        'SELECT publication FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+        [req.params.draft_id, req.user.access_token.user_id]
+    ).then(draft_results => {
         if (results.length < 1) {
             res.status(404);
             res.json({
                 error_code: "file_not_found",
-                message: "Publication can't be found"
+                message: "Draft can't be found"
             });
 
             return;
         }
 
-        upload(req, res, (err) => {
-            // check if enctype is multipart form data
-            if (!req.is('multipart/form-data')) {
-                res.status(415);
-                res.json({
-                    error_code: "invalid_request_body",
-                    message: "Encode type not supported"
-                });
+        // schedule media content that will be deleted during publication
+        const deleteMediaContent = (rel_path, call_back) => {
+            gDB.query(
+                'IF NOT EXISTS (SELECT * FROM delete_media_contents WHERE mediaID = ?) ' +
+                'BEGIN INSERT INTO delete_media_contents (draftID, userID, publication, mediaID, mediaRelativePath) VALUES (?, ?, ?, ?, ?) END',
+                [
+                    req.params.media_id,
+                    req.params.draft_id,
+                    req.user.access_token.user_id,
+                    draft_results[0].publication,
+                    req.params.media_id,
+                    rel_path
+                ]
+            ).then(results => {
+                call_back();
 
-                return;
-            }
-
-            // check if file contain data
-            if (!req.file) {
-                res.status(400);
-                res.json({
-                    error_code: "invalid_request",
-                    message: "Bad request"
-                });
-
-                return;
-            }
-
-            // A Multer error occurred when uploading
-            if (err instanceof multer.MulterError) {
-                if (err.code == 'LIMIT_FILE_SIZE') {
-                    res.status(400);
-                    res.json({
-                        error_code: "size_exceeded",
-                        message: "Image your uploading exceeded allowed size"
-                    });
-
-                    return;
-                }
-
-                // other multer errors
+            }).catch(err => {
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -4346,298 +4477,45 @@ router.post('/users/:user_id/articles/:article_id/medias', custom_utils.allowedS
                 });
 
                 return;
-
-            } else if (err) { // An unknown error occurred when uploading
-                res.status(500);
-                res.json({
-                    error_code: "internal_error",
-                    message: "Internal error"
-                });
-
-                // log the error to log file
-                gLogger.log('error', err.message, {
-                    stack: err.stack
-                });
-
-                return;
-            }
-
-            let file_path = req.file.path; // uploaded file location
-            let file_name = req.file.originalname;
-            const save_image_ext = 'png';
-
-            // read uploaded image as buffer
-            let image_buffer = fs.readFileSync(file_path);
-
-            // check file type and if is supported
-            let supported_images = [
-                'jpg',
-                'png',
-                'gif',
-                'jp2'
-            ];
-
-            // read minimum byte from buffer required to determine file mime
-            let file_mime = file_type(Buffer.from(image_buffer, 0, file_type.minimumBytes));
-
-            if (!(file_mime.mime.split('/')[0] == 'image' && supported_images.find(e => e == file_mime.ext))) {
-                // delete the uploaded file
-                fs.unlinkSync(file_path);
-
-                res.status(406);
-                res.json({
-                    error_code: "unsupported_format",
-                    message: "Uploaded image is not supported"
-                });
-
-                return;
-            }
-
-            // resize the image if it exceeded the maximum resolution
-            sharp(image_buffer)
-                .resize({
-                    height: 1080, // resize image using the set height
-                    withoutEnlargement: true
-                })
-                .toFormat(save_image_ext)
-                .toBuffer()
-                .then(outputBuffer => {
-                    // no higher than 1080 pixels
-                    // and no larger than the input image
-
-                    // upload buffer to aws s3 bucket
-                    // set aws s3 access credentials
-                    aws.config.update({
-                        apiVersion: '2006-03-01',
-                        accessKeyId: gConfig.AWS_ACCESS_ID,
-                        secretAccessKey: gConfig.AWS_SECRET_KEY,
-                        region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
-                    });
-
-                    const s3 = new aws.S3();
-                    const object_unique_name = rand_token.uid(34) + '.' + save_image_ext;
-
-                    const upload_params = {
-                        Bucket: gConfig.AWS_S3_BUCKET_NAME,
-                        Body: outputBuffer,
-                        Key: 'article/images/big/' + object_unique_name,
-                        ACL: gConfig.AWS_S3_BUCKET_PERMISSION
-                    };
-
-                    s3.upload(upload_params, (err, data) => {
-                        // delete the uploaded file
-                        fs.unlinkSync(file_path);
-
-                        if (err) {
-                            res.status(500);
-                            res.json({
-                                error_code: "internal_error",
-                                message: "Internal error"
-                            });
-
-                            // log the error to log file
-                            gLogger.log('error', err.message, {
-                                stack: err.stack
-                            });
-
-                            return;
-                        }
-
-                        if (data) { // file uploaded successfully
-                            // generate sixten digit unique id
-                            const image_id = rand_token.generate(16);
-
-                            // save file metadata and location to database
-                            gDB.query(
-                                'INSERT INTO article_media_contents (articleID, userID, mediaID, mediaRelativePath, ' +
-                                'mediaOriginalName, mediaType, mediaExt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                                [
-                                    req.params.article_id,
-                                    req.params.user_id,
-                                    image_id,
-                                    'article/images/big/' + object_unique_name,
-                                    file_name,
-                                    file_mime.mime.split('/')[0],
-                                    save_image_ext,
-                                ]
-                            ).then(results => {
-                                // send result to client
-                                res.status(200);
-                                res.json({
-                                    image_id: image_id,
-                                    images: [
-                                        {
-                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/article/images/big/' + object_unique_name,
-                                            size: 'big'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/article/images/medium/' + object_unique_name,
-                                            size: 'medium'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/article/images/small/' + object_unique_name,
-                                            size: 'small'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/article/images/tiny/' + object_unique_name,
-                                            size: 'tiny'
-                                        }
-                                    ]
-                                });
-
-                            }).catch(err => {
-                                res.status(500);
-                                res.json({
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                gLogger.log('error', err.message, {
-                                    stack: err.stack
-                                });
-
-                                return;
-                            });
-                        }
-                    });
-                })
-                .catch(err => {
-                    // delete the uploaded file
-                    fs.unlinkSync(file_path);
-
-                    res.status(500);
-                    res.json({
-                        error_code: "internal_error",
-                        message: "Internal error"
-                    });
-
-                    // log the error to log file
-                    gLogger.log('error', err.message, {
-                        stack: err.stack
-                    });
-
-                    return;
-                });
-        });
-
-    }).catch(err => {
-        res.status(500);
-        res.json({
-            error_code: "internal_error",
-            message: "Internal error"
-        });
-
-        // log the error to log file
-        gLogger.log('error', err.message, {
-            stack: err.stack
-        });
-
-        return;
-    });
-});
-
-// delete uploaded media content for news
-router.delete('/users/:user_id/news/:news_id/medias/:media_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
-    // check if all the pass id in the URL is valid
-    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.news_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.media_id))) {
-        res.status(400);
-        res.json({
-            error_code: "invalid_id",
-            message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
-        });
-
-        return;
-    }
-
-    // check if account is verified
-    if (!req.user.account_verified) {
-        res.status(401);
-        res.json({
-            error_code: "account_not_verified",
-            message: "User should verify their email"
-        });
-
-        return;
-    }
-
-    // check if news exist
-    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
-        if (results.length < 1) {
-            res.status(404);
-            res.json({
-                error_code: "file_not_found",
-                message: "News can't be found"
             });
+        };
 
-            return;
-        }
-
-        // check if media content to delete is still in database
+        // get media content to be delete in database
         gDB.query(
-            'SELECT mediaRelativePath FROM news_media_contents WHERE mediaID = ? LIMIT 1',
+            'SELECT mediaRelativePath FROM draft_media_contents WHERE mediaID = ? LIMIT 1',
             [req.params.media_id]
         ).then(results => {
-            // media doesn't exist or has been deleted
             if (results.length < 1) {
-                return res.status(200).send();
-            }
+                // media can't be found in this table, check another table
+                let table_name;
 
-            // set aws s3 access credentials
-            aws.config.update({
-                apiVersion: '2006-03-01',
-                accessKeyId: gConfig.AWS_ACCESS_ID,
-                secretAccessKey: gConfig.AWS_SECRET_KEY,
-                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
-            });
+                // check if is news or article
+                if (draft_results[0].publication == 'news') { // news
+                    table_name = 'news_media_contents';
 
-            const s3 = new aws.S3();
-
-            // initialise objects to delete
-            const deleteParam = {
-                Bucket: gConfig.AWS_S3_BUCKET_NAME,
-                Delete: {
-                    Objects: [{
-                        Key: results[0].mediaRelativePath
-                    }]
-                }
-            };
-
-            s3.deleteObjects(deleteParam, (err, data) => {
-                if (err) {
-                    res.status(500);
-                    res.json({
-                        error_code: "internal_error",
-                        message: "Internal error"
-                    });
-
-                    // log the error to log file
-                    gLogger.log('error', err.message, {
-                        stack: err.stack
-                    });
-
-                    return;
-
+                } else { // article
+                    table_name = 'article_media_contents';
                 }
 
-                // remove media content from database
                 gDB.query(
-                    'DELETE FROM news_media_contents WHERE newsID = ? AND userID = ? AND mediaID = ?',
-                    [req.params.news_id, req.params.user_id, req.params.media_id]
+                    'SELECT mediaRelativePath FROM ?? WHERE mediaID = ? LIMIT 1',
+                    [table_name, req.params.media_id]
                 ).then(results => {
-                    // content deleted successfully
-                    return res.status(200).send();
+                    // check if media exist
+                    if (results.length < 1) {
+                        res.status(404);
+                        res.json({
+                            error_code: "file_not_found",
+                            message: "Media can't be found"
+                        });
+
+                        return;
+                    }
+
+                    // delete media in AWS S3 bucket
+                    deleteMediaContent(results[0].mediaRelativePath, () => {
+                        return res.status(200).send();
+                    });
 
                 }).catch(err => {
                     res.status(500);
@@ -4653,7 +4531,33 @@ router.delete('/users/:user_id/news/:news_id/medias/:media_id', custom_utils.all
 
                     return;
                 });
-            });
+
+            } else {
+                // delete media in AWS S3 bucket
+                deleteMediaContent(results[0].mediaRelativePath, () => {
+                    // delete media content in "draft_media_contents"
+                    gDB.query(
+                        'DELETE FROM draft_media_contents WHERE mediaID = ? LIMIT 1',
+                        [req.params.media_id]
+                    ).then(results => {
+                        return res.status(200).send();
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+                });
+            }
 
         }).catch(err => {
             res.status(500);
@@ -4686,156 +4590,7 @@ router.delete('/users/:user_id/news/:news_id/medias/:media_id', custom_utils.all
     });
 });
 
-// delete uploaded media content for article
-router.delete('/users/:user_id/articles/:article_id/medias/:media_id', custom_utils.allowedScopes(['write:users']), (req, res) => {
-    // check if all the pass id in the URL is valid
-    if (!(/^\d+$/.test(req.params.user_id) && /^\d+$/.test(req.params.article_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.media_id))) {
-        res.status(400);
-        res.json({
-            error_code: "invalid_id",
-            message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
-        });
-
-        return;
-    }
-
-    // check if account is verified
-    if (!req.user.account_verified) {
-        res.status(401);
-        res.json({
-            error_code: "account_not_verified",
-            message: "User should verify their email"
-        });
-
-        return;
-    }
-
-    // check if article exist
-    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
-        if (results.length < 1) {
-            res.status(404);
-            res.json({
-                error_code: "file_not_found",
-                message: "Article can't be found"
-            });
-
-            return;
-        }
-
-        // check if media content to delete is still in database
-        gDB.query(
-            'SELECT mediaRelativePath FROM article_media_contents WHERE mediaID = ? LIMIT 1',
-            [req.params.media_id]
-        ).then(results => {
-            // media doesn't exist or has been deleted
-            if (results.length < 1) {
-                return res.status(200).send();
-            }
-
-            // set aws s3 access credentials
-            aws.config.update({
-                apiVersion: '2006-03-01',
-                accessKeyId: gConfig.AWS_ACCESS_ID,
-                secretAccessKey: gConfig.AWS_SECRET_KEY,
-                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
-            });
-
-            const s3 = new aws.S3();
-
-            // initialise objects to delete
-            const deleteParam = {
-                Bucket: gConfig.AWS_S3_BUCKET_NAME,
-                Delete: {
-                    Objects: [{
-                        Key: results[0].mediaRelativePath
-                    }]
-                }
-            };
-
-            s3.deleteObjects(deleteParam, (err, data) => {
-                if (err) {
-                    res.status(500);
-                    res.json({
-                        error_code: "internal_error",
-                        message: "Internal error"
-                    });
-
-                    // log the error to log file
-                    gLogger.log('error', err.message, {
-                        stack: err.stack
-                    });
-
-                    return;
-
-                }
-
-                // remove media content from database
-                gDB.query(
-                    'DELETE FROM article_media_contents WHERE articleID = ? AND userID = ? AND mediaID = ?',
-                    [req.params.article_id, req.params.user_id, req.params.media_id]
-                ).then(results => {
-                    // content deleted successfully
-                    return res.status(200).send();
-
-                }).catch(err => {
-                    res.status(500);
-                    res.json({
-                        error_code: "internal_error",
-                        message: "Internal error"
-                    });
-
-                    // log the error to log file
-                    gLogger.log('error', err.message, {
-                        stack: err.stack
-                    });
-
-                    return;
-                });
-            });
-
-        }).catch(err => {
-            res.status(500);
-            res.json({
-                error_code: "internal_error",
-                message: "Internal error"
-            });
-
-            // log the error to log file
-            gLogger.log('error', err.message, {
-                stack: err.stack
-            });
-
-            return;
-        });
-
-    }).catch(err => {
-        res.status(500);
-        res.json({
-            error_code: "internal_error",
-            message: "Internal error"
-        });
-
-        // log the error to log file
-        gLogger.log('error', err.message, {
-            stack: err.stack
-        });
-
-        return;
-    });
-});
-
-// publish article or news save to draft and return the id
+// publish publication save to draft and return the id
 router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if id is integer
     if (!(/^\d+$/.test(req.params.user_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.draft_id))) {
@@ -4931,7 +4686,25 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
             ).then(draft_results => {
                 // check if draft exist 
                 if (draft_results.length < 1) {
-                    return res.status(204).send(); // draft doesn't exist
+                    res.status(404);
+                    res.json({
+                        error_code: "file_not_found",
+                        message: "Draft can't be found"
+                    });
+
+                    return;
+                }
+
+                // check if title is provided
+                if (draft_results[0].title.trim().length < 1) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        error_code: "field_is_empty",
+                        message: "Title for publication not provided"
+                    });
+
+                    return;
                 }
 
                 // check if highlight is provided
@@ -4939,57 +4712,240 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                     // send json error message to client
                     res.status(406);
                     res.json({
-                        error_code: "field_not_defined",
+                        error_code: "field_is_empty",
                         message: "Highlight for publication not provided"
                     });
 
                     return;
                 }
 
+                // check if content is provided
+                if (draft_results[0].content.trim().length < 1) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        error_code: "field_is_empty",
+                        message: "Body for publication not provided"
+                    });
+
+                    return;
+                }
+
                 let table_name;
-                let table_id;
+                let table_id_name;
+                let mc_table_name;
 
                 // check if is news or article
                 if (draft_results[0].publication == 'news') { // news
                     table_name = 'news';
-                    table_id = 'newsID';
+                    table_id_name = 'newsID';
+                    mc_table_name = 'news_media_contents';
 
                 } else { // article
                     table_name = 'articles';
-                    table_id = 'articleID';
+                    table_id_name = 'articleID';
+                    mc_table_name = 'article_media_contents';
                 }
 
-                // check if this article is published first time
-                if (draft_results[0].published == 0) { // has not been published
-                    gDB.transaction(
-                        {
-                            query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-                            post: [req.params.draft_id, req.params.user_id]
-                        },
-                        {
-                            query: 'INSERT INTO ?? (userID, categoryID, continentID, countryID, regionID, restrictedToLocation, ' +
-                                'featuredImageURL, title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                            post: [
-                                table_name,
-                                req.params.user_id,
-                                results[0].categoryID,
-                                region_results[0].continentID,
-                                region_results[0].countryID,
-                                req.query.locationID,
-                                req.query.restrict ? { 'true': 1, 'false': 0 }[req.query.restrict] : 0,
-                                draft_results[0].featuredImageURL,
-                                draft_results[0].title,
-                                draft_results[0].highlight,
-                                draft_results[0].content
-                            ]
-                        }
-                    ).then(results => {
-                        res.status(201);
-                        res.json({
-                            publication_id: results.insertId
+                let sql_transaction = []; // sql transaction
+                let del_objects = [];
+
+                // get media contents to be deleted
+                gDB.query(
+                    'SELECT mediaRelativePath FROM delete_media_contents WHERE draftID = ? AND userID = ?',
+                    [req.params.draft_id, req.params.user_id]
+                ).then(dmc_results => {
+                    if (dmc_results.length > 0) {
+                        // add media content to be deleted
+                        sql_transaction.push({
+                            query: 'DELETE FROM delete_media_contents WHERE draftID = ?',
+                            post: [req.params.draft_id]
                         });
 
-                        return;
+                        // object(s) in AWS S3 to be deleted
+                        for (let i = 0; i < dmc_results.length; i++) {
+                            del_objects.push({ Key: dmc_results[i].mediaRelativePath });
+                        }
+                    }
+
+                    // get all the uploaded media contents during write-up or editing
+                    gDB.query(
+                        'SELECT * FROM draft_media_contents WHERE draftID = ?',
+                        [req.params.draft_id]
+                    ).then(draft_mc_results => {
+                        if (draft_mc_results.length > 0) {
+                            // add media content to be deleted
+                            sql_transaction.push({
+                                query: 'DELETE FROM draft_media_contents WHERE draftID = ?',
+                                post: [req.params.draft_id]
+                            });
+                        }
+
+                        // publish write-up or edit
+                        const publishContentInDraft = () => {
+                            let sql_query;
+                            let sql_post;
+
+                            // check if this article is published first time
+                            if (draft_results[0].published == 0) { // has not been published
+                                sql_query =
+                                    'INSERT INTO ?? (userID, categoryID, continentID, countryID, regionID, restrictedToLocation, ' +
+                                    'featuredImageURL, title, highlight, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+
+                                sql_post = [
+                                    table_name,
+                                    req.params.user_id,
+                                    draft_results[0].categoryID,
+                                    region_results[0].continentID,
+                                    region_results[0].countryID,
+                                    req.query.locationID,
+                                    req.query.restrict ? { 'true': 1, 'false': 0 }[req.query.restrict] : 0,
+                                    draft_results[0].featuredImageURL,
+                                    draft_results[0].title,
+                                    draft_results[0].highlight,
+                                    draft_results[0].content
+                                ];
+
+                            } else { // has been published
+                                sql_query =
+                                    'UPDATE ?? SET featuredImageURL = ?, ' +
+                                    'title = ?, highlight = ?, content = ? WHERE ?? = ?';
+
+                                sql_post = [
+                                    table_name,
+                                    draft_results[0].featuredImageURL,
+                                    draft_results[0].title,
+                                    draft_results[0].highlight,
+                                    draft_results[0].content,
+                                    table_id_name,
+                                    draft_results[0].publishedContentID
+                                ];
+                            }
+
+                            // publish content
+                            gDB.query(sql_query, sql_post).then(pc_results => {
+                                let publication_id;
+
+                                if (draft_results[0].published == 0) {
+                                    publication_id = pc_results.insertId;
+
+                                } else {
+                                    publication_id = draft_results[0].publishedContentID;
+                                }
+
+                                // add media content to be inserted into database
+                                let insert_values = [];
+
+                                for (let i = 0; i < draft_mc_results.length; i++) {
+                                    insert_values.push([
+                                        publication_id,
+                                        draft_mc_results[i].userID,
+                                        draft_mc_results[i].mediaID,
+                                        draft_mc_results[i].mediaRelativePath,
+                                        draft_mc_results[i].mediaOriginalName,
+                                        draft_mc_results[i].mediaType,
+                                        draft_mc_results[i].mediaExt]);
+                                }
+
+                                sql_transaction.push({
+                                    query: 'INSERT INTO ?? (??, userID, mediaID, mediaRelativePath, ' +
+                                        'mediaOriginalName, mediaType, mediaExt) VALUES ?',
+                                    post: [mc_table_name, table_id_name, insert_values]
+                                });
+
+                                // execute the transaction
+                                gDB.transaction(...sql_transaction).then(results => {
+                                    res.status(201);
+                                    res.json({
+                                        publication_id: publication_id
+                                    });
+
+                                    return;
+
+                                }).catch(err => {
+                                    // delete newly inserted row for news or article
+                                    gDB.query(
+                                        'DELETE FROM ?? WHERE ?? = ? LIMIT 1',
+                                        [table_name, table_id_name, publication_id]
+                                    ).then(results => {
+                                        res.status(204).send();
+
+                                        // log the error to log file
+                                        gLogger.log('error', err.message, {
+                                            stack: err.stack
+                                        });
+
+                                        return;
+
+                                    }).catch(err => {
+                                        res.status(204).send();
+
+                                        // log the error to log file
+                                        gLogger.log('error', err.message, {
+                                            stack: err.stack
+                                        });
+
+                                        return;
+                                    });
+                                });
+
+                            }).catch(err => {
+                                res.status(500);
+                                res.json({
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+
+                                return;
+                            });
+                        };
+
+                        // check if their is object(s) to delete
+                        if (del_objects.length > 0) {
+                            // set aws s3 access credentials
+                            aws.config.update({
+                                apiVersion: '2006-03-01',
+                                accessKeyId: gConfig.AWS_ACCESS_ID,
+                                secretAccessKey: gConfig.AWS_SECRET_KEY,
+                                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+                            });
+
+                            const s3 = new aws.S3();
+
+                            // initialise objects to delete
+                            const deleteParam = {
+                                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                                Delete: { Objects: del_objects }
+                            };
+
+                            s3.deleteObjects(deleteParam, (err, data) => {
+                                if (err) {
+                                    res.status(500);
+                                    res.json({
+                                        error_code: "internal_error",
+                                        message: "Internal error"
+                                    });
+
+                                    // log the error to log file
+                                    gLogger.log('error', err.message, {
+                                        stack: err.stack
+                                    });
+
+                                    return;
+
+                                }
+
+                                publishContentInDraft();
+                            });
+
+                        } else {
+                            publishContentInDraft();
+                        }
 
                     }).catch(err => {
                         res.status(500);
@@ -5006,48 +4962,20 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                         return;
                     });
 
-                } else { // has been published
-                    gDB.transaction(
-                        {
-                            query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
-                            post: [req.params.draft_id, req.params.user_id]
-                        },
-                        {
-                            query: 'UPDATE ?? SET featuredImageURL = ?, ' +
-                                'title = ?, highlight = ?, content = ? WHERE ?? = ?',
-                            post: [
-                                table_name,
-                                draft_results[0].featuredImageURL,
-                                draft_results[0].title,
-                                draft_results[0].highlight,
-                                draft_results[0].content,
-                                table_id,
-                                draft_results[0].publishedContentID
-                            ]
-                        }
-                    ).then(results => {
-                        res.status(201);
-                        res.json({
-                            publication_id: draft_results[0].publishedContentID
-                        });
-
-                        return;
-
-                    }).catch(err => {
-                        res.status(500);
-                        res.json({
-                            error_code: "internal_error",
-                            message: "Internal error"
-                        });
-
-                        // log the error to log file
-                        gLogger.log('error', err.message, {
-                            stack: err.stack
-                        });
-
-                        return;
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
                     });
-                }
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
 
             }).catch(err => {
                 res.status(500);
