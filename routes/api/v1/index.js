@@ -4869,7 +4869,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                                             'DELETE FROM ?? WHERE ?? = ? LIMIT 1',
                                             [table_name, table_id_name, publication_id]
                                         ).then(results => {
-                                            res.status(204).send();
+                                            res.status(503).send();
 
                                             // log the error to log file
                                             gLogger.log('error', err.message, {
@@ -4879,7 +4879,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                                             return;
 
                                         }).catch(err => {
-                                            res.status(204).send();
+                                            res.status(503).send();
 
                                             // log the error to log file
                                             gLogger.log('error', err.message, {
@@ -4890,7 +4890,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                                         });
 
                                     } else {
-                                        res.status(204).send();
+                                        res.status(503).send();
 
                                         // log the error to log file
                                         gLogger.log('error', err.message, {
