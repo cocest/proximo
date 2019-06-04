@@ -9328,8 +9328,8 @@ router.get('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes
             ).then(cmt_results => {
                 // get all comment
                 gDB.query(
-                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
-                    'FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
+                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                    'B.profilePictureBigURL FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
                     `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                     [
                         req.params.news_id,
@@ -9338,19 +9338,44 @@ router.get('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes
                 ).then(results => {
                     let comments = [];
                     for (let i = 0; i < results.length; i++) {
-                        comments.push({
-                            comment: results[i].comment,
-                            id: results[i].commentID,
-                            reply_count: results[i].replyCount,
-                            time: results[i].time,
-                            user: {
-                                name: results[i].lastName + ' ' + results[i].firstName,
-                                image: {
-                                    url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                    size: 'small'
+                        // check if user has a profile picture
+                        if (results[i].profilePictureSmallURL) {
+                            comments.push({
+                                comment: results[i].comment,
+                                id: results[i].commentID,
+                                reply_count: results[i].replyCount,
+                                time: results[i].time,
+                                user: {
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    images: [
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                            size: 'big'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                            size: 'medium'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                            size: 'small'
+                                        }
+                                    ]
                                 }
-                            }
-                        });
+                            });
+
+                        } else {
+                            comments.push({
+                                comment: results[i].comment,
+                                id: results[i].commentID,
+                                reply_count: results[i].replyCount,
+                                time: results[i].time,
+                                user: {
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    images: null
+                                }
+                            });
+                        }
                     }
 
                     // send results to client
@@ -9524,8 +9549,8 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
             ).then(cmt_results => {
                 // get all comment
                 gDB.query(
-                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
-                    'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
+                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                    'B.profilePictureBigURL FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
                     `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                     [
                         req.params.article_id,
@@ -9534,19 +9559,44 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
                 ).then(results => {
                     let comments = [];
                     for (let i = 0; i < results.length; i++) {
-                        comments.push({
-                            comment: results[i].comment,
-                            id: results[i].commentID,
-                            reply_count: results[i].replyCount,
-                            time: results[i].time,
-                            user: {
-                                name: results[i].lastName + ' ' + results[i].firstName,
-                                image: {
-                                    url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                    size: 'small'
+                        // check if user has a profile picture
+                        if (results[i].profilePictureSmallURL) {
+                            comments.push({
+                                comment: results[i].comment,
+                                id: results[i].commentID,
+                                reply_count: results[i].replyCount,
+                                time: results[i].time,
+                                user: {
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    images: [
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                            size: 'big'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                            size: 'medium'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                            size: 'small'
+                                        }
+                                    ]
                                 }
-                            }
-                        });
+                            });
+
+                        } else {
+                            comments.push({
+                                comment: results[i].comment,
+                                id: results[i].commentID,
+                                reply_count: results[i].replyCount,
+                                time: results[i].time,
+                                user: {
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    images: null
+                                }
+                            });
+                        }
                     }
 
                     // send results to client
