@@ -2623,119 +2623,181 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
         return;
     }
 
-    // latitude and longitude
-    const position = { x: req.query.lat, y: req.query.long };
+    // longitude and latitude
+    const position = { x: req.query.long, y: req.query.lat };
     let cont_bounds;
     let cont_polys;
     let temp_cont_polys = [];
+    let region_found = false;
     let closest_region;
     let shortest_distance1;
     let shortest_distance2;
+    let loop_quit = false;
 
-    // found which continent user's lat and long fall into
-    gDB.query('SELECT continentID, polygons, bounds FROM map_continents').then(continent_results => {
-        // check which continet user location fall into
-        for (let i = 0; i < results.length; i++) {
-            //convert string to javascript object
-            cont_bounds = JSON.parse(continent_results[i].bounds);
-            cont_polys = JSON.parse(continent_results[i].polygons);
+    // utility function to process region
+    const utilRegion = countryID => {
+        return new Promise((resolve, reject) => {
+            // found which country user's lat and long fall into
+            gDB.query(
+                'SELECT regionID, name, polygons, bounds FROM map_regions WHERE countryID = ?',
+                [countryID]
+            ).then(results => {
+                // check which region user location fall into
+                for (let k = 0; k < results.length; k++) {
+                    //convert string to javascript object
+                    cont_bounds = JSON.parse(results[k].bounds);
+                    cont_polys = JSON.parse(results[k].polygons);
 
-            // check for continent user's position fall into
-            if (custom_utils.pointInsideRect(position, cont_bounds) &&
-                custom_utils.pointInsidePolygon(position, cont_polys)) {
-                // found which country user's lat and long fall into
-                gDB.query(
-                    'SELECT countryID, polygons, bounds FROM map_countries WHERE continentID = ?',
-                    [continent_results[i].continentID]
-                ).then(country_results => {
-                    // check which country user location fall into
-                    for (let j = 0; j < country_results.length; j++) {
-                        //convert string to javascript object
-                        cont_bounds = JSON.parse(country_results[j].bounds);
-                        cont_polys = JSON.parse(country_results[j].polygons);
+                    // temporary store the parse polygons
+                    temp_cont_polys.push(cont_polys);
 
-                        // check for continent user's position fall into
-                        if (custom_utils.pointInsideRect(position, cont_bounds) &&
-                            custom_utils.pointInsidePolygon(position, cont_polys)) {
-                            // found which region user's lat and long fall into
-                            gDB.query(
-                                'SELECT regionID, name, polygons, bounds FROM map_regions WHERE countryID = ?',
-                                [country_results[j].countryID]
-                            ).then(region_results => {
-                                // check which region user location fall into
-                                for (let k = 0; k < region_results.length; k++) {
-                                    //convert string to javascript object
-                                    cont_bounds = JSON.parse(region_results[k].bounds);
-                                    cont_polys = JSON.parse(region_results[k].polygons);
+                    // check for region user's position fall into
+                    if (custom_utils.pointInsideRect(position, cont_bounds) &&
+                        custom_utils.pointInsidePolygon(position, cont_polys)) {
+                        //send user's location to client
+                        res.status(200);
+                        res.json({
+                            location_id: results[k].regionID,
+                            location_name: results[k].name
+                        });
 
-                                    // temporary store the parse polygons
-                                    temp_cont_polys.push(cont_polys);
+                        region_found = true;
+                        break;
+                    }
+                }
 
-                                    // check for region user's position fall into
-                                    if (custom_utils.pointInsideRect(position, cont_bounds) &&
-                                        custom_utils.pointInsidePolygon(position, cont_polys)) {
-                                        //send user's location to client
-                                        res.status(200);
-                                        res.json({
-                                            location_id: region_results[k].regionID,
-                                            location_name: region_results[k].name
-                                        });
+                // check if region is not found
+                if (!region_found) {
+                    // check for which region is closer to user's location
+                    shortest_distance1 = custom_utils.pointDistanceFromObj(position, temp_cont_polys[0]);
+                    closest_region = results[0];
 
-                                        return;
-                                    }
-                                }
+                    for (let n = 1; n < results.length; n++) {
+                        // calculate the distance of region from user's current position
+                        shortest_distance2 = custom_utils.pointDistanceFromObj(position, temp_cont_polys[n]);
 
-                                // check for which region is closer to user's location
-                                shortest_distance1 = custom_utils.pointDistanceFromObj(position, temp_cont_polys[0]);
-                                closest_region = region_results[0];
-
-                                for (let n = 1; n < region_results.length; n++) {
-                                    // calculate the distance of region from user's current position
-                                    shortest_distance2 = custom_utils.pointDistanceFromObj(position, temp_cont_polys[n]);
-
-                                    // replace with smaller distance
-                                    if (shortest_distance2 < shortest_distance1) {
-                                        shortest_distance1 = shortest_distance2;
-                                        closest_region = region_results[n];
-                                    }
-                                }
-
-                                // return result of closest region to client
-                                res.status(200);
-                                res.json({
-                                    location_id: closest_region.regionID,
-                                    location_name: closest_region.name
-                                });
-
-                                return;
-
-                            }).catch(err => {
-                                res.status(500);
-                                res.json({
-                                    error_code: "internal_error",
-                                    message: "Internal error"
-                                });
-
-                                // log the error to log file
-                                gLogger.log('error', err.message, {
-                                    stack: err.stack
-                                });
-
-                                return;
-                            });
+                        // replace with smaller distance
+                        if (shortest_distance2 < shortest_distance1) {
+                            shortest_distance1 = shortest_distance2;
+                            closest_region = results[n];
                         }
                     }
 
-                    //  service not available at user's location
-                    res.status(404);
+                    // return result of closest region to client
+                    res.status(200);
                     res.json({
-                        error_code: "unsupported_location",
-                        message: "Service not available at the location"
+                        location_id: closest_region.regionID,
+                        location_name: closest_region.name
                     });
+                }
 
-                    return;
+                // signal loop break
+                resolve(true);
+
+            }).catch(err => {
+                reject(err);
+            });
+        });
+    };
+
+    // utility function to process countries
+    const utilCountry = continentID => {
+        return new Promise((resolve, reject) => {
+            // found which country user's lat and long fall into
+            gDB.query(
+                'SELECT countryID, polygons, bounds FROM map_countries WHERE continentID = ?',
+                [continentID]
+            ).then(results => {
+                async function processRegions() {
+                    // check which country user location fall into
+                    for (let j = 0; j < results.length; j++) {
+                        // check if is to quit
+                        if (loop_quit) break;
+
+                        //convert string to javascript object
+                        cont_bounds = JSON.parse(results[j].bounds);
+                        cont_polys = JSON.parse(results[j].polygons);
+
+                        // check if user doesn't fall into any country
+                        if (!(custom_utils.pointInsideRect(position, cont_bounds) &&
+                            custom_utils.pointInsidePolygon(position, cont_polys))) {
+
+                            continue;
+                        }
+
+                        await utilRegion(results[j].countryID).then(exit_loop => {
+                            // check to signall loop break
+                            if (exit_loop) loop_quit = true;
+
+                        }).catch(err => {
+                            // signall loop break
+                            loop_quit = true;
+
+                            // send back response
+                            res.status(500);
+                            res.json({
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
+                        });
+                    }
+
+                    // check if quit is false
+                    if (!loop_quit) {
+                        //  service not available at user's location
+                        res.status(404);
+                        res.json({
+                            error_code: "unsupported_location",
+                            message: "Service not available at the location"
+                        });
+                    }
+
+                    // signal loop break
+                    resolve(true);
+                };
+
+                processRegions();
+
+            }).catch(err => {
+                reject(err);
+            });
+        });
+    };
+
+
+    // found which continent user's long and lat fall into
+    gDB.query('SELECT continentID, polygons, bounds FROM map_continents').then(results => {
+        async function processCountries() {
+            // check which continet user location fall into
+            for (let i = 0; i < results.length; i++) {
+                // check if is to quit
+                if (loop_quit) break;
+
+                //convert string to javascript object
+                cont_bounds = JSON.parse(results[i].bounds);
+                cont_polys = JSON.parse(results[i].polygons);
+
+                // check if user doesn't fall into any continent
+                if (!(custom_utils.pointInsideRect(position, cont_bounds) &&
+                    custom_utils.pointInsidePolygon(position, cont_polys))) {
+
+                    continue;
+                }
+
+                await utilCountry(results[i].continentID).then(exit_loop => {
+                    // check to signall loop break
+                    if (exit_loop) loop_quit = true;
 
                 }).catch(err => {
+                    // signall loop break
+                    loop_quit = true;
+
+                    // send back response
                     res.status(500);
                     res.json({
                         error_code: "internal_error",
@@ -2746,20 +2808,21 @@ router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) =
                     gLogger.log('error', err.message, {
                         stack: err.stack
                     });
-
-                    return;
                 });
             }
-        }
 
-        //  service not available at user's location
-        res.status(404);
-        res.json({
-            error_code: "unsupported_location",
-            message: "Service not available at the location"
-        });
+            // check if quit is false
+            if (!loop_quit) {
+                //  service not available at user's location
+                res.status(404);
+                res.json({
+                    error_code: "unsupported_location",
+                    message: "Service not available at the location"
+                });
+            }
+        };
 
-        return;
+        processCountries();
 
     }).catch(err => {
         res.status(500);
@@ -4148,7 +4211,7 @@ router.post('/drafts/:draft_id/medias', custom_utils.allowedScopes(['write:users
 
     // check if draft exist
     gDB.query(
-        'SELECT publication FROM draft_media_contents WHERE draftID = ? AND userID = ? LIMIT 1',
+        'SELECT publication FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
         [req.params.draft_id, req.user.access_token.user_id]
     ).then(results => {
         if (results.length < 1) {
@@ -4438,7 +4501,7 @@ router.delete('/drafts/:draft_id/medias/:media_id', custom_utils.allowedScopes([
         'SELECT publication FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
         [req.params.draft_id, req.user.access_token.user_id]
     ).then(draft_results => {
-        if (results.length < 1) {
+        if (draft_results.length < 1) {
             res.status(404);
             res.json({
                 error_code: "file_not_found",
@@ -4451,10 +4514,8 @@ router.delete('/drafts/:draft_id/medias/:media_id', custom_utils.allowedScopes([
         // schedule media content that will be deleted during publication
         const deleteMediaContent = (rel_path, call_back) => {
             gDB.query(
-                'IF NOT EXISTS (SELECT * FROM delete_media_contents WHERE mediaID = ?) ' +
-                'BEGIN INSERT INTO delete_media_contents (draftID, userID, publication, mediaID, mediaRelativePath) VALUES (?, ?, ?, ?, ?) END',
+                'INSERT INTO delete_media_contents (draftID, userID, publication, mediaID, mediaRelativePath) VALUES (?, ?, ?, ?, ?)',
                 [
-                    req.params.media_id,
                     req.params.draft_id,
                     req.user.access_token.user_id,
                     draft_results[0].publication,
@@ -4465,6 +4526,11 @@ router.delete('/drafts/:draft_id/medias/:media_id', custom_utils.allowedScopes([
                 call_back();
 
             }).catch(err => {
+                // check if is a duplicate error
+                if (err.code == 'ER_DUP_ENTRY' || err.errno == 1062) {
+                    return res.status(200).send();
+                }
+
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -4654,7 +4720,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
     } else {
         // check if location id exist and retrieve countryID and continentID
         gDB.query(
-            'SELECT countryID, continentID FROM regions WHERE regionID = ? LIMIT 1', [req.query.locationID]
+            'SELECT countryID, continentID FROM map_regions WHERE regionID = ? LIMIT 1', [req.query.locationID]
         ).then(region_results => {
             if (region_results.length < 1) {
                 // location id does not exist
@@ -5131,9 +5197,9 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
         ['highlight', 'highlight'],
         ['time', 'time']
     ]);
-    let select_query = 'SELECT newsID AS news_id, ';
+    let select_query = 'SELECT A.newsID AS id, ';
     let select_post = [];
-    let count_query = 'SELECT COUNT(*) AS total FROM news WHERE ';
+    let count_query = 'SELECT COUNT(*) AS total FROM news ';
     let count_post = [];
 
     // check if valid and required fields is given
@@ -5146,10 +5212,10 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
         req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
                 if (permitted_field_count == 0) {
-                    select_query += `${mappped_field_name.get(elem)}`;
+                    select_query += `A.${mappped_field_name.get(elem)}`;
 
                 } else {
-                    select_query += `, ${mappped_field_name.get(elem)}`;
+                    select_query += `, A.${mappped_field_name.get(elem)}`;
                 }
 
                 field_already_exist.push(elem);
@@ -5158,18 +5224,26 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
         });
 
         if (permitted_field_count < 1) {
-            select_query = 'SELECT newsID AS news_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
+            select_query = 
+                'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, ' + 
+                'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+                'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
         } else {
-            select_query += ' FROM news ';
+            select_query += 
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' + 
+                'FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
         }
 
     } else { // no fields selection
-        select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
+        select_query += 
+            'A.category, A.featuredImageURL AS featured_image_url, ' + 
+            'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+            'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
     }
 
     // user publication
-    select_query += 'WHERE userID = ? ';
+    select_query += 'WHERE A.userID = ? ';
     select_post.push(req.params.user_id);
 
     // count query
@@ -5179,16 +5253,16 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     // set the category
     if (category_id) {
         // category to select
-        select_query += 'AND categoryID = ? ';
-        select_post.push(publication);
+        select_query += 'AND A.categoryID = ? ';
+        select_post.push(category_id);
 
         // coount query
         count_query += 'AND categoryID = ? ';
-        count_post.push(publication);
+        count_post.push(category_id);
     }
 
     // last published news should come first
-    select_query += 'ORDER BY time DESC ';
+    select_query += 'ORDER BY A.time DESC ';
 
     // set limit and offset
     select_query += `LIMIT ${limit} OFFSET ${offset}`;
@@ -5197,6 +5271,44 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     gDB.query(count_query, count_post).then(count_results => {
         // get publication
         gDB.query(select_query, select_post).then(results => {
+            for (let i = 0; i < results.length; i++) {
+                // check if user has a profile picture
+                if (results[i].profilePictureSmallURL) {
+                    // add user to results
+                    results[i].user = {
+                        name: results[i].lastName + ' ' + results[i].firstName,
+                        images: [
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                size: 'big'
+                            },
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                size: 'medium'
+                            },
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                size: 'small'
+                            }
+                        ]
+                    };
+
+                } else {
+                    // add user to results
+                    results[i].user = {
+                        name: results[i].lastName + ' ' + results[i].firstName,
+                        images: null
+                    };
+                }
+
+                // remove keys
+                delete results[i].firstName;
+                delete results[i].lastName;
+                delete results[i].profilePictureSmallURL;
+                delete results[i].profilePictureMediumURL;
+                delete results[i].profilePictureBigURL;
+            }
+
             // send result to client
             res.status(200);
             res.json({
@@ -5341,9 +5453,9 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
         ['highlight', 'highlight'],
         ['time', 'time']
     ]);
-    let select_query = 'SELECT articleID AS article_id, ';
+    let select_query = 'SELECT A.articleID AS id, ';
     let select_post = [];
-    let count_query = 'SELECT COUNT(*) AS total FROM articles WHERE ';
+    let count_query = 'SELECT COUNT(*) AS total FROM articles ';
     let count_post = [];
 
     // check if valid and required fields is given
@@ -5356,10 +5468,10 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
         req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
                 if (permitted_field_count == 0) {
-                    select_query += `${mappped_field_name.get(elem)}`;
+                    select_query += `A.${mappped_field_name.get(elem)}`;
 
                 } else {
-                    select_query += `, ${mappped_field_name.get(elem)}`;
+                    select_query += `, A.${mappped_field_name.get(elem)}`;
                 }
 
                 field_already_exist.push(elem);
@@ -5368,18 +5480,26 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
         });
 
         if (permitted_field_count < 1) {
-            select_query = 'SELECT articleID AS article_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
+            select_query = 
+                'SELECT A.articleID AS id, A.category, A.featuredImageURL AS featured_image_url, ' + 
+                'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+                'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
         } else {
-            select_query += ' FROM articles ';
+            select_query += 
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' + 
+                'FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
         }
 
     } else { // no fields selection
-        select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
+        select_query += 
+            'A.category, A.featuredImageURL AS featured_image_url, ' + 
+            'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+            'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
     }
 
     // user publication
-    select_query += 'WHERE userID = ? ';
+    select_query += 'WHERE A.userID = ? ';
     select_post.push(req.params.user_id);
 
     // count query
@@ -5389,16 +5509,16 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     // set the category
     if (category_id) {
         // category to select
-        select_query += 'AND categoryID = ? ';
-        select_post.push(publication);
+        select_query += 'AND A.categoryID = ? ';
+        select_post.push(category_id);
 
         // coount query
         count_query += 'AND categoryID = ? ';
-        count_post.push(publication);
+        count_post.push(category_id);
     }
 
     // last published news should come first
-    select_query += 'ORDER BY time DESC ';
+    select_query += 'ORDER BY A.time DESC ';
 
     // set limit and offset
     select_query += `LIMIT ${limit} OFFSET ${offset}`;
@@ -5407,6 +5527,44 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     gDB.query(count_query, count_post).then(count_results => {
         // get publication
         gDB.query(select_query, select_post).then(results => {
+            for (let i = 0; i < results.length; i++) {
+                // check if user has a profile picture
+                if (results[i].profilePictureSmallURL) {
+                    // add user to results
+                    results[i].user = {
+                        name: results[i].lastName + ' ' + results[i].firstName,
+                        images: [
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                size: 'big'
+                            },
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                size: 'medium'
+                            },
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                size: 'small'
+                            }
+                        ]
+                    };
+
+                } else {
+                    // add user to results
+                    results[i].user = {
+                        name: results[i].lastName + ' ' + results[i].firstName,
+                        images: null
+                    };
+                }
+
+                // remove keys
+                delete results[i].firstName;
+                delete results[i].lastName;
+                delete results[i].profilePictureSmallURL;
+                delete results[i].profilePictureMediumURL;
+                delete results[i].profilePictureBigURL;
+            }
+
             // send result to client
             res.status(200);
             res.json({
@@ -5489,7 +5647,10 @@ router.delete('/users/:user_id/news/:news_id', custom_utils.allowedScopes(['writ
     }
 
     // check if news exist. Just return 200 OK if doesn't exist
-    gDB.query('SELECT 1 FROM news WHERE newsID = ? LIMIT 1', [req.params.news_id]).then(results => {
+    gDB.query(
+        'SELECT 1 FROM news WHERE newsID = ? AND userID = ? LIMIT 1', 
+        [req.params.news_id, req.params.user_id]
+    ).then(results => {
         if (results.length < 1) {
             return res.status(200).send();
         }
@@ -5506,51 +5667,100 @@ router.delete('/users/:user_id/news/:news_id', custom_utils.allowedScopes(['writ
                 delete_objs.push({ Key: results[i].mediaRelativePath });
             }
 
-            // set aws s3 access credentials
-            aws.config.update({
-                apiVersion: '2006-03-01',
-                accessKeyId: gConfig.AWS_ACCESS_ID,
-                secretAccessKey: gConfig.AWS_SECRET_KEY,
-                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
-            });
+            // check if there is object to delete
+            if (delete_objs.length > 0) {
+                // set aws s3 access credentials
+                aws.config.update({
+                    apiVersion: '2006-03-01',
+                    accessKeyId: gConfig.AWS_ACCESS_ID,
+                    secretAccessKey: gConfig.AWS_SECRET_KEY,
+                    region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+                });
 
-            const s3 = new aws.S3();
+                const s3 = new aws.S3();
 
-            // initialise objects to delete
-            const deleteParam = {
-                Bucket: gConfig.AWS_S3_BUCKET_NAME,
-                Delete: {
-                    Objects: delete_objs
-                }
-            };
+                // initialise objects to delete
+                const deleteParam = {
+                    Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                    Delete: {
+                        Objects: delete_objs
+                    }
+                };
 
-            s3.deleteObjects(deleteParam, (err, data) => {
-                if (err) {
-                    res.status(500);
-                    res.json({
-                        error_code: "internal_error",
-                        message: "Internal error"
+                s3.deleteObjects(deleteParam, (err, data) => {
+                    if (err) {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    }
+
+                    // delete news and all the related contents
+                    gDB.transaction(
+                        {
+                            query: 'DELETE FROM news WHERE newsID = ? AND userID = ?',
+                            post: [
+                                req.params.news_id,
+                                req.params.user_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM news_media_contents WHERE newsID = ? AND userID = ?',
+                            post: [
+                                req.params.news_id,
+                                req.params.user_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM news_likes WHERE newsID = ? AND userID = ?',
+                            post: [
+                                req.params.news_id,
+                                req.params.user_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM news_dislikes WHERE newsID = ? AND userID = ?',
+                            post: [
+                                req.params.news_id,
+                                req.params.user_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM news_comments WHERE newsID = ?',
+                            post: [req.params.news_id]
+                        }
+                    ).then(results => {
+                        return res.status(200).send();
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
                     });
+                });
 
-                    // log the error to log file
-                    gLogger.log('error', err.message, {
-                        stack: err.stack
-                    });
-
-                    return;
-                }
-
+            } else {
                 // delete news and all the related contents
                 gDB.transaction(
                     {
                         query: 'DELETE FROM news WHERE newsID = ? AND userID = ?',
-                        post: [
-                            req.params.news_id,
-                            req.params.user_id
-                        ]
-                    },
-                    {
-                        query: 'DELETE FROM news_media_contents WHERE newsID = ? AND userID = ?',
                         post: [
                             req.params.news_id,
                             req.params.user_id
@@ -5591,7 +5801,7 @@ router.delete('/users/:user_id/news/:news_id', custom_utils.allowedScopes(['writ
 
                     return;
                 });
-            });
+            }
 
         }).catch(err => {
             res.status(500);
@@ -5659,7 +5869,10 @@ router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes
     }
 
     // check if article exist. Just return 200 OK if doesn't exist
-    gDB.query('SELECT 1 FROM articles WHERE articleID = ? LIMIT 1', [req.params.article_id]).then(results => {
+    gDB.query(
+        'SELECT 1 FROM articles WHERE articleID = ? AND userID = ? LIMIT 1', 
+        [req.params.article_id, req.params.user_id]
+    ).then(results => {
         if (results.length < 1) {
             return res.status(200).send();
         }
@@ -5676,51 +5889,100 @@ router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes
                 delete_objs.push({ Key: results[i].mediaRelativePath });
             }
 
-            // set aws s3 access credentials
-            aws.config.update({
-                apiVersion: '2006-03-01',
-                accessKeyId: gConfig.AWS_ACCESS_ID,
-                secretAccessKey: gConfig.AWS_SECRET_KEY,
-                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
-            });
+            // check if there is object to delete
+            if (delete_objs.length > 0) {
+                // set aws s3 access credentials
+                aws.config.update({
+                    apiVersion: '2006-03-01',
+                    accessKeyId: gConfig.AWS_ACCESS_ID,
+                    secretAccessKey: gConfig.AWS_SECRET_KEY,
+                    region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+                });
 
-            const s3 = new aws.S3();
+                const s3 = new aws.S3();
 
-            // initialise objects to delete
-            const deleteParam = {
-                Bucket: gConfig.AWS_S3_BUCKET_NAME,
-                Delete: {
-                    Objects: delete_objs
-                }
-            };
+                // initialise objects to delete
+                const deleteParam = {
+                    Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                    Delete: {
+                        Objects: delete_objs
+                    }
+                };
 
-            s3.deleteObjects(deleteParam, (err, data) => {
-                if (err) {
-                    res.status(500);
-                    res.json({
-                        error_code: "internal_error",
-                        message: "Internal error"
+                s3.deleteObjects(deleteParam, (err, data) => {
+                    if (err) {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    }
+
+                    // delete news and all the related contents
+                    gDB.transaction(
+                        {
+                            query: 'DELETE FROM articles WHERE articleID = ? AND userID = ?',
+                            post: [
+                                req.params.article_id,
+                                req.params.user_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM article_media_contents WHERE articleID = ? AND userID = ?',
+                            post: [
+                                req.params.article_id,
+                                req.params.user_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM article_likes WHERE articleID = ? AND userID = ?',
+                            post: [
+                                req.params.article_id,
+                                req.params.user_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM article_dislikes WHERE articleID = ? AND userID = ?',
+                            post: [
+                                req.params.article_id,
+                                req.params.user_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM article_comments WHERE articleID = ?',
+                            post: [req.params.article_id]
+                        }
+                    ).then(results => {
+                        return res.status(200).send();
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
                     });
+                });
 
-                    // log the error to log file
-                    gLogger.log('error', err.message, {
-                        stack: err.stack
-                    });
-
-                    return;
-                }
-
+            } else {
                 // delete news and all the related contents
                 gDB.transaction(
                     {
-                        query: 'DELETE FROM articles WHERE newsID = ? AND userID = ?',
-                        post: [
-                            req.params.article_id,
-                            req.params.user_id
-                        ]
-                    },
-                    {
-                        query: 'DELETE FROM article_media_contents WHERE articleID = ? AND userID = ?',
+                        query: 'DELETE FROM articles WHERE articleID = ? AND userID = ?',
                         post: [
                             req.params.article_id,
                             req.params.user_id
@@ -5761,7 +6023,7 @@ router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes
 
                     return;
                 });
-            });
+            }
 
         }).catch(err => {
             res.status(500);
@@ -5794,7 +6056,7 @@ router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes
     });
 });
 
-// retrieve an article
+// retrieve a news
 router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
     // check if id is integer
     if (!/^\d+$/.test(req.params.id)) {
@@ -5831,10 +6093,10 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
                 if (permitted_field_count == 0) {
-                    query += `${mappped_field_name.get(elem)}`;
+                    query += `A.${mappped_field_name.get(elem)}`;
 
                 } else {
-                    query += `, ${mappped_field_name.get(elem)}`;
+                    query += `, A.${mappped_field_name.get(elem)}`;
                 }
 
                 field_already_exist.push(elem);
@@ -5843,17 +6105,24 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         });
 
         if (permitted_field_count < 1) {
-            query = 'SELECT categoryID AS category_id, continentID AS continent_id, countryID AS country_id, ' +
-                'regionID AS region_id, featuredImageURL AS featured_image_url, ' +
-                'title, highlight, content, time FROM news WHERE newsID = ?';
+            query = 
+                'SELECT A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
+                'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
+                'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+                'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
 
         } else {
-            query += ' FROM news WHERE newsID = ?';
+            query += 
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' + 
+                'FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
         }
 
     } else { // no fields selection
-        query += 'categoryID AS category_id, continentID AS continent_id, countryID AS country_id, regionID AS region_id, ' +
-            'featuredImageURL AS featured_image_url, title, highlight, content, time FROM news WHERE newsID = ?';
+        query += 
+            'A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
+            'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
+            'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+            'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
     }
 
     // get publication
@@ -5868,6 +6137,42 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
 
             return;
         }
+
+        // check if user has a profile picture
+        if (results[0].profilePictureSmallURL) {
+            // add user to results
+            results[0].user = {
+                name: results[0].lastName + ' ' + results[0].firstName,
+                images: [
+                    {
+                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
+                        size: 'big'
+                    },
+                    {
+                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
+                        size: 'medium'
+                    },
+                    {
+                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
+                        size: 'small'
+                    }
+                ]
+            };
+
+        } else {
+            // add user to results
+            results[0].user = {
+                name: results[0].lastName + ' ' + results[0].firstName,
+                images: null
+            };
+        }
+
+        // remove keys
+        delete results[0].firstName;
+        delete results[0].lastName;
+        delete results[0].profilePictureSmallURL;
+        delete results[0].profilePictureMediumURL;
+        delete results[0].profilePictureBigURL;
 
         // send result to client
         res.status(200);
@@ -5928,10 +6233,10 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         req_fields.forEach(elem => {
             if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
                 if (permitted_field_count == 0) {
-                    query += `${mappped_field_name.get(elem)}`;
+                    query += `A.${mappped_field_name.get(elem)}`;
 
                 } else {
-                    query += `, ${mappped_field_name.get(elem)},`;
+                    query += `, A.${mappped_field_name.get(elem)}`;
                 }
 
                 field_already_exist.push(elem);
@@ -5940,17 +6245,24 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         });
 
         if (permitted_field_count < 1) {
-            query = 'SELECT categoryID AS category_id, continentID AS continent_id, countryID AS country_id, ' +
-                'regionID AS region_id, featuredImageURL AS featured_image_url, ' +
-                'title, highlight, content, time FROM articles WHERE articleID = ?';
+            query = 
+                'SELECT A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
+                'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
+                'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+                'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
 
         } else {
-            query += ' FROM articles WHERE articleID = ?';
+            query += 
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' + 
+                'FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
         }
 
     } else { // no fields selection
-        query += 'categoryID AS category_id, continentID AS continent_id, countryID AS country_id, regionID AS region_id, ' +
-            'featuredImageURL AS featured_image_url, title, highlight, content, time FROM articles WHERE articleID = ?';
+        query += 
+            'A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
+            'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
+            'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+            'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
     }
 
     // get publication
@@ -5965,6 +6277,42 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
 
             return;
         }
+
+        // check if user has a profile picture
+        if (results[0].profilePictureSmallURL) {
+            // add user to results
+            results[0].user = {
+                name: results[0].lastName + ' ' + results[0].firstName,
+                images: [
+                    {
+                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
+                        size: 'big'
+                    },
+                    {
+                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
+                        size: 'medium'
+                    },
+                    {
+                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
+                        size: 'small'
+                    }
+                ]
+            };
+
+        } else {
+            // add user to results
+            results[0].user = {
+                name: results[0].lastName + ' ' + results[0].firstName,
+                images: null
+            };
+        }
+
+        // remove keys
+        delete results[0].firstName;
+        delete results[0].lastName;
+        delete results[0].profilePictureSmallURL;
+        delete results[0].profilePictureMediumURL;
+        delete results[0].profilePictureBigURL;
 
         // send result to client
         res.status(200);
@@ -5988,7 +6336,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
     });
 });
 
-// search article(s)
+// search news
 router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
     // set limit and offset
     let limit = 50;
@@ -6092,7 +6440,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
 
             //check if category exist
             gDB.query('SELECT 1 FROM news_categories WHERE categoryID = ? LIMIT 1', [category_id]).then(results => {
-                if (results.length < 1) {
+                if (category_id && results.length < 1) {
                     invalid_inputs.push({
                         error_code: "invalid_value",
                         field: "categoryID",
@@ -6128,7 +6476,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                     ['highlight', 'highlight'],
                     ['time', 'time']
                 ]);
-                let select_query = 'SELECT newsID AS news_id, ';
+                let select_query = 'SELECT A.newsID AS id, ';
                 let select_post = [];
                 let count_query = 'SELECT COUNT(*) AS total FROM news ';
                 let count_post = [];
@@ -6143,10 +6491,10 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                     req_fields.forEach(elem => {
                         if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
                             if (permitted_field_count == 0) {
-                                select_query += `${mappped_field_name.get(elem)}`;
+                                select_query += `A.${mappped_field_name.get(elem)}`;
 
                             } else {
-                                select_query += `, ${mappped_field_name.get(elem)}`;
+                                select_query += `, A.${mappped_field_name.get(elem)}`;
                             }
 
                             field_already_exist.push(elem);
@@ -6155,39 +6503,47 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                     });
 
                     if (permitted_field_count < 1) {
-                        select_query = 'SELECT newsID AS news_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
+                        select_query = 
+                            'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, A.title, ' + 
+                            'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                            'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
                     } else {
-                        select_query += ' FROM news ';
+                        select_query += 
+                            ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                            'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                     }
 
                 } else { // no fields selection
-                    select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM news ';
+                    select_query += 
+                        ' A.category, A.featuredImageURL AS featured_image_url, A.title, ' + 
+                        'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                        'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                 }
 
                 // from all published location
                 if (!pref_location_id) {
-                    select_query += 'WHERE (locationID = ? OR restrictedToLocation = ?) ';
+                    select_query += 'WHERE (A.regionID = ? OR A.restrictedToLocation = ?) ';
                     select_post.push(location_id);
                     select_post.push(0);
 
                     // count query
-                    count_query += 'WHERE (locationID = ? OR restrictedToLocation = ?) ';
+                    count_query += 'WHERE (regionID = ? OR restrictedToLocation = ?) ';
                     count_post.push(location_id);
                     count_post.push(0);
 
                 } else { // from set preferred location
-                    select_query += 'WHERE locationID = ? ';
+                    select_query += 'WHERE A.regionID = ? ';
                     select_post.push(pref_location_id);
 
                     // count query
-                    count_query += 'WHERE locationID = ? ';
+                    count_query += 'WHERE regionID = ? ';
                     count_post.push(pref_location_id);
                 }
 
                 // check if preferred location is provided and not equal to each other
                 if (pref_location_id && location_id != pref_location_id) {
-                    select_query += 'AND restrictedToLocation = ? ';
+                    select_query += 'AND A.restrictedToLocation = ? ';
                     select_post.push(0);
 
                     // count query
@@ -6198,7 +6554,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                 // category to retrieve or search
                 if (category_id) {
                     // category to select
-                    select_query += 'AND categoryID = ? ';
+                    select_query += 'AND A.categoryID = ? ';
                     select_post.push(category_id);
 
                     // count query
@@ -6211,12 +6567,12 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                     let temp_search = ' ' + decodeURIComponent(search.toString()).trim() + ' ';
                     temp_search = temp_search.replace(/\s+/g, ' % ').trim();
 
-                    select_query += `AND title LIKE '${temp_search}' `;
+                    select_query += `AND A.title LIKE '${temp_search}' `;
                     count_query += `AND title LIKE '${temp_search}' `;
                 }
 
                 // last published news should come first
-                select_query += 'ORDER BY time DESC ';
+                select_query += 'ORDER BY A.time DESC ';
 
                 // set limit and offset
                 select_query += `LIMIT ${limit} OFFSET ${offset}`;
@@ -6225,6 +6581,44 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
                     gDB.query(select_query, select_post).then(results => {
+                        for (let i = 0; i < results.length; i++) {
+                            // check if user has a profile picture
+                            if (results[i].profilePictureSmallURL) {
+                                // add user to results
+                                results[i].user = {
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    images: [
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                            size: 'big'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                            size: 'medium'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                            size: 'small'
+                                        }
+                                    ]
+                                };
+
+                            } else {
+                                // add user to results
+                                results[i].user = {
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    images: null
+                                };
+                            }
+
+                            // remove keys
+                            delete results[i].firstName;
+                            delete results[i].lastName;
+                            delete results[i].profilePictureSmallURL;
+                            delete results[i].profilePictureMediumURL;
+                            delete results[i].profilePictureBigURL;
+                        }
+
                         // send result to client
                         res.status(200);
                         res.json({
@@ -6317,7 +6711,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
     });
 });
 
-// search article(s)
+// search article
 router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:articles:all']), (req, res) => {
     // set limit and offset
     let limit = 50;
@@ -6421,7 +6815,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
 
             //check if category exist
             gDB.query('SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1', [category_id]).then(results => {
-                if (results.length < 1) {
+                if (category_id && results.length < 1) {
                     invalid_inputs.push({
                         error_code: "invalid_value",
                         field: "categoryID",
@@ -6457,7 +6851,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                     ['highlight', 'highlight'],
                     ['time', 'time']
                 ]);
-                let select_query = 'SELECT articleID AS article_id, ';
+                let select_query = 'SELECT A.articleID AS id, ';
                 let select_post = [];
                 let count_query = 'SELECT COUNT(*) AS total FROM articles ';
                 let count_post = [];
@@ -6472,10 +6866,10 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                     req_fields.forEach(elem => {
                         if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
                             if (permitted_field_count == 0) {
-                                select_query += `${mappped_field_name.get(elem)}`;
+                                select_query += `A.${mappped_field_name.get(elem)}`;
 
                             } else {
-                                select_query += `, ${mappped_field_name.get(elem)}`;
+                                select_query += `, A.${mappped_field_name.get(elem)}`;
                             }
 
                             field_already_exist.push(elem);
@@ -6484,39 +6878,47 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                     });
 
                     if (permitted_field_count < 1) {
-                        select_query = 'SELECT articleID AS article_id, category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
+                        select_query = 
+                            'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, A.title, ' + 
+                            'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                            'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
                     } else {
-                        select_query += ' FROM articles ';
+                        select_query += 
+                            ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                            'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                     }
 
                 } else { // no fields selection
-                    select_query += 'category, featuredImageURL AS featured_image_url, title, highlight, time FROM articles ';
+                    select_query += 
+                        ' A.category, A.featuredImageURL AS featured_image_url, A.title, ' + 
+                        'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                        'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                 }
 
                 // from all published location
                 if (!pref_location_id) {
-                    select_query += 'WHERE (locationID = ? OR restrictedToLocation = ?) ';
+                    select_query += 'WHERE (A.regionID = ? OR A.restrictedToLocation = ?) ';
                     select_post.push(location_id);
                     select_post.push(0);
 
                     // count query
-                    count_query += 'WHERE (locationID = ? OR restrictedToLocation = ?) ';
+                    count_query += 'WHERE (regionID = ? OR restrictedToLocation = ?) ';
                     count_post.push(location_id);
                     count_post.push(0);
 
                 } else { // from set preferred location
-                    select_query += 'WHERE locationID = ? ';
+                    select_query += 'WHERE A.regionID = ? ';
                     select_post.push(pref_location_id);
 
                     // count query
-                    count_query += 'WHERE locationID = ? ';
+                    count_query += 'WHERE regionID = ? ';
                     count_post.push(pref_location_id);
                 }
 
                 // check if preferred location is provided and not equal to each other
                 if (pref_location_id && location_id != pref_location_id) {
-                    select_query += 'AND restrictedToLocation = ? ';
+                    select_query += 'AND A.restrictedToLocation = ? ';
                     select_post.push(0);
 
                     // count query
@@ -6527,7 +6929,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                 // category to retrieve or search
                 if (category_id) {
                     // category to select
-                    select_query += 'AND categoryID = ? ';
+                    select_query += 'AND A.categoryID = ? ';
                     select_post.push(category_id);
 
                     // count query
@@ -6540,12 +6942,12 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                     let temp_search = ' ' + decodeURIComponent(search.toString()).trim() + ' ';
                     temp_search = temp_search.replace(/\s+/g, ' % ').trim();
 
-                    select_query += `AND title LIKE '${temp_search}' `;
+                    select_query += `AND A.title LIKE '${temp_search}' `;
                     count_query += `AND title LIKE '${temp_search}' `;
                 }
 
                 // last published news should come first
-                select_query += 'ORDER BY time DESC ';
+                select_query += 'ORDER BY A.time DESC ';
 
                 // set limit and offset
                 select_query += `LIMIT ${limit} OFFSET ${offset}`;
@@ -6554,6 +6956,44 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
                     gDB.query(select_query, select_post).then(results => {
+                        for (let i = 0; i < results.length; i++) {
+                            // check if user has a profile picture
+                            if (results[i].profilePictureSmallURL) {
+                                // add user to results
+                                results[i].user = {
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    images: [
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                            size: 'big'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                            size: 'medium'
+                                        },
+                                        {
+                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                            size: 'small'
+                                        }
+                                    ]
+                                };
+
+                            } else {
+                                // add user to results
+                                results[i].user = {
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    images: null
+                                };
+                            }
+
+                            // remove keys
+                            delete results[i].firstName;
+                            delete results[i].lastName;
+                            delete results[i].profilePictureSmallURL;
+                            delete results[i].profilePictureMediumURL;
+                            delete results[i].profilePictureBigURL;
+                        }
+                        
                         // send result to client
                         res.status(200);
                         res.json({
@@ -6682,13 +7122,17 @@ router.post('/news/:news_id/likes', custom_utils.allowedScopes(['write:news', 'w
         ).then(results => {
             // add user to like table
             gDB.query(
-                'IF NOT EXISTS (SELECT * FROM news_likes WHERE newsID = ? AND userID = ?) ' +
-                'BEGIN INSERT INTO news_likes (newsID, userID) VALUES (?, ?) END',
-                [req.params.news_id, user_id, req.params.news_id, user_id]
+                'INSERT INTO news_likes (newsID, userID) VALUES (?, ?)',
+                [req.params.news_id, user_id]
             ).then(results => {
                 return res.status(200).send();
 
             }).catch(err => {
+                // check if is a duplicate error
+                if (err.code == 'ER_DUP_ENTRY' || err.errno == 1062) {
+                    return res.status(200).send();
+                }
+
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -6770,13 +7214,17 @@ router.post('/articles/:article_id/likes', custom_utils.allowedScopes(['write:ar
         ).then(results => {
             // add user to like table
             gDB.query(
-                'IF NOT EXISTS (SELECT * FROM article_likes WHERE articleID = ? AND userID = ?) ' +
-                'BEGIN INSERT INTO article_likes (articleID, userID) VALUES (?, ?) END',
-                [req.params.article_id, user_id, req.params.article_id, user_id]
+                'INSERT INTO article_likes (articleID, userID) VALUES (?, ?)',
+                [req.params.article_id, user_id]
             ).then(results => {
                 return res.status(200).send();
 
             }).catch(err => {
+                // check if is a duplicate error
+                if (err.code == 'ER_DUP_ENTRY' || err.errno == 1062) {
+                    return res.status(200).send();
+                }
+
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -7162,13 +7610,17 @@ router.post('/news/:news_id/dislikes', custom_utils.allowedScopes(['write:news',
         ).then(results => {
             // add user to dislike table
             gDB.query(
-                'IF NOT EXISTS (SELECT * FROM news_dislikes WHERE newsID = ? AND userID = ?) ' +
-                'BEGIN INSERT INTO news_dislikes (newsID, userID) VALUES (?, ?) END',
-                [req.params.news_id, user_id, req.params.news_id, user_id]
+                'INSERT INTO news_dislikes (newsID, userID) VALUES (?, ?)',
+                [req.params.news_id, user_id]
             ).then(results => {
                 return res.status(200).send();
 
             }).catch(err => {
+                // check if is a duplicate error
+                if (err.code == 'ER_DUP_ENTRY' || err.errno == 1062) {
+                    return res.status(200).send();
+                }
+
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -7250,13 +7702,17 @@ router.post('/articles/:article_id/dislikes', custom_utils.allowedScopes(['write
         ).then(results => {
             // add user to dislike table
             gDB.query(
-                'IF NOT EXISTS (SELECT * FROM article_dislikes WHERE articleID = ? AND userID = ?) ' +
-                'BEGIN INSERT INTO article_dislikes (articleID, userID) VALUES (?, ?) END',
-                [req.params.article_id, user_id, req.params.article_id, user_id]
+                'INSERT INTO article_dislikes (articleID, userID) VALUES (?, ?)',
+                [req.params.article_id, user_id]
             ).then(results => {
                 return res.status(200).send();
 
             }).catch(err => {
+                // check if is a duplicate error
+                if (err.code == 'ER_DUP_ENTRY' || err.errno == 1062) {
+                    return res.status(200).send();
+                }
+
                 res.status(500);
                 res.json({
                     error_code: "internal_error",
@@ -9677,3 +10133,4 @@ router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read
 });
 
 module.exports = router;
+
