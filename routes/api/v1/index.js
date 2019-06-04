@@ -5224,21 +5224,21 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
         });
 
         if (permitted_field_count < 1) {
-            select_query = 
-                'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, ' + 
-                'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+            select_query =
+                'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, ' +
+                'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
         } else {
-            select_query += 
-                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' + 
+            select_query +=
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
         }
 
     } else { // no fields selection
-        select_query += 
-            'A.category, A.featuredImageURL AS featured_image_url, ' + 
-            'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+        select_query +=
+            'A.category, A.featuredImageURL AS featured_image_url, ' +
+            'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
     }
 
@@ -5480,21 +5480,21 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
         });
 
         if (permitted_field_count < 1) {
-            select_query = 
-                'SELECT A.articleID AS id, A.category, A.featuredImageURL AS featured_image_url, ' + 
-                'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+            select_query =
+                'SELECT A.articleID AS id, A.category, A.featuredImageURL AS featured_image_url, ' +
+                'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
         } else {
-            select_query += 
-                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' + 
+            select_query +=
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
         }
 
     } else { // no fields selection
-        select_query += 
-            'A.category, A.featuredImageURL AS featured_image_url, ' + 
-            'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+        select_query +=
+            'A.category, A.featuredImageURL AS featured_image_url, ' +
+            'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
     }
 
@@ -5648,7 +5648,7 @@ router.delete('/users/:user_id/news/:news_id', custom_utils.allowedScopes(['writ
 
     // check if news exist. Just return 200 OK if doesn't exist
     gDB.query(
-        'SELECT 1 FROM news WHERE newsID = ? AND userID = ? LIMIT 1', 
+        'SELECT 1 FROM news WHERE newsID = ? AND userID = ? LIMIT 1',
         [req.params.news_id, req.params.user_id]
     ).then(results => {
         if (results.length < 1) {
@@ -5870,7 +5870,7 @@ router.delete('/users/:user_id/articles/:article_id', custom_utils.allowedScopes
 
     // check if article exist. Just return 200 OK if doesn't exist
     gDB.query(
-        'SELECT 1 FROM articles WHERE articleID = ? AND userID = ? LIMIT 1', 
+        'SELECT 1 FROM articles WHERE articleID = ? AND userID = ? LIMIT 1',
         [req.params.article_id, req.params.user_id]
     ).then(results => {
         if (results.length < 1) {
@@ -6105,23 +6105,23 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         });
 
         if (permitted_field_count < 1) {
-            query = 
+            query =
                 'SELECT A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
                 'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
-                'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+                'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
 
         } else {
-            query += 
-                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' + 
+            query +=
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
         }
 
     } else { // no fields selection
-        query += 
+        query +=
             'A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
             'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
-            'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+            'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
     }
 
@@ -6245,23 +6245,23 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         });
 
         if (permitted_field_count < 1) {
-            query = 
+            query =
                 'SELECT A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
                 'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
-                'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+                'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
 
         } else {
-            query += 
-                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' + 
+            query +=
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
         }
 
     } else { // no fields selection
-        query += 
+        query +=
             'A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
             'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
-            'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+            'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
     }
 
@@ -6439,7 +6439,10 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
             }
 
             //check if category exist
-            gDB.query('SELECT 1 FROM news_categories WHERE categoryID = ? LIMIT 1', [category_id]).then(results => {
+            gDB.query(
+                'SELECT 1 FROM news_categories WHERE categoryID = ? LIMIT 1',
+                [category_id ? category_id : 0]
+            ).then(results => {
                 if (category_id && results.length < 1) {
                     invalid_inputs.push({
                         error_code: "invalid_value",
@@ -6503,21 +6506,21 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                     });
 
                     if (permitted_field_count < 1) {
-                        select_query = 
-                            'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, A.title, ' + 
-                            'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                        select_query =
+                            'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, A.title, ' +
+                            'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
                     } else {
-                        select_query += 
-                            ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                        select_query +=
+                            ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                     }
 
                 } else { // no fields selection
-                    select_query += 
-                        ' A.category, A.featuredImageURL AS featured_image_url, A.title, ' + 
-                        'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                    select_query +=
+                        ' A.category, A.featuredImageURL AS featured_image_url, A.title, ' +
+                        'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                 }
 
@@ -6814,7 +6817,10 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
             }
 
             //check if category exist
-            gDB.query('SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1', [category_id]).then(results => {
+            gDB.query(
+                'SELECT 1 FROM article_categories WHERE categoryID = ? LIMIT 1',
+                [category_id ? category_id : 0]
+            ).then(results => {
                 if (category_id && results.length < 1) {
                     invalid_inputs.push({
                         error_code: "invalid_value",
@@ -6878,21 +6884,21 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                     });
 
                     if (permitted_field_count < 1) {
-                        select_query = 
-                            'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, A.title, ' + 
-                            'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                        select_query =
+                            'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, A.title, ' +
+                            'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
                     } else {
-                        select_query += 
-                            ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                        select_query +=
+                            ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                     }
 
                 } else { // no fields selection
-                    select_query += 
-                        ' A.category, A.featuredImageURL AS featured_image_url, A.title, ' + 
-                        'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' + 
+                    select_query +=
+                        ' A.category, A.featuredImageURL AS featured_image_url, A.title, ' +
+                        'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                 }
 
@@ -6993,7 +6999,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                             delete results[i].profilePictureMediumURL;
                             delete results[i].profilePictureBigURL;
                         }
-                        
+
                         // send result to client
                         res.status(200);
                         res.json({
@@ -8572,8 +8578,8 @@ router.get('/news/:news_id/comments', custom_utils.allowedScopes(['read:news', '
         ).then(cmt_results => {
             // get all comment
             gDB.query(
-                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
-                'FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
+                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                'B.profilePictureBigURL FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
                 `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                 [
                     req.params.news_id,
@@ -8582,19 +8588,44 @@ router.get('/news/:news_id/comments', custom_utils.allowedScopes(['read:news', '
             ).then(results => {
                 let comments = [];
                 for (let i = 0; i < results.length; i++) {
-                    comments.push({
-                        comment: results[i].comment,
-                        id: results[i].commentID,
-                        reply_count: results[i].replyCount,
-                        time: results[i].time,
-                        user: {
-                            name: results[i].lastName + ' ' + results[i].firstName,
-                            image: {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                size: 'small'
+                    // check if user has a profile picture
+                    if (results[i].profilePictureSmallURL) {
+                        comments.push({
+                            comment: results[i].comment,
+                            id: results[i].commentID,
+                            reply_count: results[i].replyCount,
+                            time: results[i].time,
+                            user: {
+                                name: results[i].lastName + ' ' + results[i].firstName,
+                                images: [
+                                    {
+                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                        size: 'big'
+                                    },
+                                    {
+                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                        size: 'medium'
+                                    },
+                                    {
+                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                        size: 'small'
+                                    }
+                                ]
                             }
-                        }
-                    });
+                        });
+
+                    } else {
+                        comments.push({
+                            comment: results[i].comment,
+                            id: results[i].commentID,
+                            reply_count: results[i].replyCount,
+                            time: results[i].time,
+                            user: {
+                                name: results[i].lastName + ' ' + results[i].firstName,
+                                images: null
+                            }
+                        });
+                    }
                 }
 
                 // send results to client
@@ -8737,8 +8768,8 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
         ).then(cmt_results => {
             // get all comment
             gDB.query(
-                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL ' +
-                'FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
+                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                'B.profilePictureBigURL FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
                 `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                 [
                     req.params.article_id,
@@ -8747,19 +8778,44 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
             ).then(results => {
                 let comments = [];
                 for (let i = 0; i < results.length; i++) {
-                    comments.push({
-                        comment: results[i].comment,
-                        id: results[i].commentID,
-                        reply_count: results[i].replyCount,
-                        time: results[i].time,
-                        user: {
-                            name: results[i].lastName + ' ' + results[i].firstName,
-                            image: {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                size: 'small'
+                    // check if user has a profile picture
+                    if (results[i].profilePictureSmallURL) {
+                        comments.push({
+                            comment: results[i].comment,
+                            id: results[i].commentID,
+                            reply_count: results[i].replyCount,
+                            time: results[i].time,
+                            user: {
+                                name: results[i].lastName + ' ' + results[i].firstName,
+                                images: [
+                                    {
+                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                        size: 'big'
+                                    },
+                                    {
+                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                        size: 'medium'
+                                    },
+                                    {
+                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
+                                        size: 'small'
+                                    }
+                                ]
                             }
-                        }
-                    });
+                        });
+
+                    } else {
+                        comments.push({
+                            comment: results[i].comment,
+                            id: results[i].commentID,
+                            reply_count: results[i].replyCount,
+                            time: results[i].time,
+                            user: {
+                                name: results[i].lastName + ' ' + results[i].firstName,
+                                images: null
+                            }
+                        });
+                    }
                 }
 
                 // send results to client
