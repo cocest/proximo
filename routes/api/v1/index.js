@@ -7411,7 +7411,7 @@ router.delete('/articles/:article_id/like', custom_utils.allowedScopes(['write:a
 });
 
 // get like metadata information for news
-router.head('/news/:news_id/likes', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
+router.get('/news/:news_id/likes', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.news_id)) {
         res.status(400);
@@ -7462,7 +7462,20 @@ router.head('/news/:news_id/likes', custom_utils.allowedScopes(['read:news', 're
 
                 return;
 
-            })
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+    
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+    
+                return;
+            });
 
         }).catch(err => {
             res.status(500);
@@ -7496,7 +7509,7 @@ router.head('/news/:news_id/likes', custom_utils.allowedScopes(['read:news', 're
 });
 
 // get like metadata information for article
-router.head('/articles/:article_id/likes', custom_utils.allowedScopes(['read:article', 'read:article:all']), (req, res) => {
+router.get('/articles/:article_id/likes', custom_utils.allowedScopes(['read:article', 'read:article:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.article_id)) {
         res.status(400);
@@ -7547,7 +7560,20 @@ router.head('/articles/:article_id/likes', custom_utils.allowedScopes(['read:art
 
                 return;
 
-            })
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+    
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+    
+                return;
+            });
 
         }).catch(err => {
             res.status(500);
@@ -7899,7 +7925,7 @@ router.delete('/articles/:article_id/dislike', custom_utils.allowedScopes(['writ
 });
 
 // get dislike metadata information for news
-router.head('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
+router.get('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.news_id)) {
         res.status(400);
@@ -7950,7 +7976,20 @@ router.head('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:news', 
 
                 return;
 
-            })
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+    
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+    
+                return;
+            });
 
         }).catch(err => {
             res.status(500);
@@ -7984,7 +8023,7 @@ router.head('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:news', 
 });
 
 // get dislike metadata information for article
-router.head('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:article', 'read:article:all']), (req, res) => {
+router.get('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:article', 'read:article:all']), (req, res) => {
     // check if id is valid
     if (!/^\d+$/.test(req.params.article_id)) {
         res.status(400);
@@ -8035,7 +8074,20 @@ router.head('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:
 
                 return;
 
-            })
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+    
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+    
+                return;
+            });
 
         }).catch(err => {
             res.status(500);
@@ -8371,23 +8423,49 @@ router.get('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['read:
 
         // get user's information that commented
         gDB.query(
-            'SELECT firstName, lastName, profilePictureSmallURL FROM user WHERE userID = ? LIMIT 1',
+            'SELECT firstName, lastName, profilePictureSmallURL, profilePictureMediumURL, profilePictureBigURL FROM user WHERE userID = ? LIMIT 1',
             [cmt_results[0].userID]
         ).then(results => {
-            // prepare the results
-            res.status(200);
-            res.json({
-                comment: cmt_results[0].comment,
-                reply_count: cmt_results[0].replyCount,
-                time: cmt_results[0].time,
-                user: {
-                    name: results[0].lastName + ' ' + results[0].firstName,
-                    image: {
-                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
-                        size: 'small'
+            // check if user has a profile picture
+            if (results[0].profilePictureSmallURL) {
+                // prepare the results
+                res.status(200);
+                res.json({
+                    comment: cmt_results[0].comment,
+                    reply_count: cmt_results[0].replyCount,
+                    time: cmt_results[0].time,
+                    user: {
+                        name: results[0].lastName + ' ' + results[0].firstName,
+                        images: [
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
+                                size: 'big'
+                            },
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
+                                size: 'medium'
+                            },
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
+                                size: 'small'
+                            }
+                        ]
                     }
-                }
-            });
+                });
+
+            } else {
+                // prepare the results
+                res.status(200);
+                res.json({
+                    comment: cmt_results[0].comment,
+                    reply_count: cmt_results[0].replyCount,
+                    time: cmt_results[0].time,
+                    user: {
+                        name: results[0].lastName + ' ' + results[0].firstName,
+                        images: null
+                    }
+                });
+            }
 
         }).catch(err => {
             res.status(500);
@@ -8451,23 +8529,49 @@ router.get('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(
 
         // get user's information that commented
         gDB.query(
-            'SELECT firstName, lastName, profilePictureSmallURL FROM user WHERE userID = ? LIMIT 1',
+            'SELECT firstName, lastName, profilePictureSmallURL, profilePictureMediumURL, profilePictureBigURL FROM user WHERE userID = ? LIMIT 1',
             [cmt_results[0].userID]
         ).then(results => {
-            // prepare the results
-            res.status(200);
-            res.json({
-                comment: cmt_results[0].comment,
-                reply_count: cmt_results[0].replyCount,
-                time: cmt_results[0].time,
-                user: {
-                    name: results[0].lastName + ' ' + results[0].firstName,
-                    image: {
-                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
-                        size: 'small'
+            // check if user has a profile picture
+            if (results[0].profilePictureSmallURL) {
+                // prepare the results
+                res.status(200);
+                res.json({
+                    comment: cmt_results[0].comment,
+                    reply_count: cmt_results[0].replyCount,
+                    time: cmt_results[0].time,
+                    user: {
+                        name: results[0].lastName + ' ' + results[0].firstName,
+                        images: [
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
+                                size: 'big'
+                            },
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
+                                size: 'medium'
+                            },
+                            {
+                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
+                                size: 'small'
+                            }
+                        ]
                     }
-                }
-            });
+                });
+
+            } else {
+                // prepare the results
+                res.status(200);
+                res.json({
+                    comment: cmt_results[0].comment,
+                    reply_count: cmt_results[0].replyCount,
+                    time: cmt_results[0].time,
+                    user: {
+                        name: results[0].lastName + ' ' + results[0].firstName,
+                        images: null
+                    }
+                });
+            }
 
         }).catch(err => {
             res.status(500);
