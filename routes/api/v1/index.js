@@ -8395,7 +8395,7 @@ router.post('/articles/:article_id/comments', custom_utils.allowedScopes(['write
 // get comment for a news
 router.get('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['read:news', 'read:news:all']), (req, res) => {
     // check if user id is integer and comment id is valid
-    if (!(/^\d+$/.test(req.params.article_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.cmt_id))) {
+    if (!(/^\d+$/.test(req.params.news_id) && /^[a-zA-Z0-9]{16}$/.test(req.params.cmt_id))) {
         res.status(400);
         res.json({
             error_code: "invalid_id",
