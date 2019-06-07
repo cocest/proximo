@@ -1830,19 +1830,11 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
                             ).then(results => {
                                 res.status(200);
                                 res.json({
-                                    images: [{
-                                        url: dm.get(280).Location,
-                                        size: 'big'
-                                    },
-                                    {
-                                        url: dm.get(120).Location,
-                                        size: 'medium'
-                                    },
-                                    {
-                                        url: dm.get(50).Location,
-                                        size: 'small'
+                                    image: {
+                                        big: dm.get(280).Location,
+                                        medium: dm.get(120).Location,
+                                        small: dm.get(50).Location
                                     }
-                                    ]
                                 });
 
                                 return;
@@ -4400,24 +4392,12 @@ router.post('/drafts/:draft_id/medias', custom_utils.allowedScopes(['write:users
                                 res.status(200);
                                 res.json({
                                     image_id: image_id,
-                                    images: [
-                                        {
-                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/big/' + object_unique_name,
-                                            size: 'big'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/medium/' + object_unique_name,
-                                            size: 'medium'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/small/' + object_unique_name,
-                                            size: 'small'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/tiny/' + object_unique_name,
-                                            size: 'tiny'
-                                        }
-                                    ]
+                                    image: {
+                                        big: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/big/' + object_unique_name,
+                                        medium: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/medium/' + object_unique_name,
+                                        small: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/small/' + object_unique_name,
+                                        tiny: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/tiny/' + object_unique_name
+                                    }
                                 });
 
                             }).catch(err => {
@@ -5277,27 +5257,18 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
                     // add user to results
                     results[i].user = {
                         name: results[i].lastName + ' ' + results[i].firstName,
-                        images: [
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
-                                size: 'big'
-                            },
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
-                                size: 'medium'
-                            },
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                size: 'small'
-                            }
-                        ]
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                        }
                     };
 
                 } else {
                     // add user to results
                     results[i].user = {
                         name: results[i].lastName + ' ' + results[i].firstName,
-                        images: null
+                        image: null
                     };
                 }
 
@@ -5533,27 +5504,18 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
                     // add user to results
                     results[i].user = {
                         name: results[i].lastName + ' ' + results[i].firstName,
-                        images: [
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
-                                size: 'big'
-                            },
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
-                                size: 'medium'
-                            },
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                size: 'small'
-                            }
-                        ]
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                        }
                     };
 
                 } else {
                     // add user to results
                     results[i].user = {
                         name: results[i].lastName + ' ' + results[i].firstName,
-                        images: null
+                        image: null
                     };
                 }
 
@@ -6143,27 +6105,18 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
             // add user to results
             results[0].user = {
                 name: results[0].lastName + ' ' + results[0].firstName,
-                images: [
-                    {
-                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
-                        size: 'big'
-                    },
-                    {
-                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
-                        size: 'medium'
-                    },
-                    {
-                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
-                        size: 'small'
-                    }
-                ]
+                image: {
+                    big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
+                    medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
+                    small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL
+                }
             };
 
         } else {
             // add user to results
             results[0].user = {
                 name: results[0].lastName + ' ' + results[0].firstName,
-                images: null
+                image: null
             };
         }
 
@@ -6283,27 +6236,18 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             // add user to results
             results[0].user = {
                 name: results[0].lastName + ' ' + results[0].firstName,
-                images: [
-                    {
-                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
-                        size: 'big'
-                    },
-                    {
-                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
-                        size: 'medium'
-                    },
-                    {
-                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
-                        size: 'small'
-                    }
-                ]
+                image: {
+                    big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
+                    medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
+                    small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL
+                }
             };
 
         } else {
             // add user to results
             results[0].user = {
                 name: results[0].lastName + ' ' + results[0].firstName,
-                images: null
+                image: null
             };
         }
 
@@ -6590,27 +6534,18 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                                 // add user to results
                                 results[i].user = {
                                     name: results[i].lastName + ' ' + results[i].firstName,
-                                    images: [
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
-                                            size: 'big'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
-                                            size: 'medium'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                            size: 'small'
-                                        }
-                                    ]
+                                    image: {
+                                        big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                        medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                        small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                    }
                                 };
 
                             } else {
                                 // add user to results
                                 results[i].user = {
                                     name: results[i].lastName + ' ' + results[i].firstName,
-                                    images: null
+                                    image: null
                                 };
                             }
 
@@ -6968,27 +6903,18 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                                 // add user to results
                                 results[i].user = {
                                     name: results[i].lastName + ' ' + results[i].firstName,
-                                    images: [
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
-                                            size: 'big'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
-                                            size: 'medium'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                            size: 'small'
-                                        }
-                                    ]
+                                    image: {
+                                        big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                        medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                        small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                    }
                                 };
 
                             } else {
                                 // add user to results
                                 results[i].user = {
                                     name: results[i].lastName + ' ' + results[i].firstName,
-                                    images: null
+                                    image: null
                                 };
                             }
 
@@ -7468,12 +7394,12 @@ router.get('/news/:news_id/likes', custom_utils.allowedScopes(['read:news', 'rea
                     error_code: "internal_error",
                     message: "Internal error"
                 });
-    
+
                 // log the error to log file
                 gLogger.log('error', err.message, {
                     stack: err.stack
                 });
-    
+
                 return;
             });
 
@@ -7566,12 +7492,12 @@ router.get('/articles/:article_id/likes', custom_utils.allowedScopes(['read:arti
                     error_code: "internal_error",
                     message: "Internal error"
                 });
-    
+
                 // log the error to log file
                 gLogger.log('error', err.message, {
                     stack: err.stack
                 });
-    
+
                 return;
             });
 
@@ -7982,12 +7908,12 @@ router.get('/news/:news_id/dislikes', custom_utils.allowedScopes(['read:news', '
                     error_code: "internal_error",
                     message: "Internal error"
                 });
-    
+
                 // log the error to log file
                 gLogger.log('error', err.message, {
                     stack: err.stack
                 });
-    
+
                 return;
             });
 
@@ -8080,12 +8006,12 @@ router.get('/articles/:article_id/dislikes', custom_utils.allowedScopes(['read:a
                     error_code: "internal_error",
                     message: "Internal error"
                 });
-    
+
                 // log the error to log file
                 gLogger.log('error', err.message, {
                     stack: err.stack
                 });
-    
+
                 return;
             });
 
@@ -8436,20 +8362,11 @@ router.get('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['read:
                     time: cmt_results[0].time,
                     user: {
                         name: results[0].lastName + ' ' + results[0].firstName,
-                        images: [
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
-                                size: 'big'
-                            },
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
-                                size: 'medium'
-                            },
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
-                                size: 'small'
-                            }
-                        ]
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL
+                        }
                     }
                 });
 
@@ -8462,7 +8379,7 @@ router.get('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['read:
                     time: cmt_results[0].time,
                     user: {
                         name: results[0].lastName + ' ' + results[0].firstName,
-                        images: null
+                        image: null
                     }
                 });
             }
@@ -8542,20 +8459,11 @@ router.get('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(
                     time: cmt_results[0].time,
                     user: {
                         name: results[0].lastName + ' ' + results[0].firstName,
-                        images: [
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
-                                size: 'big'
-                            },
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
-                                size: 'medium'
-                            },
-                            {
-                                url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL,
-                                size: 'small'
-                            }
-                        ]
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL
+                        }
                     }
                 });
 
@@ -8568,7 +8476,7 @@ router.get('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(
                     time: cmt_results[0].time,
                     user: {
                         name: results[0].lastName + ' ' + results[0].firstName,
-                        images: null
+                        image: null
                     }
                 });
             }
@@ -8701,20 +8609,11 @@ router.get('/news/:news_id/comments', custom_utils.allowedScopes(['read:news', '
                             time: results[i].time,
                             user: {
                                 name: results[i].lastName + ' ' + results[i].firstName,
-                                images: [
-                                    {
-                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
-                                        size: 'big'
-                                    },
-                                    {
-                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
-                                        size: 'medium'
-                                    },
-                                    {
-                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                        size: 'small'
-                                    }
-                                ]
+                                image: {
+                                    big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                    medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                    small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                }
                             }
                         });
 
@@ -8726,7 +8625,7 @@ router.get('/news/:news_id/comments', custom_utils.allowedScopes(['read:news', '
                             time: results[i].time,
                             user: {
                                 name: results[i].lastName + ' ' + results[i].firstName,
-                                images: null
+                                image: null
                             }
                         });
                     }
@@ -8891,20 +8790,11 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
                             time: results[i].time,
                             user: {
                                 name: results[i].lastName + ' ' + results[i].firstName,
-                                images: [
-                                    {
-                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
-                                        size: 'big'
-                                    },
-                                    {
-                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
-                                        size: 'medium'
-                                    },
-                                    {
-                                        url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                        size: 'small'
-                                    }
-                                ]
+                                image: {
+                                    big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                    medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                    small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                }
                             }
                         });
 
@@ -8916,7 +8806,7 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
                             time: results[i].time,
                             user: {
                                 name: results[i].lastName + ' ' + results[i].firstName,
-                                images: null
+                                image: null
                             }
                         });
                     }
@@ -9451,20 +9341,11 @@ router.get('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes
                                 time: results[i].time,
                                 user: {
                                     name: results[i].lastName + ' ' + results[i].firstName,
-                                    images: [
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
-                                            size: 'big'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
-                                            size: 'medium'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                            size: 'small'
-                                        }
-                                    ]
+                                    image: {
+                                        big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                        medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                        small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                    }
                                 }
                             });
 
@@ -9476,7 +9357,7 @@ router.get('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes
                                 time: results[i].time,
                                 user: {
                                     name: results[i].lastName + ' ' + results[i].firstName,
-                                    images: null
+                                    image: null
                                 }
                             });
                         }
@@ -9672,20 +9553,11 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
                                 time: results[i].time,
                                 user: {
                                     name: results[i].lastName + ' ' + results[i].firstName,
-                                    images: [
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
-                                            size: 'big'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
-                                            size: 'medium'
-                                        },
-                                        {
-                                            url: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL,
-                                            size: 'small'
-                                        }
-                                    ]
+                                    image: {
+                                        big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                        medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                        small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                    }
                                 }
                             });
 
@@ -9697,7 +9569,7 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
                                 time: results[i].time,
                                 user: {
                                     name: results[i].lastName + ' ' + results[i].firstName,
-                                    images: null
+                                    image: null
                                 }
                             });
                         }
