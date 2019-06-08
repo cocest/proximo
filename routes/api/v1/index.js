@@ -10547,12 +10547,14 @@ router.post('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =
                                 ]
                             }
                         ).then(results => {
-                            res.status(201);
-                            res.json({
-                                store_id: results[0].storeID
-                            });
+                            gDB.query('SELECT storeID FROM stores WHERE searchStoreHash = ? LIMIT 1', [search_name_hash]).then(results => {
+                                res.status(201);
+                                res.json({
+                                    store_id: results[0].storeID
+                                });
 
-                            return;
+                                return;
+                            });
 
                         }).catch(err => {
                             res.status(500);
