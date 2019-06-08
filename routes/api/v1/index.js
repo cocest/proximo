@@ -6160,7 +6160,6 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         });
 
         return;
-
     }
 
     const mappped_field_name = new Map([
@@ -10916,7 +10915,99 @@ router.post('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =
 });
 
 // update store information
-router.put();
+router.put('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.store_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // pass in queries
+    let store_type = req.query.type;
+
+    // check if URL query is defined and valid
+    const invalid_inputs = [];
+
+    if (!store_type) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "type",
+            message: "type has to be defined"
+        });
+
+    } else if (!/^(product|service)$/.test(store_type)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "type",
+            message: "type value is invalid"
+        });
+
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    let table_name;
+
+    // check the type of store
+    if (store_type == 'product') {
+        table_name = 'stores';
+
+    } else {
+        //
+    }
+
+    // get store type
+    gDB.query('SELECT ')
+});
 
 router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read:hellos:all']), (req, res) => {
     const token_user_id = parseInt(req.user.access_token.user_id, 10);
