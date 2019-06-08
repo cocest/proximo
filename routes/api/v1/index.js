@@ -10361,10 +10361,7 @@ router.post('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =
                     field: "categoryID",
                     message: "categoryID value is invalid"
                 });
-            }
 
-            // check if any input is invalid
-            if (invalid_inputs.length > 0) {
                 // send json error message to client
                 res.status(406);
                 res.json({
@@ -10375,110 +10372,110 @@ router.post('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =
                 return;
             }
 
-            // validate submitted data
-            if (!req.body.name) {
-                invalid_inputs.push({
-                    error_code: "undefined_input",
-                    field: "name",
-                    message: " has to be defined"
-                });
-
-            } else if (!/^[a-zA-Z0-9]+$/.test(req.body.name)) {
-                invalid_inputs.push({
-                    error_code: "invalid_input",
-                    field: "phoneNumber",
-                    message: "phoneNumber is not acceptable"
-                });
-            }
-
-            if (!req.body.description) {
-                invalid_inputs.push({
-                    error_code: "undefined_input",
-                    field: "description",
-                    message: "description has to be defined"
-                });
-
-            } else if (typeof req.body.description != 'string') {
-                invalid_inputs.push({
-                    error_code: "invalid_input",
-                    field: "description",
-                    message: "description is not acceptable"
-                });
-
-            } else if (req.body.description.length > 500) { // check if description exceed 500 characters
-                invalid_inputs.push({
-                    error_code: "invalid_data",
-                    field: "description",
-                    message: "description exceed maximum allowed text"
-                });
-            }
-
-            if (!req.body.address) {
-                invalid_inputs.push({
-                    error_code: "undefined_input",
-                    field: "address",
-                    message: "address has to be defined"
-                });
-
-            } else if (typeof req.body.address != 'string') {
-                invalid_inputs.push({
-                    error_code: "invalid_input",
-                    field: "address",
-                    message: "address is not acceptable"
-                });
-            }
-
-            if (!req.body.email) {
-                invalid_inputs.push({
-                    error_code: "undefined_input",
-                    field: "email",
-                    message: "email has to be defined"
-                });
-
-            } else if (!validator.isEmail(req.body.email)) {
-                invalid_inputs.push({
-                    error_code: "invalid_input",
-                    field: "email",
-                    message: "email is not acceptable"
-                });
-            }
-
-            if (!req.body.phoneNumber) {
-                invalid_inputs.push({
-                    error_code: "undefined_input",
-                    field: "phoneNumber",
-                    message: "phoneNumber has to be defined"
-                });
-
-            } else if (!/^\d+$/.test(req.body.phoneNumber)) {
-                invalid_inputs.push({
-                    error_code: "invalid_input",
-                    field: "phoneNumber",
-                    message: "phoneNumber is not acceptable"
-                });
-            }
-
-            // check if any input is invalid
-            if (invalid_inputs.length > 0) {
-                // send json error message to client
-                res.status(406);
-                res.json({
-                    error_code: "invalid_field",
-                    errors: invalid_inputs
-                });
-
-                return;
-            }
-
-            // check if store name has been used by another
-            gDB.query('SELECT 1 FROM stores WHERE storeName = ? LIMIT 1', [req.body.name]).then(results => {
-                if (results.length > 0) {
+            // check if location ID exist
+            gDB.query('SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1', [location_id]).then(results => {
+                if (results.length < 1) {
                     invalid_inputs.push({
-                        error_code: "input_exist",
-                        field: "name",
-                        message: "Store name has been used"
+                        error_code: "invalid_value",
+                        field: "locationID",
+                        message: "locationID value is invalid"
                     });
 
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        error_code: "invalid_query",
+                        errors: invalid_inputs
+                    });
+
+                    return;
+                }
+
+                // validate submitted data
+                if (!req.body.name) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "name",
+                        message: " has to be defined"
+                    });
+
+                } else if (!/^[a-zA-Z0-9]+$/.test(req.body.name)) {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "phoneNumber",
+                        message: "phoneNumber is not acceptable"
+                    });
+                }
+
+                if (!req.body.description) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "description",
+                        message: "description has to be defined"
+                    });
+
+                } else if (typeof req.body.description != 'string') {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "description",
+                        message: "description is not acceptable"
+                    });
+
+                } else if (req.body.description.length > 500) { // check if description exceed 500 characters
+                    invalid_inputs.push({
+                        error_code: "invalid_data",
+                        field: "description",
+                        message: "description exceed maximum allowed text"
+                    });
+                }
+
+                if (!req.body.address) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "address",
+                        message: "address has to be defined"
+                    });
+
+                } else if (typeof req.body.address != 'string') {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "address",
+                        message: "address is not acceptable"
+                    });
+                }
+
+                if (!req.body.email) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "email",
+                        message: "email has to be defined"
+                    });
+
+                } else if (!validator.isEmail(req.body.email)) {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "email",
+                        message: "email is not acceptable"
+                    });
+                }
+
+                if (!req.body.phoneNumber) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "phoneNumber",
+                        message: "phoneNumber has to be defined"
+                    });
+
+                } else if (!/^\d+$/.test(req.body.phoneNumber)) {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "phoneNumber",
+                        message: "phoneNumber is not acceptable"
+                    });
+                }
+
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
                     // send json error message to client
                     res.status(406);
                     res.json({
@@ -10489,8 +10486,8 @@ router.post('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =
                     return;
                 }
 
-                // check if store name has been used for services
-                gDB.query('SELECT 1 FROM services WHERE storeName = ? LIMIT 1', [req.body.name]).then(results => {
+                // check if store name has been used by another
+                gDB.query('SELECT 1 FROM stores WHERE storeName = ? LIMIT 1', [req.body.name]).then(results => {
                     if (results.length > 0) {
                         invalid_inputs.push({
                             error_code: "input_exist",
@@ -10508,26 +10505,84 @@ router.post('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =
                         return;
                     }
 
-                    // generate hash of 40 characters length from user's store name
-                    const search_name_hash = crypto.createHash("sha1").update(req.body.name, "binary").digest("hex");
+                    // check if store name has been used for services
+                    gDB.query('SELECT 1 FROM services WHERE storeName = ? LIMIT 1', [req.body.name]).then(results => {
+                        if (results.length > 0) {
+                            invalid_inputs.push({
+                                error_code: "input_exist",
+                                field: "name",
+                                message: "Store name has been used"
+                            });
 
-                    // create store for products
-                    gDB.transaction(
-                        {
-                            query: 'SELECT @start_slot:=slotCount FROM store_settings'
-                        }, 
-                        {
-                            query: 'INSERT INTO stores (userID, categoryID, storeName, searchStoreHash, storeDescription, locationID, contactAddress, contactEmail, contactPhoneNumber) VALUES (@user_id, ?, ?)',
-                            post: [
-                                user_id,
-                                store_category_id,
-                                req.body.name,
-                                search_name_hash,
-                                req.body.description,
-                                a
-                            ]
+                            // send json error message to client
+                            res.status(406);
+                            res.json({
+                                error_code: "invalid_field",
+                                errors: invalid_inputs
+                            });
+
+                            return;
                         }
-                    )
+
+                        // generate hash of 40 characters length from user's store name
+                        const search_name_hash = crypto.createHash("sha1").update(req.body.name, "binary").digest("hex");
+
+                        // create store for products
+                        gDB.transaction(
+                            {
+                                query: 'SELECT @start_slot:=slotCount FROM store_settings'
+                            },
+                            {
+                                query: 'INSERT INTO stores (userID, categoryID, storeName, searchStoreHash, storeDescription, locationID, contactAddress, contactEmail, contactPhoneNumber, slotCount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, @start_slot)',
+                                post: [
+                                    user_id,
+                                    store_category_id,
+                                    req.body.name,
+                                    search_name_hash,
+                                    req.body.description,
+                                    location_id,
+                                    req.body.address,
+                                    req.body.email,
+                                    req.body.phoneNumber
+                                ]
+                            }
+                        ).then(results => {
+                            res.status(201);
+                            res.json({
+                                store_id: results[0].storeID
+                            });
+
+                            return;
+
+                        }).catch(err => {
+                            res.status(500);
+                            res.json({
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
+
+                            return;
+                        });
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
 
                 }).catch(err => {
                     res.status(500);
