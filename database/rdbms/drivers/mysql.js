@@ -81,29 +81,56 @@ class MySQL {
                     executeQueries(0);
 
                     function executeQueries(counter) {
-                        conn.query(queries[counter].query, queries[counter].post, (err, results) => {
-                            if (err) {
-                                return conn.rollback(() => {
-                                    reject(err);
-                                });
-                            }
+                        if (queries[counter].post) {
+                            conn.query(queries[counter].query, queries[counter].post, (err, results) => {
+                                if (err) {
+                                    return conn.rollback(() => {
+                                        reject(err);
+                                    });
+                                }
+    
+                                // check if is last executed query
+                                if (counter + 1 == queries.length) {
+                                    conn.commit(err => {
+                                        if (err) {
+                                            return conn.rollback(() => {
+                                                reject(err);
+                                            });
+                                        }
+    
+                                        resolve(results);
+                                    });
+    
+                                } else { // there still queries to be executed
+                                    executeQueries(counter + 1);
+                                }
+                            });
 
-                            // check if is last executed query
-                            if (counter + 1 == queries.length) {
-                                conn.commit(err => {
-                                    if (err) {
-                                        return conn.rollback(() => {
-                                            reject(err);
-                                        });
-                                    }
-
-                                    resolve(results);
-                                });
-
-                            } else { // there still queries to be executed
-                                executeQueries(counter + 1);
-                            }
-                        });
+                        } else {
+                            conn.query(queries[counter].query, (err, results) => {
+                                if (err) {
+                                    return conn.rollback(() => {
+                                        reject(err);
+                                    });
+                                }
+    
+                                // check if is last executed query
+                                if (counter + 1 == queries.length) {
+                                    conn.commit(err => {
+                                        if (err) {
+                                            return conn.rollback(() => {
+                                                reject(err);
+                                            });
+                                        }
+    
+                                        resolve(results);
+                                    });
+    
+                                } else { // there still queries to be executed
+                                    executeQueries(counter + 1);
+                                }
+                            });
+                        }
                     }
                 });
             });
