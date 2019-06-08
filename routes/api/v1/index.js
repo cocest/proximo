@@ -10995,123 +10995,173 @@ router.put('/stores/:store_id', custom_utils.allowedScopes(['write:stores']), (r
         return;
     }
 
-    // validate submitted data
-    if (req.body.description && typeof req.body.description != 'string') {
-        invalid_inputs.push({
-            error_code: "invalid_input",
-            field: "description",
-            message: "description is not acceptable"
+    // check if user has a store
+    gDB.query(
+        'SELECT 1 FROM ?? WHERE storeID = ? AND userID = ? LIMIT 1',
+        [
+            store_type == 'product' ? 'stores' : 'services',
+            req.params.store_id,
+            user_id
+        ]
+    ).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        // validate submitted data
+        if (req.body.description && typeof req.body.description != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "description",
+                message: "description is not acceptable"
+            });
+
+        } else if (req.body.description && req.body.description.length > 500) { // check if description exceed 500 characters
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "description",
+                message: "description exceed maximum allowed text"
+            });
+        }
+
+        if (req.body.address && typeof req.body.address != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "address",
+                message: "address is not acceptable"
+            });
+        }
+
+        if (req.body.email && !validator.isEmail(req.body.email)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "email",
+                message: "email is not acceptable"
+            });
+        }
+
+        if (req.body.phoneNumber && !/^\d+$/.test(req.body.phoneNumber)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "phoneNumber",
+                message: "phoneNumber is not acceptable"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        // prepare the update query
+        let query = '';
+        let query_post = [];
+        let input_count = 0;
+
+        // check the type of store
+        if (store_type == 'product') {
+            query = 'UPDATE stores SET ';
+
+        } else { // service
+            query = 'UPDATE services SET ';
+        }
+
+        // check if bio is provided
+        if (req.body.description) {
+            query += 'description = ?';
+            post.push(req.body.bio.trim());
+            input_count++;
+        }
+
+        if (req.body.address) {
+            if (input_count < 1) {
+                query += 'address = ?';
+                query_post.push(req.body.address);
+
+            } else {
+                query += ', address = ?';
+                query_post.push(req.body.address);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.email) {
+            if (input_count < 1) {
+                query += 'email = ?';
+                query_post.push(req.body.email);
+
+            } else {
+                query += ', email = ?';
+                query_post.push(req.body.email);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.phoneNumber) {
+            if (input_count < 1) {
+                query += 'phoneNumber = ?';
+                query_post.push(req.body.phoneNumber);
+
+            } else {
+                query += ', phoneNumber = ?';
+                query_post.push(req.body.phoneNumber);
+            }
+
+            input_count++;
+        }
+
+        // last part of the query
+        query += ' WHERE storeID = ? LIMIT 1';
+        query_post.push(req.params.store_id);
+
+        // get store type
+        gDB.query(query, query_post).then(results => {
+            return res.status(200).send();
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
         });
 
-    } else if (req.body.description && req.body.description.length > 500) { // check if description exceed 500 characters
-        invalid_inputs.push({
-            error_code: "invalid_data",
-            field: "description",
-            message: "description exceed maximum allowed text"
-        });
-    }
-
-    if (req.body.address && typeof req.body.address != 'string') {
-        invalid_inputs.push({
-            error_code: "invalid_input",
-            field: "address",
-            message: "address is not acceptable"
-        });
-    }
-
-    if (req.body.email && !validator.isEmail(req.body.email)) {
-        invalid_inputs.push({
-            error_code: "invalid_input",
-            field: "email",
-            message: "email is not acceptable"
-        });
-    }
-
-    if (req.body.phoneNumber && !/^\d+$/.test(req.body.phoneNumber)) {
-        invalid_inputs.push({
-            error_code: "invalid_input",
-            field: "phoneNumber",
-            message: "phoneNumber is not acceptable"
-        });
-    }
-
-    // check if any input is invalid
-    if (invalid_inputs.length > 0) {
-        // send json error message to client
-        res.status(406);
+    }).catch(err => {
+        res.status(500);
         res.json({
-            error_code: "invalid_field",
-            errors: invalid_inputs
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
         });
 
         return;
-    }
-
-    // prepare the update query
-    let query = '';
-    let query_post = [];
-    let input_count = 0;
-
-    // check the type of store
-    if (store_type == 'product') {
-        query = 'UPDATE stores SET ';
-
-    } else { // service
-        query = 'UPDATE services SET ';
-    }
-
-    // check if bio is provided
-    if (req.body.description) {
-        query += 'description = ?';
-        post.push(req.body.bio.trim());
-        input_count++;
-    }
-
-    if (req.body.address) {
-        if (input_count < 1) {
-            query += 'address = ?';
-            query_post.push(req.body.address);
-
-        } else {
-            query += ', address = ?';
-            query_post.push(req.body.address);
-        }
-
-        input_count++;
-    }
-
-    if (req.body.email) {
-        if (input_count < 1) {
-            query += 'email = ?';
-            query_post.push(req.body.email);
-
-        } else {
-            query += ', email = ?';
-            query_post.push(req.body.email);
-        }
-
-        input_count++;
-    }
-
-    if (req.body.phoneNumber) {
-        if (input_count < 1) {
-            query += 'phoneNumber = ?';
-            query_post.push(req.body.phoneNumber);
-
-        } else {
-            query += ', phoneNumber = ?';
-            query_post.push(req.body.phoneNumber);
-        }
-
-        input_count++;
-    }
-
-    // last part of the query
-    query += ' WHERE storeID = ? LIMIT 1';
-    query_post.push(req.params.store_id);
-
-    // get store type
-    gDB.query(query, query_post)
+    });
 });
 
 router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read:hellos:all']), (req, res) => {
