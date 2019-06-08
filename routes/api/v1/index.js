@@ -10244,7 +10244,7 @@ router.get('/service/categories', custom_utils.allowedScopes(['read:service']), 
 });
 
 // create a store for production
-router.post('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) => {
+router.post('/stores', custom_utils.allowedScopes(['write:stores']), (req, res) => {
     // check if account is verified
     if (!req.user.account_verified) {
         res.status(401);
@@ -10915,7 +10915,7 @@ router.post('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =
 });
 
 // update store information
-router.put('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (req, res) => {
+router.put('/stores/:store_id', custom_utils.allowedScopes(['write:stores']), (req, res) => {
     // check if id is integer
     if (!/^\d+$/.test(req.params.store_id)) {
         res.status(400);
@@ -10995,18 +10995,123 @@ router.put('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
         return;
     }
 
-    let table_name;
+    // validate submitted data
+    if (req.body.description && typeof req.body.description != 'string') {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "description",
+            message: "description is not acceptable"
+        });
+
+    } else if (req.body.description && req.body.description.length > 500) { // check if description exceed 500 characters
+        invalid_inputs.push({
+            error_code: "invalid_data",
+            field: "description",
+            message: "description exceed maximum allowed text"
+        });
+    }
+
+    if (req.body.address && typeof req.body.address != 'string') {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "address",
+            message: "address is not acceptable"
+        });
+    }
+
+    if (req.body.email && !validator.isEmail(req.body.email)) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "email",
+            message: "email is not acceptable"
+        });
+    }
+
+    if (req.body.phoneNumber && !/^\d+$/.test(req.body.phoneNumber)) {
+        invalid_inputs.push({
+            error_code: "invalid_input",
+            field: "phoneNumber",
+            message: "phoneNumber is not acceptable"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_field",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // prepare the update query
+    let query = '';
+    let query_post = [];
+    let input_count = 0;
 
     // check the type of store
     if (store_type == 'product') {
-        table_name = 'stores';
+        query = 'UPDATE stores SET ';
 
-    } else {
-        //
+    } else { // service
+        query = 'UPDATE services SET ';
     }
 
+    // check if bio is provided
+    if (req.body.description) {
+        query += 'description = ?';
+        post.push(req.body.bio.trim());
+        input_count++;
+    }
+
+    if (req.body.address) {
+        if (input_count < 1) {
+            query += 'address = ?';
+            query_post.push(req.body.address);
+
+        } else {
+            query += ', address = ?';
+            query_post.push(req.body.address);
+        }
+
+        input_count++;
+    }
+
+    if (req.body.email) {
+        if (input_count < 1) {
+            query += 'email = ?';
+            query_post.push(req.body.email);
+
+        } else {
+            query += ', email = ?';
+            query_post.push(req.body.email);
+        }
+
+        input_count++;
+    }
+
+    if (req.body.phoneNumber) {
+        if (input_count < 1) {
+            query += 'phoneNumber = ?';
+            query_post.push(req.body.phoneNumber);
+
+        } else {
+            query += ', phoneNumber = ?';
+            query_post.push(req.body.phoneNumber);
+        }
+
+        input_count++;
+    }
+
+    // last part of the query
+    query += ' WHERE storeID = ? LIMIT 1';
+    query_post.push(req.params.store_id);
+
     // get store type
-    gDB.query('SELECT ')
+    gDB.query(query, query_post)
 });
 
 router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read:hellos:all']), (req, res) => {
