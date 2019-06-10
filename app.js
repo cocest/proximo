@@ -45,7 +45,7 @@ app.use('/oauth2/v1', oauth2);
 // create the requested image size and store it to aws s3 bucket and redirect user to the source
 app.get('/resizeImage/:base_folder/images/:resize_size/:image_name', (req, res) => {
     // check if parse base folder name is valid
-    if (!/^(article|news)$/.test(req.params.base_folder)) {
+    if (!/^(article|news|store)$/.test(req.params.base_folder)) {
         res.status(404);
         res.json({
             error_code: "file_not_found",

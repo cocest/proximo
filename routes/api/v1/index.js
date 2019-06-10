@@ -4364,15 +4364,18 @@ router.post('/drafts/:draft_id/medias', custom_utils.allowedScopes(['write:users
                         if (data) { // file uploaded successfully
                             // generate 32 digit unique id
                             const image_id = rand_token.generate(32);
+                            let dir_name;
                             let img_path;
 
                             // check if is news or article
                             if (results[0].publication == 'news') { // news
-                                img_path = 'news/images/big/' + object_unique_name;
+                                dir_name = 'news';
 
                             } else { // article
-                                img_path = 'article/images/big/' + object_unique_name;
+                                dir_name = 'article';
                             }
+
+                            img_path = dir_name + '/images/big/' + object_unique_name;
 
                             // save file metadata and location to database
                             gDB.query(
@@ -4393,10 +4396,10 @@ router.post('/drafts/:draft_id/medias', custom_utils.allowedScopes(['write:users
                                 res.json({
                                     image_id: image_id,
                                     image: {
-                                        big: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/big/' + object_unique_name,
-                                        medium: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/medium/' + object_unique_name,
-                                        small: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/small/' + object_unique_name,
-                                        tiny: gConfig.AWS_S3_WEB_BASE_URL + '/news/images/tiny/' + object_unique_name
+                                        big: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/big/${object_unique_name}`,
+                                        medium: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/medium/${object_unique_name}`,
+                                        small: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/small/${object_unique_name}`,
+                                        tiny: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/tiny/${object_unique_name}`
                                     }
                                 });
 
@@ -10882,6 +10885,557 @@ router.put('/stores/:store_id', custom_utils.allowedScopes(['write:stores']), (r
             });
 
             return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete a store user created
+router.delete('/stores/:store_id', custom_utils.allowedScopes(['write:stores']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.store_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // pass in queries
+    let store_type = req.query.type;
+
+    // check if URL query is defined and valid
+    const invalid_inputs = [];
+
+    if (!store_type) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "type",
+            message: "type has to be defined"
+        });
+
+    } else if (!/^(product|service)$/.test(store_type)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "type",
+            message: "type value is invalid"
+        });
+
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    let table_name_1;
+    let table_name_2;
+    let table_name_3;
+
+    // check the type of store
+    if (store_type == 'product') {
+        table_name_1 = 'stores';
+        table_name_2 = 'product_images';
+        table_name_3 = 'products';
+
+    } else { // service
+        table_name_1 = 'services';
+        table_name_2 = 'work_images';
+        table_name_3 = 'works';
+    }
+
+    // check if store exist or has been deleted
+    gDB.query('SELECT featuredImageRelativeURL FROM ?? WHERE userID = ? LIMIT 1', [table_name_1, user_id]).then(store_results => {
+        if (store_results.length < 1) {
+            return res.status(200).send();
+        }
+
+        // get all the uploaded media content for products or services
+        gDB.query(
+            'SELECT imageRelativeURL FROM ?? WHERE storeID = ?',
+            [table_name_2, req.params.store_id]
+        ).then(results => {
+            let delete_objs = [];
+
+            // add store featured image to the list
+            if (store_results[0].featuredImageRelativeURL) delete_objs.push(store_results[0].featuredImageRelativeURL);
+
+            // add object(s) to delete
+            for (let i = 0; i < results.length; i++) {
+                delete_objs.push({ Key: results[i].imageRelativeURL });
+            }
+
+            // check if there is object to delete
+            if (delete_objs.length > 0) {
+                // set aws s3 access credentials
+                aws.config.update({
+                    apiVersion: '2006-03-01',
+                    accessKeyId: gConfig.AWS_ACCESS_ID,
+                    secretAccessKey: gConfig.AWS_SECRET_KEY,
+                    region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+                });
+
+                const s3 = new aws.S3();
+
+                // initialise objects to delete
+                const deleteParam = {
+                    Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                    Delete: {
+                        Objects: delete_objs
+                    }
+                };
+
+                s3.deleteObjects(deleteParam, (err, data) => {
+                    if (err) {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    }
+
+                    // delete store and all the related contents
+                    gDB.transaction(
+                        {
+                            query: 'DELETE FROM ?? WHERE storeID = ? LIMIT 1',
+                            post: [
+                                table_name_1,
+                                req.params.store_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM ?? WHERE storeID = ?',
+                            post: [
+                                table_name_3,
+                                req.params.user_id
+                            ]
+                        },
+                        {
+                            query: 'DELETE FROM ?? WHERE storeID = ?',
+                            post: [
+                                table_name_2,
+                                req.params.user_id
+                            ]
+                        }
+                    ).then(results => {
+                        return res.status(200).send();
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+                });
+
+            } else {
+                // delete store and all the related contents
+                gDB.transaction(
+                    {
+                        query: 'DELETE FROM ?? WHERE storeID = ? LIMIT 1',
+                        post: [
+                            table_name_1,
+                            req.params.store_id
+                        ]
+                    },
+                    {
+                        query: 'DELETE FROM ?? WHERE storeID = ?',
+                        post: [
+                            table_name_3,
+                            req.params.user_id
+                        ]
+                    }
+                ).then(results => {
+                    return res.status(200).send();
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            }
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// upload featured image for store
+router.post('/stores/:store_id/upload/featuredImage', custom_utils.allowedScopes(['write:stores']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.store_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // pass in queries
+    let store_type = req.query.type;
+
+    // check if URL query is defined and valid
+    const invalid_inputs = [];
+
+    if (!store_type) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "type",
+            message: "type has to be defined"
+        });
+
+    } else if (!/^(product|service)$/.test(store_type)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "type",
+            message: "type value is invalid"
+        });
+
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    let table_name = store_type == 'production' ? 'stores' : 'services';
+
+    // check if user has created a store
+    gDB.query(
+        'SELECT 1 FROM ?? WHERE storeID = ? AND userID = ? LIMIT 1', 
+        [table_name, req.params.store_id, user_id]
+    ).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        upload(req, res, (err) => {
+            // check if enctype is multipart form data
+            if (!req.is('multipart/form-data')) {
+                res.status(415);
+                res.json({
+                    error_code: "invalid_request_body",
+                    message: "Encode type not supported"
+                });
+
+                return;
+            }
+
+            // check if file contain data
+            if (!req.file) {
+                res.status(400);
+                res.json({
+                    error_code: "invalid_request",
+                    message: "Bad request"
+                });
+
+                return;
+            }
+
+            // A Multer error occurred when uploading
+            if (err instanceof multer.MulterError) {
+                if (err.code == 'LIMIT_FILE_SIZE') {
+                    res.status(400);
+                    res.json({
+                        error_code: "size_exceeded",
+                        message: "Image your uploading exceeded allowed size"
+                    });
+
+                    return;
+                }
+
+                // other multer errors
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+
+            } else if (err) { // An unknown error occurred when uploading
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            }
+
+            let file_path = req.file.path; // uploaded file location
+            const save_image_ext = 'png';
+
+            // read uploaded image as buffer
+            let image_buffer = fs.readFileSync(file_path);
+
+            // check file type and if is supported
+            let supported_images = [
+                'jpg',
+                'png',
+                'gif',
+                'jp2'
+            ];
+
+            // read minimum byte from buffer required to determine file mime
+            let file_mime = file_type(Buffer.from(image_buffer, 0, file_type.minimumBytes));
+
+            if (!(file_mime.mime.split('/')[0] == 'image' && supported_images.find(e => e == file_mime.ext))) {
+                // delete the uploaded file
+                fs.unlinkSync(file_path);
+
+                res.status(406);
+                res.json({
+                    error_code: "unsupported_format",
+                    message: "Uploaded image is not supported"
+                });
+
+                return;
+            }
+
+            // resize the image if it exceeded the maximum resolution
+            sharp(image_buffer)
+                .resize({
+                    height: 1080, // resize image using the set height
+                    withoutEnlargement: true
+                })
+                .toFormat(save_image_ext)
+                .toBuffer()
+                .then(outputBuffer => {
+                    // no higher than 1080 pixels
+                    // and no larger than the input image
+
+                    // upload buffer to aws s3 bucket
+                    // set aws s3 access credentials
+                    aws.config.update({
+                        apiVersion: '2006-03-01',
+                        accessKeyId: gConfig.AWS_ACCESS_ID,
+                        secretAccessKey: gConfig.AWS_SECRET_KEY,
+                        region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+                    });
+
+                    const s3 = new aws.S3();
+                    const object_unique_name = rand_token.uid(34) + '.' + save_image_ext;
+
+                    const upload_params = {
+                        Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                        Body: outputBuffer,
+                        Key: 'store/images/big/' + object_unique_name,
+                        ACL: gConfig.AWS_S3_BUCKET_PERMISSION
+                    };
+
+                    s3.upload(upload_params, (err, data) => {
+                        // delete the uploaded file
+                        fs.unlinkSync(file_path);
+
+                        if (err) {
+                            res.status(500);
+                            res.json({
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
+
+                            return;
+                        }
+
+                        if (data) { // file uploaded successfully
+                            let dir_name;
+                            let img_path;
+
+                            // check store type
+                            if (store_type == 'production') {
+                                dir_name = 'store';
+
+                            } else { // service
+                                dir_name = 'service';
+                            }
+
+                            img_path = dir_name + '/images/big/' + object_unique_name;
+
+                            // save file metadata and location to database
+                            gDB.query(
+                                'UPDATE ?? SET featuredImageRelativeURL = ? WHERE storeID = ? LIMIT 1',
+                                [
+                                    table_name,
+                                    img_path,
+                                    req.params.store_id
+                                ]
+                            ).then(results => {
+                                // send result to client
+                                res.status(200);
+                                res.json({
+                                    image: {
+                                        big: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/big/${object_unique_name}`,
+                                        medium: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/medium/${object_unique_name}`,
+                                        small: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/small/${object_unique_name}`,
+                                        tiny: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/tiny/${object_unique_name}`
+                                    }
+                                });
+
+                            }).catch(err => {
+                                res.status(500);
+                                res.json({
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+
+                                return;
+                            });
+                        }
+                    });
+                })
+                .catch(err => {
+                    // delete the uploaded file
+                    fs.unlinkSync(file_path);
+
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
         });
 
     }).catch(err => {
