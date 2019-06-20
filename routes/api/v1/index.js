@@ -2574,17 +2574,6 @@ router.get('/publishLocation/:location', custom_utils.allowedScopes(['read:users
 
 // get a region or nearest region if user is not in any launch region on map
 router.get('/map/region', custom_utils.allowedScopes(['read:map']), (req, res) => {
-    // check if account is verified
-    if (!req.user.account_verified) {
-        res.status(401);
-        res.json({
-            error_code: "account_not_verified",
-            message: "User should verify their email"
-        });
-
-        return;
-    }
-
     // validate pass in query values
     const invalid_inputs = [];
 
@@ -5214,7 +5203,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     }
 
     const mappped_field_name = new Map([
-        ['category', 'category'],
+        ['category', 'categoryID AS category_id'],
         ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
         ['title', 'title'],
         ['highlight', 'highlight'],
@@ -5248,20 +5237,20 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
 
         if (permitted_field_count < 1) {
             select_query =
-                'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, ' +
-                'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+                'SELECT A.newsID AS id, A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, ' +
+                'A.title, A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
         } else {
             select_query +=
-                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
+                ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
         }
 
     } else { // no fields selection
         select_query +=
-            'A.category, A.featuredImageURL AS featured_image_url, ' +
-            'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+            'A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, ' +
+            'A.title, A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
     }
 
@@ -5299,6 +5288,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
                 if (results[i].profilePictureSmallURL) {
                     // add user to results
                     results[i].user = {
+                        id: results[i].userID,
                         name: results[i].lastName + ' ' + results[i].firstName,
                         image: {
                             big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
@@ -5310,12 +5300,14 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
                 } else {
                     // add user to results
                     results[i].user = {
+                        id: results[i].userID,
                         name: results[i].lastName + ' ' + results[i].firstName,
                         image: null
                     };
                 }
 
                 // remove keys
+                delete results[i].userID,
                 delete results[i].firstName;
                 delete results[i].lastName;
                 delete results[i].profilePictureSmallURL;
@@ -5461,7 +5453,7 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     }
 
     const mappped_field_name = new Map([
-        ['category', 'category'],
+        ['category', 'categoryID AS category_id'],
         ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
         ['title', 'title'],
         ['highlight', 'highlight'],
@@ -5495,20 +5487,20 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
 
         if (permitted_field_count < 1) {
             select_query =
-                'SELECT A.articleID AS id, A.category, A.featuredImageURL AS featured_image_url, ' +
-                'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+                'SELECT A.articleID AS id, A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, ' +
+                'A.title, A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
         } else {
             select_query +=
-                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
+                ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
         }
 
     } else { // no fields selection
         select_query +=
-            'A.category, A.featuredImageURL AS featured_image_url, ' +
-            'A.title, A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+            'A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, ' +
+            'A.title, A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
     }
 
@@ -5546,6 +5538,7 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
                 if (results[i].profilePictureSmallURL) {
                     // add user to results
                     results[i].user = {
+                        id: results[i].userID,
                         name: results[i].lastName + ' ' + results[i].firstName,
                         image: {
                             big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
@@ -5557,12 +5550,14 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
                 } else {
                     // add user to results
                     results[i].user = {
+                        id: results[i].userID,
                         name: results[i].lastName + ' ' + results[i].firstName,
                         image: null
                     };
                 }
 
                 // remove keys
+                delete results[i].userID,
                 delete results[i].firstName;
                 delete results[i].lastName;
                 delete results[i].profilePictureSmallURL;
@@ -6113,12 +6108,12 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
             query =
                 'SELECT A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
                 'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
-                'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+                'A.title, A.highlight, A.content, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
 
         } else {
             query +=
-                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
+                ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
         }
 
@@ -6126,7 +6121,7 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         query +=
             'A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
             'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
-            'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+            'A.title, A.highlight, A.content, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
     }
 
@@ -6147,6 +6142,7 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         if (results[0].profilePictureSmallURL) {
             // add user to results
             results[0].user = {
+                id: results[0].userID,
                 name: results[0].lastName + ' ' + results[0].firstName,
                 image: {
                     big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
@@ -6158,12 +6154,14 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         } else {
             // add user to results
             results[0].user = {
+                id: results[0].userID,
                 name: results[0].lastName + ' ' + results[0].firstName,
                 image: null
             };
         }
 
         // remove keys
+        delete results[0].userID,
         delete results[0].firstName;
         delete results[0].lastName;
         delete results[0].profilePictureSmallURL;
@@ -6243,12 +6241,12 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             query =
                 'SELECT A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
                 'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
-                'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+                'A.title, A.highlight, A.content, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
 
         } else {
             query +=
-                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
+                ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
         }
 
@@ -6256,7 +6254,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         query +=
             'A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
             'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
-            'A.title, A.highlight, A.content, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+            'A.title, A.highlight, A.content, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
     }
 
@@ -6277,6 +6275,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         if (results[0].profilePictureSmallURL) {
             // add user to results
             results[0].user = {
+                id: results[0].userID,
                 name: results[0].lastName + ' ' + results[0].firstName,
                 image: {
                     big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
@@ -6288,12 +6287,14 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         } else {
             // add user to results
             results[0].user = {
+                id: results[0].userID,
                 name: results[0].lastName + ' ' + results[0].firstName,
                 image: null
             };
         }
 
         // remove keys
+        delete results[0].userID,
         delete results[0].firstName;
         delete results[0].lastName;
         delete results[0].profilePictureSmallURL;
@@ -6459,7 +6460,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                 }
 
                 const mappped_field_name = new Map([
-                    ['category', 'category'],
+                    ['category', 'categoryID AS category_id'],
                     ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
                     ['title', 'title'],
                     ['highlight', 'highlight'],
@@ -6493,20 +6494,20 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
 
                     if (permitted_field_count < 1) {
                         select_query =
-                            'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, A.title, ' +
-                            'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                            'SELECT A.newsID AS id, A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, A.title, ' +
+                            'A.highlight, A.time, B.firstName, B.userID, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
                     } else {
                         select_query +=
-                            ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                            ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                     }
 
                 } else { // no fields selection
                     select_query +=
-                        ' A.category, A.featuredImageURL AS featured_image_url, A.title, ' +
-                        'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                        ' A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, A.title, ' +
+                        'A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                 }
 
@@ -6575,6 +6576,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                             if (results[i].profilePictureSmallURL) {
                                 // add user to results
                                 results[i].user = {
+                                    id: results[i].userID,
                                     name: results[i].lastName + ' ' + results[i].firstName,
                                     image: {
                                         big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
@@ -6586,12 +6588,14 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                             } else {
                                 // add user to results
                                 results[i].user = {
+                                    id: results[i].userID,
                                     name: results[i].lastName + ' ' + results[i].firstName,
                                     image: null
                                 };
                             }
 
                             // remove keys
+                            delete results[i].userID,
                             delete results[i].firstName;
                             delete results[i].lastName;
                             delete results[i].profilePictureSmallURL;
@@ -6828,7 +6832,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                 }
 
                 const mappped_field_name = new Map([
-                    ['category', 'category'],
+                    ['category', 'categoryID AS category_id'],
                     ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
                     ['title', 'title'],
                     ['highlight', 'highlight'],
@@ -6862,20 +6866,20 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
 
                     if (permitted_field_count < 1) {
                         select_query =
-                            'SELECT A.newsID AS id, A.category, A.featuredImageURL AS featured_image_url, A.title, ' +
-                            'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                            'SELECT A.newsID AS id, A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, A.title, ' +
+                            'A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
                     } else {
                         select_query +=
-                            ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                            ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                     }
 
                 } else { // no fields selection
                     select_query +=
-                        ' A.category, A.featuredImageURL AS featured_image_url, A.title, ' +
-                        'A.highlight, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                        ' A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, A.title, ' +
+                        'A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
                 }
 
@@ -6944,6 +6948,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                             if (results[i].profilePictureSmallURL) {
                                 // add user to results
                                 results[i].user = {
+                                    id: results[i].userID,
                                     name: results[i].lastName + ' ' + results[i].firstName,
                                     image: {
                                         big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
@@ -6955,12 +6960,14 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                             } else {
                                 // add user to results
                                 results[i].user = {
+                                    id: results[i].userID,
                                     name: results[i].lastName + ' ' + results[i].firstName,
                                     image: null
                                 };
                             }
 
                             // remove keys
+                            delete results[i].userID,
                             delete results[i].firstName;
                             delete results[i].lastName;
                             delete results[i].profilePictureSmallURL;
@@ -10420,15 +10427,6 @@ router.post('/stores', custom_utils.allowedScopes(['write:stores']), (req, res) 
                 field: "categoryID",
                 message: "categoryID value is invalid"
             });
-
-            // send json error message to client
-            res.status(406);
-            res.json({
-                error_code: "invalid_query",
-                errors: invalid_inputs
-            });
-
-            return;
         }
 
         // check if location ID exist
@@ -10439,7 +10437,10 @@ router.post('/stores', custom_utils.allowedScopes(['write:stores']), (req, res) 
                     field: "locationID",
                     message: "locationID value is invalid"
                 });
+            }
 
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
                 // send json error message to client
                 res.status(406);
                 res.json({
@@ -10705,9 +10706,973 @@ router.post('/stores', custom_utils.allowedScopes(['write:stores']), (req, res) 
     });
 });
 
-// get stores base on search and set preference
+// get stores base on search and set preference or get user's store by user ID
 router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) => {
-    // start here
+    // initialise variables
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    const store_type = req.query.type;
+    const pass_user_id = req.query.userID;
+    const store_name = req.query.name;
+    const location_id = req.query.locationID;
+    const category_id = req.query.categoryID;
+    const invalid_inputs = [];
+
+    // check whether to get only user's store
+    if (pass_user_id) {
+        // query type must be provided
+        if (!store_type) {
+            invalid_inputs.push({
+                error_code: "undefined_value",
+                field: "type",
+                message: "type is not provided"
+            });
+
+        } else if (store_type && !/^(product|service)$/.test(store_type)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "type",
+                message: "type value is invalid"
+            });
+        }
+
+        // check if userID is valid
+        if (!/^\d+$/.test(pass_user_id)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "userID",
+                message: "value must be integer"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_query",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        let store_table_name;
+
+        // check store type
+        if (store_type == 'product') {
+            store_table_name = 'stores';
+
+        } else {
+            store_table_name = 'services';
+        }
+
+        const mappped_field_name = new Map([
+            ['location', 'locationID AS location_id'],
+            ['category', 'categoryID AS category_id'],
+            ['name', 'storeName AS name'],
+            ['featuredImage', 'featuredImageRelativeURL'],
+            ['description', 'description'],
+            ['time', 'time']
+        ]);
+        let select_query = 'SELECT storeID AS id, ';
+        let select_post = [];
+
+        // check if valid and required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            let req_fields = req.query.fields.split(',');
+            let permitted_field_count = 0;
+            let field_already_exist = [];
+
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1) {
+                select_query =
+                    'SELECT storeID AS id, categoryID AS category_id, storeName As name, featuredImageRelativeURL, ' +
+                    `storeDescription AS description, locationID AS location_id, time, FROM ${store_table_name} `;
+
+            } else {
+                select_query +=
+                    ` FROM ${store_table_name} `;
+            }
+
+        } else { // no fields selection
+            select_query +=
+                'categoryID AS category_id, storeName As name, featuredImageRelativeURL, ' +
+                `storeDescription AS description, locationID AS location_id, time, FROM ${store_table_name} `;
+        }
+
+        // query search condition
+        select_query += 'WHERE userID = ? LIMIT 1';
+        select_post.push(pass_user_id);
+
+        // get user's store
+        gDB.query(select_query, select_post).then(results => {
+            if (results.length < 1) {
+                // send result to client
+                res.status(200);
+                res.json({ stores: [] });
+
+                return;
+            }
+
+            // check if this store has featured image
+            if (results[0].featuredImageRelativeURL) {
+                // add featured image to results
+                results[0].featured_img = {
+                    big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL,
+                    medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL).replace('big', 'medium'),
+                    small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL).replace('big', 'small'),
+                    tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL).replace('big', 'tiny')
+                };
+
+            } else if (typeof results[0].featuredImageRelativeURL != 'undefined') {
+                // add featured image to results
+                results[0].featured_img = null;
+            }
+
+            // remove keys
+            delete results[0].featuredImageRelativeURL;
+
+            // send result to client
+            res.status(200);
+            res.json({ stores: results });
+
+            return;
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    } else {
+        // query type must be provided
+        if (!store_type) {
+            invalid_inputs.push({
+                error_code: "undefined_value",
+                field: "type",
+                message: "type is not provided"
+            });
+
+        } else if (store_type && !/^(product|service)$/.test(store_type)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "type",
+                message: "type value is invalid"
+            });
+        }
+
+        // check if query location ID is provided
+        if (location_id && !/^\d+$/.test(location_id)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "locationID",
+                message: "locationID value is invalid"
+            });
+        }
+
+        // check if query category ID is provided
+        if (category_id && !/^\d+$/.test(category_id)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "categoryID",
+                message: "categoryID value is invalid"
+            });
+        }
+
+        // check if query name is provided
+        if (store_name && !/^[a-zA-Z0-9]+$/.test(store_name)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "name",
+                message: "name value is invalid"
+            });
+        }
+
+        // check if limit is defined and valid
+        if (pass_limit && !/^\d+$/.test(pass_limit)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "limit",
+                message: "value must be integer"
+            });
+        }
+
+        // check if offset is defined and valid
+        if (pass_offset && !/^\d+$/.test(pass_offset)) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "offset",
+                message: "value must be integer"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_query",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        let store_table_name;
+        let category_table_name;
+
+        // check store type
+        if (store_type == 'product') {
+            store_table_name = 'stores';
+            category_table_name = 'product_categories';
+
+        } else {
+            store_table_name = 'services';
+            category_table_name = 'service_categories';
+        }
+
+        // check if region with location ID exist
+        gDB.query('SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1', [location_id ? location_id : 0]).then(results => {
+            if (location_id && results.length < 1) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "locationID",
+                    message: "locationID value is invalid"
+                });
+            }
+
+            // check if category ID exist
+            gDB.query(
+                'SELECT 1 FROM ?? WHERE categoryID = ? LIMIT 1',
+                [category_table_name, category_id ? category_id : 0]
+            ).then(results => {
+                if (category_id && results.length < 1) {
+                    invalid_inputs.push({
+                        error_code: "invalid_value",
+                        field: "categoryID",
+                        message: "categoryID value is invalid"
+                    });
+                }
+
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        error_code: "invalid_query",
+                        errors: invalid_inputs
+                    });
+
+                    return;
+                }
+
+                if (pass_limit && pass_limit < limit) {
+                    limit = pass_limit;
+                }
+
+                if (pass_offset) {
+                    offset = pass_offset;
+                }
+
+                let req_fields = null;
+
+                if (req.query.fields) {
+                    req_fields = custom_utils.filterInArray(
+                        req.query.fields.split(','),
+                        ['user', 'location', 'category', 'name', 'featuredImage', 'description', 'time']
+                    );
+                }
+
+                const mappped_field_name = new Map([
+                    ['location', 'locationID AS location_id'],
+                    ['category', 'categoryID AS category_id'],
+                    ['name', 'storeName AS name'],
+                    ['featuredImage', 'featuredImageRelativeURL'],
+                    ['description', 'description'],
+                    ['time', 'time']
+                ]);
+
+                let permitted_field_count = 0;
+                let field_already_exist = [];
+
+                // check to retrieve information about the user that add the product
+                if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
+                    let select_query = 'SELECT A.storeID AS id, A.userID';
+                    let select_post = [];
+                    let count_query = `SELECT COUNT(*) AS total FROM ${store_table_name} `;
+                    let count_post = [];
+
+                    // check if valid and required fields is given
+                    if (req_fields && req_fields.length > 0) {
+                        req_fields.forEach(elem => {
+                            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                                if (permitted_field_count == 0) {
+                                    select_query += `, A.${mappped_field_name.get(elem)}`;
+
+                                } else {
+                                    select_query += `, A.${mappped_field_name.get(elem)}`;
+                                }
+
+                                field_already_exist.push(elem);
+                                permitted_field_count++; // increment by one
+                            }
+                        });
+
+                        select_query +=
+                            ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                            `B.profilePictureBigURL FROM ${store_table_name} AS A LEFT JOIN user AS B ON A.userID = B.userID `;
+
+                    } else {
+                        select_query +=
+                            ', A.categoryID AS category_id, A.storeName As name, A.featuredImageRelativeURL, ' +
+                            'A.storeDescription AS description, A.locationID AS location_id, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+                            `B.profilePictureMediumURL, B.profilePictureBigURL FROM ${store_table_name} AS A LEFT JOIN user AS B ON A.userID = B.userID `;
+                    }
+
+                    let counter = 0; // count numbers of search keyword
+
+                    if (category_id) {
+                        select_query += 'WHERE A.categoryID = ? ';
+                        select_post.push(category_id);
+
+                        // count query
+                        count_query += 'WHERE categoryID = ? ';
+                        count_post.push(category_id);
+
+                        counter++;
+                    }
+
+                    // search table by user's store name
+                    if (store_name) {
+                        const search_name_hash = crypto.createHash("sha1").update(store_name, "binary").digest("hex");
+
+                        if (counter > 0) {
+                            select_query += 'AND A.searchStoreHash = ? ';
+                            select_post.push(search_name_hash);
+
+                            // count query
+                            count_query += 'AND searchStoreHash = ? ';
+                            count_post.push(search_name_hash);
+
+                        } else {
+                            select_query += 'WHERE A.searchStoreHash = ? ';
+                            select_post.push(search_name_hash);
+
+                            // count query
+                            count_query += 'WHERE searchStoreHash = ? ';
+                            count_post.push(search_name_hash);
+                        }
+
+                        counter++;
+                    }
+
+                    if (location_id) {
+                        if (counter > 0) {
+                            select_query += 'AND A.locationID = ? ';
+                            select_post.push(location_id);
+
+                            // count query
+                            count_query += 'AND locationID = ? ';
+                            count_post.push(location_id);
+
+                        } else {
+                            select_query += 'WHERE A.locationID = ? ';
+                            select_post.push(location_id);
+
+                            // count query
+                            count_query += 'WHERE locationID = ? ';
+                            count_post.push(location_id);
+                        }
+
+                        counter++;
+                    }
+
+                    // last should come first
+                    select_query += 'ORDER BY A.time DESC ';
+
+                    // set limit and offset
+                    select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+                    // get metadata for user's publication
+                    gDB.query(count_query, count_post).then(count_results => {
+                        // get publication
+                        gDB.query(select_query, select_post).then(results => {
+                            for (let i = 0; i < results.length; i++) {
+                                // check if this store has featured image
+                                if (results[i].featuredImageRelativeURL) {
+                                    // add featured image to results
+                                    results[i].featured_img = {
+                                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featuredImageRelativeURL,
+                                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featuredImageRelativeURL).replace('big', 'medium'),
+                                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featuredImageRelativeURL).replace('big', 'small'),
+                                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featuredImageRelativeURL).replace('big', 'tiny')
+                                    };
+
+                                } else if (typeof results[i].featuredImageRelativeURL != 'undefined') {
+                                    // add featured image to results
+                                    results[i].featured_img = null;
+                                }
+
+                                // check if user has a profile picture
+                                if (results[i].profilePictureSmallURL) {
+                                    // add user to results
+                                    results[i].user = {
+                                        id: results[i].userID,
+                                        name: results[i].lastName + ' ' + results[i].firstName,
+                                        image: {
+                                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                        }
+                                    };
+
+                                } else {
+                                    // add user to results
+                                    results[i].user = {
+                                        id: results[i].userID,
+                                        name: results[i].lastName + ' ' + results[i].firstName,
+                                        image: null
+                                    };
+                                }
+
+                                // remove keys
+                                delete results[i].featuredImageRelativeURL;
+                                delete results[i].userID;
+                                delete results[i].firstName;
+                                delete results[i].lastName;
+                                delete results[i].profilePictureSmallURL;
+                                delete results[i].profilePictureMediumURL;
+                                delete results[i].profilePictureBigURL;
+                            }
+
+                            // send result to client
+                            res.status(200);
+                            res.json({
+                                stores: results,
+                                metadata: {
+                                    result_set: {
+                                        count: results.length,
+                                        offset: offset,
+                                        limit: limit,
+                                        total: count_results[0].total
+                                    }
+                                }
+                            });
+
+                            return;
+
+                        }).catch(err => {
+                            res.status(500);
+                            res.json({
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
+
+                            return;
+                        });
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+
+                } else { // no user's information
+                    let select_query = 'SELECT storeID AS id, ';
+                    let select_post = [];
+                    let count_query = `SELECT COUNT(*) AS total FROM ${store_table_name} `;
+                    let count_post = [];
+
+                    req_fields.forEach(elem => {
+                        if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                            if (permitted_field_count == 0) {
+                                select_query += `${mappped_field_name.get(elem)}`;
+
+                            } else {
+                                select_query += `, ${mappped_field_name.get(elem)}`;
+                            }
+
+                            field_already_exist.push(elem);
+                            permitted_field_count++; // increment by one
+                        }
+                    });
+
+                    select_query += ` FROM ${store_table_name} `;
+
+                    let counter = 0; // count numbers of search keyword
+
+                    if (category_id) {
+                        select_query += 'WHERE categoryID = ? ';
+                        select_post.push(category_id);
+
+                        // count query
+                        count_query += 'WHERE categoryID = ? ';
+                        count_post.push(category_id);
+
+                        counter++;
+                    }
+
+                    // search table by user's store name
+                    if (store_name) {
+                        const search_name_hash = crypto.createHash("sha1").update(store_name, "binary").digest("hex");
+
+                        if (counter > 0) {
+                            select_query += 'AND searchStoreHash = ? ';
+                            select_post.push(search_name_hash);
+
+                            // count query
+                            count_query += 'AND searchStoreHash = ? ';
+                            count_post.push(search_name_hash);
+
+                        } else {
+                            select_query += 'WHERE searchStoreHash = ? ';
+                            select_post.push(search_name_hash);
+
+                            // count query
+                            count_query += 'WHERE searchStoreHash = ? ';
+                            count_post.push(search_name_hash);
+                        }
+
+                        counter++;
+                    }
+
+                    if (location_id) {
+                        if (counter > 0) {
+                            select_query += 'AND locationID = ? ';
+                            select_post.push(location_id);
+
+                            // count query
+                            count_query += 'AND locationID = ? ';
+                            count_post.push(location_id);
+
+                        } else {
+                            select_query += 'WHERE locationID = ? ';
+                            select_post.push(location_id);
+
+                            // count query
+                            count_query += 'WHERE locationID = ? ';
+                            count_post.push(location_id);
+                        }
+
+                        counter++;
+                    }
+
+                    // last should come first
+                    select_query += 'ORDER BY time DESC ';
+
+                    // set limit and offset
+                    select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+                    // get metadata for user's publication
+                    gDB.query(count_query, count_post).then(count_results => {
+                        // get publication
+                        gDB.query(select_query, select_post).then(results => {
+                            for (let i = 0; i < results.length; i++) {
+                                // check if this store has featured image
+                                if (results[i].featuredImageRelativeURL) {
+                                    // add featured image to results
+                                    results[i].featured_img = {
+                                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featuredImageRelativeURL,
+                                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featuredImageRelativeURL).replace('big', 'medium'),
+                                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featuredImageRelativeURL).replace('big', 'small'),
+                                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featuredImageRelativeURL).replace('big', 'tiny')
+                                    };
+
+                                } else if (typeof results[i].featuredImageRelativeURL != 'undefined') {
+                                    // add featured image to results
+                                    results[i].featured_img = null;
+                                }
+
+                                // remove keys
+                                delete results[i].featuredImageRelativeURL;
+                            }
+
+                            // send result to client
+                            res.status(200);
+                            res.json({
+                                stores: results,
+                                metadata: {
+                                    result_set: {
+                                        count: results.length,
+                                        offset: offset,
+                                        limit: limit,
+                                        total: count_results[0].total
+                                    }
+                                }
+                            });
+
+                            return;
+
+                        }).catch(err => {
+                            res.status(500);
+                            res.json({
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
+
+                            return;
+                        });
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+                }
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+    }
+});
+
+// get a store information
+router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.store_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // pass in queries
+    let store_type = req.query.type;
+
+    // check if URL query is defined and valid
+    const invalid_inputs = [];
+
+    if (!store_type) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "type",
+            message: "type has to be defined"
+        });
+
+    } else if (!/^(product|service)$/.test(store_type)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "type",
+            message: "type value is invalid"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    let store_table_name;
+
+    // check store type
+    if (store_type == 'product') {
+        store_table_name = 'stores';
+
+    } else {
+        store_table_name = 'services';
+    }
+
+    let req_fields = null;
+
+    if (req.query.fields) {
+        req_fields = custom_utils.filterInArray(
+            req.query.fields.split(','),
+            ['user', 'location', 'category', 'name', 'featuredImage', 'description', 'address', 'email', 'phoneNumber', 'time']
+        );
+    }
+
+    const mappped_field_name = new Map([
+        ['location', 'locationID AS location_id'],
+        ['category', 'categoryID AS category_id'],
+        ['name', 'storeName AS name'],
+        ['featuredImage', 'featuredImageRelativeURL'],
+        ['description', 'description'],
+        ['address', 'contactAddress AS address'],
+        ['email', 'contactEmail AS email'],
+        ['phoneNumber', 'contactPhoneNumber AS phone_number'],
+        ['time', 'time']
+    ]);
+
+    let field_already_exist = [];
+    let permitted_field_count = 0;
+
+    // check to retrieve information about the user that add the product
+    if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
+        let select_query = 'SELECT A.storeID AS id, A.userID';
+
+        if (req_fields || req_fields.length > 0) {
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `, A.${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, A.${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            select_query +=
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                `B.profilePictureBigURL FROM ${store_table_name} AS A LEFT JOIN user AS B ON A.userID = B.userID `;
+
+        } else {
+            select_query +=
+                ', A.categoryID AS category_id, A.storeName As name, A.featuredImageRelativeURL, A.storeDescription AS description, ' +
+                'A.locationID AS location_id, A.contactAddress AS address, A.contactEmail AS email, A.contactPhoneNumber AS phone_number, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
+                `B.profilePictureMediumURL, B.profilePictureBigURL FROM ${store_table_name} AS A LEFT JOIN user AS B ON A.userID = B.userID `;
+        }
+
+        // where condition
+        select_query += 'WHERE A.storeID = ? LIMIT 1';
+
+        // check if store exist and retrieve the data
+        gDB.query(select_query, [req.params.store_id]).then(results => {
+            // check if store exist
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Store can't be found"
+                });
+
+                return;
+            }
+
+            // check if this store has featured image
+            if (results[0].featuredImageRelativeURL) {
+                // add featured image to results
+                results[0].featured_img = {
+                    big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL,
+                    medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL).replace('big', 'medium'),
+                    small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL).replace('big', 'small'),
+                    tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL).replace('big', 'tiny')
+                };
+
+            } else if (typeof results[0].featuredImageRelativeURL != 'undefined') {
+                // add featured image to results
+                results[0].featured_img = null;
+            }
+
+            // check if user has a profile picture
+            if (results[0].profilePictureSmallURL) {
+                // add user to results
+                results[0].user = {
+                    id: results[0].userID,
+                    name: results[0].lastName + ' ' + results[0].firstName,
+                    image: {
+                        big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
+                        medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureMediumURL,
+                        small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureSmallURL
+                    }
+                };
+
+            } else {
+                // add user to results
+                results[0].user = {
+                    id: results[0].userID,
+                    name: results[0].lastName + ' ' + results[0].firstName,
+                    image: null
+                };
+            }
+
+            // remove keys
+            delete results[0].featuredImageRelativeURL;
+            delete results[0].userID;
+            delete results[0].firstName;
+            delete results[0].lastName;
+            delete results[0].profilePictureSmallURL;
+            delete results[0].profilePictureMediumURL;
+            delete results[0].profilePictureBigURL;
+
+            //return result to client
+            res.status(200);
+            res.json(results[0]);
+
+            return;
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    } else { // no user's information
+        let select_query = 'SELECT storeID AS id';
+
+        req_fields.forEach(elem => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (permitted_field_count == 0) {
+                    select_query += `, ${mappped_field_name.get(elem)}`;
+
+                } else {
+                    select_query += `, ${mappped_field_name.get(elem)}`;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        select_query += ` FROM ${store_table_name} `;
+
+        // where condition
+        select_query += 'WHERE storeID = ? LIMIT 1';
+
+        // check if store exist and retrieve the data
+        gDB.query(select_query, [req.params.store_id]).then(results => {
+            // check if store exist
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Store can't be found"
+                });
+
+                return;
+            }
+
+            // check if this store has featured image
+            if (results[0].featuredImageRelativeURL) {
+                // add featured image to results
+                results[0].featured_img = {
+                    big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL,
+                    medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL).replace('big', 'medium'),
+                    small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL).replace('big', 'small'),
+                    tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featuredImageRelativeURL).replace('big', 'tiny')
+                };
+
+            } else if (typeof results[0].featuredImageRelativeURL != 'undefined') {
+                // add featured image to results
+                results[0].featured_img = null;
+            }
+
+            // remove keys
+            delete results[0].featuredImageRelativeURL;
+
+            //return result to client
+            res.status(200);
+            res.json(results[0]);
+
+            return;
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+    }
 });
 
 // update store information
@@ -11796,7 +12761,10 @@ router.post('/stores/:store_id/products', custom_utils.allowedScopes(['write:sto
     const user_id = req.user.access_token.user_id;
 
     // check if store exist
-    gDB.query('SELECT userID, slotCount, usedSlotCount FROM stores WHERE storeID = ? LIMIT 1', [user_id]).then(results => {
+    gDB.query(
+        'SELECT userID, locationID, categoryID, slotCount, usedSlotCount FROM stores WHERE storeID = ? LIMIT 1',
+        [user_id]
+    ).then(results => {
         if (results.length < 1) {
             res.status(404);
             res.json({
@@ -12098,11 +13066,14 @@ router.post('/stores/:store_id/products', custom_utils.allowedScopes(['write:sto
                             ]
                         },
                         {
-                            query: 'INSERT INTO products (productID, storeID, productName, coverImageRelativeURL, ' +
-                                'productDescription, priceNegotiable, price) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                            query: 'INSERT INTO products (productID, storeID, userID, locationID, categoryID, productName, coverImageRelativeURL, ' +
+                                'productDescription, priceNegotiable, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                             post: [
                                 product_id,
                                 req.params.store_id,
+                                user_id,
+                                results[0].locationID,
+                                results[0].categoryID,
                                 req.body.name,
                                 url_parse(datas[0].Location, true).pathname.replace('/', ''),
                                 req.body.description,
@@ -12184,6 +13155,572 @@ router.post('/stores/:store_id/products', custom_utils.allowedScopes(['write:sto
     });
 });
 
+// get list of product in a store
+router.get('/stores/:store_id/products', custom_utils.allowedScopes(['read:stores']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.store_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    let search_product = req.query.search;
+    const invalid_inputs = [];
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if store exist
+    gDB.query('SELECT 1 FROM stores WHERE storeID = ? LIMIT 1', [req.params.store_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        if (pass_limit && pass_limit < limit) {
+            limit = pass_limit;
+        }
+
+        if (pass_offset) {
+            offset = pass_offset;
+        }
+
+        const mappped_field_name = new Map([
+            ['name', 'productName AS name'],
+            ['coverImage', 'coverImageRelativeURL'],
+            ['price', 'price'],
+            ['time', 'time']
+        ]);
+        let select_query = 'SELECT productID AS id, ';
+        let select_post = [];
+        let count_query = 'SELECT COUNT(*) AS total FROM products ';
+        let count_post = [];
+
+        // check if valid and required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            let req_fields = req.query.fields.split(',');
+            let permitted_field_count = 0;
+            let field_already_exist = [];
+
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1) {
+                select_query = 'SELECT productID AS id, productName AS name, coverImageRelativeURL, price, time FROM products ';
+
+            } else {
+                select_query += ' FROM products ';
+            }
+
+        } else { // no fields selection
+            select_query += ', productName AS name, coverImageRelativeURL, price, time FROM products ';
+        }
+
+        // search database for match
+        if (search_product) {
+            search_product = decodeURIComponent(search_product);
+            select_query += 'WHERE MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+            select_post.push(search_product);
+
+            // count query
+            count_query += 'WHERE MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+            count_post.push(search_product);
+
+        } else {
+            // last should come first
+            select_query += 'ORDER BY time DESC ';
+        }
+
+        // set limit and offset
+        select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+        // get metadata for user's publication
+        gDB.query(count_query, count_post).then(count_results => {
+            // get publication
+            gDB.query(select_query, select_post).then(results => {
+                for (let i = 0; i < results.length; i++) {
+                    // check if this store has featured image
+                    if (results[i].coverImageRelativeURL) {
+                        // add featured image to results
+                        results[i].cover_img = {
+                            big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL,
+                            medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'medium'),
+                            small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'small'),
+                            tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'tiny')
+                        };
+
+                    } else if (typeof results[i].coverImageRelativeURL != 'undefined') {
+                        // add featured image to results
+                        results[i].cover_img = null;
+                    }
+
+                    // remove keys
+                    delete results[i].coverImageRelativeURL;
+                }
+
+                // send result to client
+                res.status(200);
+                res.json({
+                    products: results,
+                    metadata: {
+                        result_set: {
+                            count: results.length,
+                            offset: offset,
+                            limit: limit,
+                            total: count_results[0].total
+                        }
+                    }
+                });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get a product in a store
+router.get('/stores/:store_id/products/:product_id', custom_utils.allowedScopes(['write:stores']), (req, res) => {
+    // check if store id is integer and product id is valid
+    if (!(/^\d+$/.test(req.params.store_id) && /^[a-zA-Z0-9]{32}$/.test(req.params.product_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if store exist
+    gDB.query('SELECT 1 FROM stores WHERE storeID = ? LIMIT 1', [req.params.store_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        const mappped_field_name = new Map([
+            ['name', 'productName AS name'],
+            ['description', 'productDescription AS description'],
+            ['negotiable', 'priceNegotiable AS negotiable'],
+            ['price', 'price'],
+            ['time', 'time']
+        ]);
+        let select_query = 'SELECT ';
+        let req_fields = null;
+        let permitted_field_count = 0;
+        let select_only_image = false;
+
+        // check if valid and required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            req_fields = req.query.fields.split(',');
+            let field_already_exist = [];
+
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1 && req_fields.find(f => f == 'images')) {
+                select_query = 'SELECT productID FROM products ';
+                select_only_image = true;
+
+            } else if (permitted_field_count < 1) {
+                select_query = 'SELECT productName AS name, productDescription AS description, ' +
+                    'price, priceNegotiable AS negotiable, time FROM products ';
+
+            } else {
+                select_query += ' FROM products ';
+            }
+
+        } else { // no fields selection
+            select_query += 'productName AS name, productDescription AS description, ' +
+                'price, priceNegotiable AS negotiable, time FROM products ';
+        }
+
+        // where condition
+        select_query += 'WHERE storeID = ? AND productID = ? LIMIT 1';
+
+        // check if product exist and retrieve
+        gDB.query(select_query, [req.params.store_id, req.params.product_id]).then(product_results => {
+            // check if product exist
+            if (product_results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Product can't be found"
+                });
+
+                return;
+            }
+
+            // check to fetch only picture(s) for product
+            if (select_only_image) {
+                // delete productID
+                delete product_results[0].productID;
+
+            } else if (req_fields && !req_fields.find(f => f == 'images')) {
+                // fetch only product no picture
+                // send result to client
+                res.status(200);
+                res.json(product_results[0]);
+
+                return;
+            }
+
+            // get picture(s) for product
+            gDB.query(
+                'SELECT imageRelativeURL FROM product_images WHERE productID = ?',
+                [req.params.product_id]
+            ).then(results => {
+                let product_images = [];
+
+                // prepare image
+                for (let i = 0; i < results.length; i++) {
+                    product_images.push({
+                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
+                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
+                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
+                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
+                    });
+                }
+
+                // add to result
+                product_results[0].images = product_images;
+
+                // send result to client
+                res.status(200);
+                res.json(product_results[0]);
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get a service in a store
+router.get('/stores/:store_id/services/:service_id', custom_utils.allowedScopes(['write:stores']), (req, res) => {
+    // check if store id is integer and product id is valid
+    if (!(/^\d+$/.test(req.params.store_id) && /^[a-zA-Z0-9]{32}$/.test(req.params.service_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if store exist
+    gDB.query('SELECT 1 FROM services WHERE storeID = ? LIMIT 1', [req.params.service_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        const mappped_field_name = new Map([
+            ['name', 'workName AS name'],
+            ['description', 'workDescription AS description'],
+            ['price', 'price'],
+            ['time', 'time']
+        ]);
+        let select_query = 'SELECT ';
+        let req_fields = null;
+        let permitted_field_count = 0;
+        let select_only_image = false;
+
+        // check if valid and required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            req_fields = req.query.fields.split(',');
+            let field_already_exist = [];
+
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1 && req_fields.find(f => f == 'images')) {
+                select_query = 'SELECT workID FROM works ';
+                select_only_image = true;
+
+            } else if (permitted_field_count < 1) {
+                select_query = 'SELECT workName AS name, workDescription AS description, price, time FROM works ';
+
+            } else {
+                select_query += ' FROM works ';
+            }
+
+        } else { // no fields selection
+            select_query += 'workName AS name, workDescription AS description, price, time FROM works ';
+        }
+
+        // where condition
+        select_query += 'WHERE storeID = ? AND workID = ? LIMIT 1';
+
+        // check if product exist and retrieve
+        gDB.query(select_query, [req.params.store_id, req.params.service_id]).then(service_results => {
+            // check if product exist
+            if (service_results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Service can't be found"
+                });
+
+                return;
+            }
+
+            // check to fetch only picture(s) for service
+            if (select_only_image) {
+                // delete workID
+                delete service_results[0].workID;
+
+            } else if (req_fields && !req_fields.find(f => f == 'images')) {
+                // fetch only service no picture
+                // send result to client
+                res.status(200);
+                res.json(service_results[0]);
+
+                return;
+            }
+
+            // get picture(s) for service
+            gDB.query(
+                'SELECT imageRelativeURL FROM work_images WHERE workID = ?',
+                [req.params.service_id]
+            ).then(results => {
+                let service_images = [];
+
+                // prepare image
+                for (let i = 0; i < results.length; i++) {
+                    service_images.push({
+                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
+                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
+                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
+                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
+                    });
+                }
+
+                // add to result
+                service_results[0].images = service_images;
+
+                // send result to client
+                res.status(200);
+                res.json(service_results[0]);
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // add service (work) to store
 router.post('/stores/:store_id/services', custom_utils.allowedScopes(['write:stores']), (req, res) => {
     // check if id is integer
@@ -12212,7 +13749,10 @@ router.post('/stores/:store_id/services', custom_utils.allowedScopes(['write:sto
     const user_id = req.user.access_token.user_id;
 
     // check if store exist
-    gDB.query('SELECT userID, slotCount, usedSlotCount FROM services WHERE storeID = ? LIMIT 1', [user_id]).then(results => {
+    gDB.query(
+        'SELECT userID, locationID, categoryID, slotCount, usedSlotCount FROM services WHERE storeID = ? LIMIT 1',
+        [user_id]
+    ).then(results => {
         if (results.length < 1) {
             res.status(404);
             res.json({
@@ -12499,11 +14039,14 @@ router.post('/stores/:store_id/services', custom_utils.allowedScopes(['write:sto
                             ]
                         },
                         {
-                            query: 'INSERT INTO works (workID, storeID, workName, coverImageRelativeURL, ' +
-                                'workDescription, price) VALUES (?, ?, ?, ?, ?, ?)',
+                            query: 'INSERT INTO works (workID, storeID, userID, locationID, categoryID, workName, coverImageRelativeURL, ' +
+                                'workDescription, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                             post: [
                                 work_id,
                                 req.params.store_id,
+                                user_id,
+                                results[0].locationID,
+                                results[0].categoryID,
                                 req.body.name,
                                 url_parse(datas[0].Location, true).pathname.replace('/', ''),
                                 req.body.description,
@@ -12566,6 +14109,223 @@ router.post('/stores/:store_id/services', custom_utils.allowedScopes(['write:sto
 
                 return;
             });
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get list of service in a store
+router.get('/stores/:store_id/services', custom_utils.allowedScopes(['read:stores']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.store_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    let search_service = req.query.search;
+    const invalid_inputs = [];
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if store exist
+    gDB.query('SELECT 1 FROM services WHERE storeID = ? LIMIT 1', [req.params.store_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        if (pass_limit && pass_limit < limit) {
+            limit = pass_limit;
+        }
+
+        if (pass_offset) {
+            offset = pass_offset;
+        }
+
+        const mappped_field_name = new Map([
+            ['name', 'workName AS name'],
+            ['coverImage', 'coverImageRelativeURL'],
+            ['price', 'price'],
+            ['time', 'time']
+        ]);
+        let select_query = 'SELECT workID AS id, ';
+        let select_post = [];
+        let count_query = 'SELECT COUNT(*) AS total FROM works ';
+        let count_post = [];
+
+        // check if valid and required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            let req_fields = req.query.fields.split(',');
+            let permitted_field_count = 0;
+            let field_already_exist = [];
+
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1) {
+                select_query = 'SELECT workID AS id, workName AS name, coverImageRelativeURL, price, time FROM works ';
+
+            } else {
+                select_query += ' FROM works ';
+            }
+
+        } else { // no fields selection
+            select_query += ', workName AS name, coverImageRelativeURL, price, time FROM works ';
+        }
+
+        // search database for match
+        if (search_service) {
+            search_service = decodeURIComponent(search_service);
+            select_query += 'WHERE MATCH(workName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+            select_post.push(search_service);
+
+            // count query
+            count_query += 'WHERE MATCH(workName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+            count_post.push(search_service);
+
+        } else {
+            // last should come first
+            select_query += 'ORDER BY time DESC ';
+        }
+
+        // set limit and offset
+        select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+        // get metadata for user's publication
+        gDB.query(count_query, count_post).then(count_results => {
+            // get publication
+            gDB.query(select_query, select_post).then(results => {
+                for (let i = 0; i < results.length; i++) {
+                    // check if this store has featured image
+                    if (results[i].coverImageRelativeURL) {
+                        // add featured image to results
+                        results[i].cover_img = {
+                            big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL,
+                            medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'medium'),
+                            small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'small'),
+                            tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'tiny')
+                        };
+
+                    } else if (typeof results[i].coverImageRelativeURL != 'undefined') {
+                        // add featured image to results
+                        results[i].cover_img = null;
+                    }
+
+                    // remove keys
+                    delete results[i].coverImageRelativeURL;
+                }
+
+                // send result to client
+                res.status(200);
+                res.json({
+                    services: results,
+                    metadata: {
+                        result_set: {
+                            count: results.length,
+                            offset: offset,
+                            limit: limit,
+                            total: count_results[0].total
+                        }
+                    }
+                });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
         });
 
     }).catch(err => {
@@ -13059,7 +14819,7 @@ router.put('/stores/:store_id/services/:service_id', custom_utils.allowedScopes(
 
 // delete a product in a store
 router.delete('/stores/:store_id/products/:product_id', custom_utils.allowedScopes(['write:stores']), (req, res) => {
-    // check if id is integer
+    // check if store id is integer and product id is valid
     if (!(/^\d+$/.test(req.params.store_id) && /^[a-zA-Z0-9]{32}$/.test(req.params.product_id))) {
         res.status(400);
         res.json({
@@ -13381,6 +15141,2759 @@ router.delete('/stores/:store_id/services/:service_id', custom_utils.allowedScop
 
         return;
     });
+});
+
+// post product without actually having a store
+router.post('/products', custom_utils.allowedScopes(['write:products']), (req, res) => {
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // pass in queries
+    let category_id = req.query.categoryID;
+    let location_id = req.query.locationID;
+
+    if (!category_id) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "categoryID",
+            message: "categoryID has to be defined"
+        });
+
+    } else if (!/^\d+$/.test(category_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "categoryID",
+            message: "categoryID value is invalid"
+        });
+
+    }
+
+    if (!location_id) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "locationID",
+            message: "locationID has to be defined"
+        });
+
+    } else if (!/^\d+$/.test(location_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "locationID",
+            message: "locationID value is invalid"
+        });
+
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if category exist
+    gDB.query(
+        'SELECT 1 FROM product_categories WHERE categoryID = ? LIMIT 1',
+        [store_category_id]
+    ).then(results => {
+        if (results.length < 1) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "categoryID",
+                message: "categoryID value is invalid"
+            });
+        }
+
+        // check if location ID exist
+        gDB.query('SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1', [location_id]).then(results => {
+            if (results.length < 1) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "locationID",
+                    message: "locationID value is invalid"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_query",
+                    errors: invalid_inputs
+                });
+
+                return;
+            }
+
+            uploads(req, res, (err) => {
+                // check if enctype is multipart form data
+                if (!req.is('multipart/form-data')) {
+                    res.status(415);
+                    res.json({
+                        error_code: "invalid_request_body",
+                        message: "Encode type not supported"
+                    });
+
+                    return;
+                }
+
+                // check if files contain data
+                if (!req.files) {
+                    res.status(400);
+                    res.json({
+                        error_code: "invalid_request",
+                        message: "At least, one image must be provided"
+                    });
+
+                    return;
+                }
+
+                // A Multer error occurred when uploading
+                if (err instanceof multer.MulterError) {
+                    if (err.code == 'LIMIT_FILE_SIZE') {
+                        res.status(400);
+                        res.json({
+                            error_code: "size_exceeded",
+                            message: "Image your uploading exceeded allowed size"
+                        });
+
+                        return;
+                    }
+
+                    if (err.code == 'LIMIT_FILE_COUNT') {
+                        res.status(400);
+                        res.json({
+                            error_code: "file_count_exceeded",
+                            message: "Allowed number of image exceeded"
+                        });
+
+                        return;
+                    }
+
+                    // other multer errors
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+
+                } else if (err) { // An unknown error occurred when uploading
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                }
+
+                // validate submitted data
+                const invalid_inputs = [];
+
+                if (!req.body.name) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "name",
+                        message: "name has to be defined"
+                    });
+
+                } else if (!/^([a-zA-Z0-9]+([ ]?[a-zA-Z0-9]+)*)$/.test(req.body.name)) {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "name",
+                        message: "name is not acceptable"
+                    });
+                }
+
+                if (!req.body.description) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "description",
+                        message: "description has to be defined"
+                    });
+
+                } else if (typeof req.body.description != 'string') {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "description",
+                        message: "description is not acceptable"
+                    });
+
+                } else if (req.body.description.length > 1500) { // check if description exceed 1500 characters
+                    invalid_inputs.push({
+                        error_code: "invalid_data",
+                        field: "description",
+                        message: "description exceed maximum allowed text"
+                    });
+                }
+
+                if (!req.body.price) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "price",
+                        message: "price has to be defined"
+                    });
+
+                } else if (!/^([1-9][0-9]*([.]{1}[0-9]+)?|[0]([.]{1}[0-9]+)?)$/.test(req.body.price)) {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "price",
+                        message: "price format is not acceptable"
+                    });
+                }
+
+                if (!req.body.negotiable) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "negotiable",
+                        message: "negotiable has to be defined"
+                    });
+
+                } else if (!/^[0-1]$/.test(req.body.negotiable)) {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "negotiable",
+                        message: "negotiable value is invalid"
+                    });
+                }
+
+                // contact information
+                if (req.body.email && !validator.isEmail(req.body.email)) {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "email",
+                        message: "email is not acceptable"
+                    });
+                }
+
+                if (!req.body.phoneNumber) {
+                    invalid_inputs.push({
+                        error_code: "undefined_input",
+                        field: "phoneNumber",
+                        message: "phoneNumber has to be defined"
+                    });
+
+                } else if (!/^\d+$/.test(req.body.phoneNumber)) {
+                    invalid_inputs.push({
+                        error_code: "invalid_input",
+                        field: "phoneNumber",
+                        message: "phoneNumber value is invalid"
+                    });
+                }
+
+                // check if any input is invalid
+                if (invalid_inputs.length > 0) {
+                    // send json error message to client
+                    res.status(406);
+                    res.json({
+                        error_code: "invalid_field",
+                        errors: invalid_inputs
+                    });
+
+                    return;
+                }
+
+                const image_buffers = [];
+                const img_paths = [];
+                let file_mime;
+                let img_format_not_supported = false;
+                let supported_images = [
+                    'jpg',
+                    'png',
+                    'gif',
+                    'jp2'
+                ];
+                const save_image_ext = 'png';
+
+                // read all the uploaded image and add them to buffer
+                for (let i = 0; i < req.files.length; i++) {
+                    // add to array
+                    image_buffers.push(fs.readFileSync(req.files[i].path));
+
+                    // image path
+                    img_paths.push(req.files[i].path);
+
+                    if (!img_format_not_supported) {
+                        // read minimum byte from buffer required to determine file mime
+                        file_mime = file_type(Buffer.from(image_buffers[i], 0, file_type.minimumBytes));
+
+                        if (!(file_mime.mime.split('/')[0] == 'image' && supported_images.find(e => e == file_mime.ext))) {
+                            img_format_not_supported = true;
+                        }
+                    }
+                }
+
+                // delete all the uploaded image
+                for (let j = 0; j < img_paths.length; j++) {
+                    fs.unlinkSync(img_paths[j]); // delete the uploaded file
+                }
+
+                // check if any image is not supported
+                if (img_format_not_supported) {
+                    res.status(406);
+                    res.json({
+                        error_code: "unsupported_format",
+                        message: "Uploaded image(s) is not supported"
+                    });
+
+                    return;
+                }
+
+                // resize uploaded image(s)
+                const resize = imgBuffer => {
+                    return new Promise((resolve, rejected) => {
+                        sharp(imgBuffer)
+                            .resize({
+                                height: 1080, // resize image using the set height
+                                withoutEnlargement: true
+                            })
+                            .toFormat(save_image_ext)
+                            .toBuffer()
+                            .then(buffer => {
+                                // resolve the promise
+                                resolve(buffer);
+                            })
+                            .catch(err => {
+                                rejected(err);
+                            });
+                    });
+                };
+
+                Promise.all(image_buffers.map(resize)).then(buffers => {
+                    // save the resized image(s) to aws s3 bucket
+                    // upload each file
+                    const uploadImage = pass_buffer => {
+                        return new Promise((resolve, rejected) => {
+                            const object_unique_name = rand_token.uid(34) + '.' + save_image_ext;
+
+                            const upload_params = {
+                                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                                Body: pass_buffer,
+                                Key: 'store/images/big/' + object_unique_name,
+                                ACL: gConfig.AWS_S3_BUCKET_PERMISSION
+                            };
+
+                            s3.upload(upload_params, (err, data) => {
+                                if (err) {
+                                    rejected(err);
+
+                                } else {
+                                    resolve(data); // file uploaded successfully
+                                }
+                            });
+                        });
+                    };
+
+                    Promise.all(buffers.map(uploadImage)).then(datas => {
+                        const product_id = rand_token.generate(32); // generate 32 digit unique id
+                        const insert_values = [];
+
+                        for (let i = 0; i < datas.length; i++) {
+                            insert_values.push([
+                                -1,
+                                product_id,
+                                url_parse(datas[i].Location, true).pathname.replace('/', '')
+                            ]);
+                        }
+
+                        //add product and images to database
+                        gDB.transaction(
+                            {
+                                query: 'INSERT INTO product_contact_info (productID, userID, email, phoneNumber) VALUES (?, ?, ?, ?)',
+                                post: [
+                                    product_id,
+                                    user_id,
+                                    req.params.email ? req.params.email : '',
+                                    req.params.phoneNumber
+                                ]
+                            },
+                            {
+                                query: 'INSERT INTO products (productID, storeID, userID, locationID, categoryID, productName, coverImageRelativeURL, ' +
+                                    'productDescription, priceNegotiable, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                                post: [
+                                    product_id,
+                                    -1,
+                                    user_id,
+                                    location_id,
+                                    category_id,
+                                    req.body.name,
+                                    url_parse(datas[0].Location, true).pathname.replace('/', ''),
+                                    req.body.description,
+                                    req.body.negotiable,
+                                    req.body.price
+                                ]
+                            },
+                            {
+                                query: 'INSERT INTO product_images (storeID, productID, imageRelativeURL) VALUES ?',
+                                post: [insert_values]
+                            }
+                        ).then(results => {
+                            res.status(200);
+                            res.json({
+                                product_id: product_id
+                            });
+
+                            return;
+
+                        }).catch(err => {
+                            res.status(500);
+                            res.json({
+                                error_code: "internal_error",
+                                message: "Internal error"
+                            });
+
+                            // log the error to log file
+                            gLogger.log('error', err.message, {
+                                stack: err.stack
+                            });
+
+                            return;
+                        });
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// update product information
+router.put('/products/:product_id', custom_utils.allowedScopes(['write:products']), (req, res) => {
+    // check if product id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.product_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // check if product exist and not a product in store
+    gDB.query('SELECT storeID, userID FROM products WHERE productID = ? LIMIT 1', [req.params.product_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Product can't be found"
+            });
+
+            return;
+        }
+
+        // product in a store
+        if (results[0].storeID < 0) {
+            res.status(403);
+            res.json({
+                error_code: "request_forbidden",
+                message: "This product can't be updated using this endpoint"
+            });
+
+            return;
+        }
+
+        // check if is user's store
+        if (results[0].userID != user_id) {
+            res.status(401);
+            res.json({
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        // validate submitted data
+        const invalid_inputs = [];
+
+        if (req.body.name && !/^([a-zA-Z0-9]+([ ]?[a-zA-Z0-9]+)*)$/.test(req.body.name)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "name",
+                message: "name is not acceptable"
+            });
+        }
+
+        if (req.body.description && typeof req.body.description != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "description",
+                message: "description is not acceptable"
+            });
+
+        } else if (req.body.description && req.body.description.length > 1500) { // check if description exceed 1500 characters
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "description",
+                message: "description exceed maximum allowed text"
+            });
+        }
+
+        if (req.body.price && !/^([1-9][0-9]*([.]{1}[0-9]+)?|[0]([.]{1}[0-9]+)?)$/.test(req.body.price)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "price",
+                message: "price format is not acceptable"
+            });
+        }
+
+        if (req.body.negotiable && !/^[0-1]$/.test(req.body.negotiable)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "negotiable",
+                message: "negotiable value is invalid"
+            });
+        }
+
+        // contact information
+        if (req.body.email && !validator.isEmail(req.body.email)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "email",
+                message: "email is not acceptable"
+            });
+        }
+
+        if (!req.body.phoneNumber) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "phoneNumber",
+                message: "phoneNumber has to be defined"
+            });
+
+        } else if (!/^\d+$/.test(req.body.phoneNumber)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "phoneNumber",
+                message: "phoneNumber value is invalid"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        // prepare the update query
+        let query = 'UPDATE products SET ';
+        let query_post = [];
+        let input_count = 0;
+
+        // check if bio is provided
+        if (req.body.name) {
+            query += 'name = ?';
+            post.push(req.body.name);
+            input_count++;
+        }
+
+        if (req.body.description) {
+            if (input_count < 1) {
+                query += 'description = ?';
+                query_post.push(req.body.description);
+
+            } else {
+                query += ', description = ?';
+                query_post.push(req.body.description);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.price) {
+            if (input_count < 1) {
+                query += 'price = ?';
+                query_post.push(req.body.price);
+
+            } else {
+                query += ', price = ?';
+                query_post.push(req.body.price);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.negotiable) {
+            if (input_count < 1) {
+                query += 'negotiable = ?';
+                query_post.push(req.body.negotiable);
+
+            } else {
+                query += ', negotiable = ?';
+                query_post.push(req.body.negotiable);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.email) {
+            if (input_count < 1) {
+                query += 'email = ?';
+                query_post.push(req.body.email);
+
+            } else {
+                query += ', email = ?';
+                query_post.push(req.body.email);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.phoneNumber) {
+            if (input_count < 1) {
+                query += 'phoneNumber = ?';
+                query_post.push(req.body.phoneNumber);
+
+            } else {
+                query += ', phoneNumber = ?';
+                query_post.push(req.body.phoneNumber);
+            }
+
+            input_count++;
+        }
+
+        // last part of the query
+        query += ' WHERE productID = ? LIMIT 1';
+        query_post.push(req.params.product_id);
+
+        // get store type
+        gDB.query(query, query_post).then(results => {
+            return res.status(200).send();
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete a product
+router.delete('/products/:product_id', custom_utils.allowedScopes(['write:products']), (req, res) => {
+    // check if product id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.product_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // check if product exist and not a product in store
+    gDB.query('SELECT storeID, userID FROM products WHERE productID = ? LIMIT 1', [req.params.product_id]).then(results => {
+        if (results.length < 1) {
+            return res.status(200).send();
+        }
+
+        // product in a store
+        if (results[0].storeID < 0) {
+            res.status(403);
+            res.json({
+                error_code: "request_forbidden",
+                message: "This product can't be deleted using this endpoint"
+            });
+
+            return;
+        }
+
+        // check if is user's store
+        if (results[0].userID != user_id) {
+            res.status(401);
+            res.json({
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        // get image(s) for product
+        gDB.query(
+            'SELECT imageRelativeURL FROM product_images WHERE productID = ?',
+            [req.params.product_id]
+        ).then(results => {
+            let delete_objs = [];
+
+            // add object(s) to delete
+            for (let i = 0; i < results.length; i++) {
+                delete_objs.push({ Key: results[i].imageRelativeURL });
+            }
+
+            // set aws s3 access credentials
+            aws.config.update({
+                apiVersion: '2006-03-01',
+                accessKeyId: gConfig.AWS_ACCESS_ID,
+                secretAccessKey: gConfig.AWS_SECRET_KEY,
+                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+            });
+
+            const s3 = new aws.S3();
+
+            // initialise objects to delete
+            const deleteParam = {
+                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                Delete: {
+                    Objects: delete_objs
+                }
+            };
+
+            s3.deleteObjects(deleteParam, (err, data) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                }
+
+                // delete product and all the related contents
+                gDB.transaction(
+                    {
+                        query: 'DELETE FROM product_contact_info WHERE productID = ? LIMIT 1',
+                        post: [req.params.product_id]
+                    },
+                    {
+                        query: 'DELETE FROM products WHERE productID = ? LIMIT 1',
+                        post: [req.params.product_id]
+                    },
+                    {
+                        query: 'DELETE FROM product_images WHERE productID = ?',
+                        post: [req.params.product_id]
+                    }
+                ).then(results => {
+                    return res.status(200).send();
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get list of product from store and individual
+router.get('/products', custom_utils.allowedScopes(['read:products', 'read:stores']), (req, res) => {
+    // initialise variables
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    let in_store = req.query.store;
+    const location_id = req.query.locationID;
+    const category_id = req.query.categoryID;
+    const pass_user_id = req.query.userID;
+    let search_product = req.query.search;
+    const invalid_inputs = [];
+
+    // check if query store is valid
+    if (!pass_user_id && in_store && !/^(1|0)$/.test(in_store)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "store",
+            message: "store value is invalid"
+        });
+    }
+
+    // check if query location ID is valid
+    if (location_id && !/^\d+$/.test(location_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "locationID",
+            message: "locationID value is invalid"
+        });
+    }
+
+    // check if query category ID is valid
+    if (category_id && !/^\d+$/.test(category_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "categoryID",
+            message: "categoryID value is invalid"
+        });
+    }
+
+    // check if pass user ID is valid
+    if (pass_user_id && !/^\d+$/.test(pass_user_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "userID",
+            message: "userID value is invalid"
+        });
+    }
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if region with location ID exist
+    gDB.query('SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1', [location_id ? location_id : 0]).then(results => {
+        if (location_id && results.length < 1) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "locationID",
+                message: "locationID value is invalid"
+            });
+        }
+
+        // check if category ID exist
+        gDB.query(
+            'SELECT 1 FROM product_categories WHERE categoryID = ? LIMIT 1',
+            [category_id ? category_id : 0]
+        ).then(results => {
+            if (category_id && results.length < 1) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "categoryID",
+                    message: "categoryID value is invalid"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_query",
+                    errors: invalid_inputs
+                });
+
+                return;
+            }
+
+            if (pass_limit && pass_limit < limit) {
+                limit = pass_limit;
+            }
+
+            if (pass_offset) {
+                offset = pass_offset;
+            }
+
+            let req_fields = null;
+
+            if (req.query.fields) {
+                req_fields = custom_utils.filterInArray(
+                    req.query.fields.split(','),
+                    ['user', 'location', 'category', 'name', 'coverImage', 'price', 'time']
+                );
+            }
+
+            const mappped_field_name = new Map([
+                ['location', 'locationID AS location_id'],
+                ['category', 'categoryID AS category_id'],
+                ['name', 'storeName AS name'],
+                ['coverImage', 'coverImageRelativeURL'],
+                ['price', 'price'],
+                ['time', 'time']
+            ]);
+
+            let permitted_field_count = 0;
+            let field_already_exist = [];
+
+            // check to retrieve information about the user that add the product
+            if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
+                let select_query = 'SELECT A.productID AS id, A.userID, A.storeID AS store_id';
+                let select_post = [];
+                let count_query = 'SELECT COUNT(*) AS total FROM products ';
+                let count_post = [];
+
+                // check if valid and required fields is given
+                if (req_fields && req_fields.length > 0) {
+                    req_fields.forEach(elem => {
+                        if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                            if (permitted_field_count == 0) {
+                                select_query += `, A.${mappped_field_name.get(elem)}`;
+
+                            } else {
+                                select_query += `, A.${mappped_field_name.get(elem)}`;
+                            }
+
+                            field_already_exist.push(elem);
+                            permitted_field_count++; // increment by one
+                        }
+                    });
+
+                    select_query +=
+                        ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                        'B.profilePictureBigURL FROM products AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+                } else { // no fields selection
+                    select_query +=
+                        ', A.locationID AS location_id, A.categoryID AS category_id, A.productName As name, ' +
+                        'A.coverImageRelativeURL, A.price, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                        'B.profilePictureBigURL FROM products AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+                }
+
+                let counter = 0; // count numbers of search keyword
+
+                // override store query value
+                if (pass_user_id) in_store = 0;
+
+                if (in_store) {
+                    if (in_store > 0) {
+                        select_query += 'WHERE A.storeID > ? ';
+                        select_post.push(-1);
+
+                        // count query
+                        count_query += 'WHERE storeID > ? ';
+                        count_post.push(-1);
+
+                        counter++;
+
+                    } else {
+                        select_query += 'WHERE A.storeID < ? ';
+                        select_post.push(0);
+
+                        // count query
+                        count_query += 'WHERE storeID < ? ';
+                        count_post.push(0);
+
+                        counter++;
+                    }
+                }
+
+                if (pass_user_id) {
+                    if (counter > 0) {
+                        select_query += 'AND A.userID = ? ';
+                        select_post.push(pass_user_id);
+
+                        // count query
+                        count_query += 'AND userID = ? ';
+                        count_post.push(pass_user_id);
+
+                    } else {
+                        select_query += 'WHERE A.userID = ? ';
+                        select_post.push(pass_user_id);
+
+                        // count query
+                        count_query += 'WHERE userID = ? ';
+                        count_post.push(pass_user_id);
+                    }
+
+                    counter++;
+                }
+
+                if (category_id) {
+                    if (counter > 0) {
+                        select_query += 'AND A.categoryID = ? ';
+                        select_post.push(category_id);
+
+                        // count query
+                        count_query += 'AND categoryID = ? ';
+                        count_post.push(category_id);
+
+                    } else {
+                        select_query += 'WHERE A.categoryID = ? ';
+                        select_post.push(category_id);
+
+                        // count query
+                        count_query += 'WHERE categoryID = ? ';
+                        count_post.push(category_id);
+                    }
+
+                    counter++;
+                }
+
+                if (location_id) {
+                    if (counter > 0) {
+                        select_query += 'AND A.locationID = ? ';
+                        select_post.push(location_id);
+
+                        // count query
+                        count_query += 'AND locationID = ? ';
+                        count_post.push(location_id);
+
+                    } else {
+                        select_query += 'WHERE A.locationID = ? ';
+                        select_post.push(location_id);
+
+                        // count query
+                        count_query += 'WHERE locationID = ? ';
+                        count_post.push(location_id);
+                    }
+
+                    counter++;
+                }
+
+                // search database for match
+                if (search_product) {
+                    search_product = decodeURIComponent(search_product);
+
+                    if (counter > 0) {
+                        select_query += 'AND MATCH(A.productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+                        select_post.push(search_product);
+
+                        // count query
+                        count_query += 'AND MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+                        count_post.push(search_product);
+
+                    } else {
+                        select_query += 'WHERE MATCH(A.productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+                        select_post.push(search_product);
+
+                        // count query
+                        count_query += 'WHERE MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+                        count_post.push(search_product);
+
+                        counter++
+                    }
+
+                } else {
+                    // last should come first
+                    select_query += 'ORDER BY A.time DESC ';
+                }
+
+                // set limit and offset
+                select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+                // get metadata for user's publication
+                gDB.query(count_query, count_post).then(count_results => {
+                    // get publication
+                    gDB.query(select_query, select_post).then(results => {
+                        for (let i = 0; i < results.length; i++) {
+                            // check to get cover image for products
+                            if (results[i].coverImageRelativeURL) {
+                                // add featured image to results
+                                results[i].cover_img = {
+                                    big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL,
+                                    medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'medium'),
+                                    small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'small'),
+                                    tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'tiny')
+                                };
+                            }
+
+                            // check if user has a profile picture
+                            if (results[i].profilePictureSmallURL) {
+                                // add user to results
+                                results[i].user = {
+                                    id: results[i].userID,
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    image: {
+                                        big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                        medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                        small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                    }
+                                };
+
+                            } else {
+                                // add user to results
+                                results[i].user = {
+                                    id: results[i].userID,
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    image: null
+                                };
+                            }
+
+                            // remove keys
+                            delete results[i].coverImageRelativeURL;
+                            delete results[i].userID;
+                            delete results[i].firstName;
+                            delete results[i].lastName;
+                            delete results[i].profilePictureSmallURL;
+                            delete results[i].profilePictureMediumURL;
+                            delete results[i].profilePictureBigURL;
+                        }
+
+                        // send result to client
+                        res.status(200);
+                        res.json({
+                            products: results,
+                            metadata: {
+                                result_set: {
+                                    count: results.length,
+                                    offset: offset,
+                                    limit: limit,
+                                    total: count_results[0].total
+                                }
+                            }
+                        });
+
+                        return;
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+
+            } else { // no user's information
+                let select_query = 'SELECT productID AS id, storeID AS store_id';
+                let select_post = [];
+                let count_query = 'SELECT COUNT(*) AS total FROM products ';
+                let count_post = [];
+
+                req_fields.forEach(elem => {
+                    if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                        if (permitted_field_count == 0) {
+                            select_query += `, ${mappped_field_name.get(elem)}`;
+
+                        } else {
+                            select_query += `, ${mappped_field_name.get(elem)}`;
+                        }
+
+                        field_already_exist.push(elem);
+                        permitted_field_count++; // increment by one
+                    }
+                });
+
+                select_query += ' FROM products ';
+
+                let counter = 0; // count numbers of search keyword
+
+                // override store query value
+                if (pass_user_id) in_store = 0;
+
+                if (in_store) {
+                    if (in_store > 0) {
+                        select_query += 'WHERE storeID > ? ';
+                        select_post.push(-1);
+
+                        // count query
+                        count_query += 'WHERE storeID > ? ';
+                        count_post.push(-1);
+
+                        counter++;
+
+                    } else {
+                        select_query += 'WHERE storeID < ? ';
+                        select_post.push(0);
+
+                        // count query
+                        count_query += 'WHERE storeID < ? ';
+                        count_post.push(0);
+
+                        counter++;
+                    }
+                }
+
+                if (pass_user_id) {
+                    if (counter > 0) {
+                        select_query += 'AND userID = ? ';
+                        select_post.push(pass_user_id);
+
+                        // count query
+                        count_query += 'AND userID = ? ';
+                        count_post.push(pass_user_id);
+
+                    } else {
+                        select_query += 'WHERE userID = ? ';
+                        select_post.push(pass_user_id);
+
+                        // count query
+                        count_query += 'WHERE userID = ? ';
+                        count_post.push(pass_user_id);
+                    }
+
+                    counter++;
+                }
+
+                if (category_id) {
+                    if (counter > 0) {
+                        select_query += 'AND categoryID = ? ';
+                        select_post.push(category_id);
+
+                        // count query
+                        count_query += 'AND categoryID = ? ';
+                        count_post.push(category_id);
+
+                    } else {
+                        select_query += 'WHERE categoryID = ? ';
+                        select_post.push(category_id);
+
+                        // count query
+                        count_query += 'WHERE categoryID = ? ';
+                        count_post.push(category_id);
+                    }
+
+                    counter++;
+                }
+
+                if (location_id) {
+                    if (counter > 0) {
+                        select_query += 'AND locationID = ? ';
+                        select_post.push(location_id);
+
+                        // count query
+                        count_query += 'AND locationID = ? ';
+                        count_post.push(location_id);
+
+                    } else {
+                        select_query += 'WHERE locationID = ? ';
+                        select_post.push(location_id);
+
+                        // count query
+                        count_query += 'WHERE locationID = ? ';
+                        count_post.push(location_id);
+                    }
+
+                    counter++;
+                }
+
+                // search database for match
+                if (search_product) {
+                    search_product = decodeURIComponent(search_product);
+
+                    if (counter > 0) {
+                        select_query += 'AND MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+                        select_post.push(search_product);
+
+                        // count query
+                        count_query += 'AND MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+                        count_post.push(search_product);
+
+                    } else {
+                        select_query += 'WHERE MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+                        select_post.push(search_product);
+
+                        // count query
+                        count_query += 'WHERE MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+                        count_post.push(search_product);
+
+                        counter++
+                    }
+
+                } else {
+                    // last should come first
+                    select_query += 'ORDER BY time DESC ';
+                }
+
+                // set limit and offset
+                select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+                // get metadata for user's publication
+                gDB.query(count_query, count_post).then(count_results => {
+                    // get publication
+                    gDB.query(select_query, select_post).then(results => {
+                        for (let i = 0; i < results.length; i++) {
+                            // check to get cover image for products
+                            if (results[i].coverImageRelativeURL) {
+                                // add featured image to results
+                                results[i].cover_img = {
+                                    big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL,
+                                    medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'medium'),
+                                    small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'small'),
+                                    tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'tiny')
+                                };
+                            }
+
+                            // remove keys
+                            delete results[i].coverImageRelativeURL;
+                        }
+
+                        // send result to client
+                        res.status(200);
+                        res.json({
+                            products: results,
+                            metadata: {
+                                result_set: {
+                                    count: results.length,
+                                    offset: offset,
+                                    limit: limit,
+                                    total: count_results[0].total
+                                }
+                            }
+                        });
+
+                        return;
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            }
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get list of service from all store
+router.get('/services', custom_utils.allowedScopes(['read:services', 'read:stores']), (req, res) => {
+    // initialise variables
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    const location_id = req.query.locationID;
+    const category_id = req.query.categoryID;
+    const invalid_inputs = [];
+
+    // check if query location ID is valid
+    if (location_id && !/^\d+$/.test(location_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "locationID",
+            message: "locationID value is invalid"
+        });
+    }
+
+    // check if query category ID is valid
+    if (category_id && !/^\d+$/.test(category_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "categoryID",
+            message: "categoryID value is invalid"
+        });
+    }
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if region with location ID exist
+    gDB.query('SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1', [location_id ? location_id : 0]).then(results => {
+        if (location_id && results.length < 1) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "locationID",
+                message: "locationID value is invalid"
+            });
+        }
+
+        // check if category ID exist
+        gDB.query(
+            'SELECT 1 FROM service_categories WHERE categoryID = ? LIMIT 1',
+            [category_id ? category_id : 0]
+        ).then(results => {
+            if (category_id && results.length < 1) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "categoryID",
+                    message: "categoryID value is invalid"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_query",
+                    errors: invalid_inputs
+                });
+
+                return;
+            }
+
+            if (pass_limit && pass_limit < limit) {
+                limit = pass_limit;
+            }
+
+            if (pass_offset) {
+                offset = pass_offset;
+            }
+
+            let req_fields = null;
+
+            if (req.query.fields) {
+                req_fields = custom_utils.filterInArray(
+                    req.query.fields.split(','),
+                    ['user', 'location', 'category', 'name', 'coverImage', 'price', 'time']
+                );
+            }
+
+            const mappped_field_name = new Map([
+                ['location', 'locationID AS location_id'],
+                ['category', 'categoryID AS category_id'],
+                ['name', 'workName AS name'],
+                ['coverImage', 'coverImageRelativeURL'],
+                ['price', 'price'],
+                ['time', 'time']
+            ]);
+
+            let permitted_field_count = 0;
+            let field_already_exist = [];
+
+            // check to retrieve information about the user that add the product
+            if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
+                let select_query = 'SELECT A.workID AS id, A.userID, A.storeID AS store_id';
+                let select_post = [];
+                let count_query = 'SELECT COUNT(*) AS total FROM works ';
+                let count_post = [];
+
+                // check if valid and required fields is given
+                if (req_fields && req_fields.length > 0) {
+                    req_fields.forEach(elem => {
+                        if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                            if (permitted_field_count == 0) {
+                                select_query += `, A.${mappped_field_name.get(elem)}`;
+
+                            } else {
+                                select_query += `, A.${mappped_field_name.get(elem)}`;
+                            }
+
+                            field_already_exist.push(elem);
+                            permitted_field_count++; // increment by one
+                        }
+                    });
+
+                    select_query +=
+                        ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                        'B.profilePictureBigURL FROM works AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+                } else { // no fields selection
+                    select_query +=
+                        ', A.locationID AS location_id, A.categoryID AS category_id, A.workName As name, ' +
+                        'A.coverImageRelativeURL, A.price, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                        'B.profilePictureBigURL FROM works AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+                }
+
+                let counter = 0; // count numbers of search keyword
+
+                if (category_id) {
+                    select_query += 'WHERE A.categoryID = ? ';
+                    select_post.push(category_id);
+
+                    // count query
+                    count_query += 'WHERE categoryID = ? ';
+                    count_post.push(category_id);
+
+                    counter++;
+                }
+
+                if (location_id) {
+                    if (counter > 0) {
+                        select_query += 'AND A.locationID = ? ';
+                        select_post.push(location_id);
+
+                        // count query
+                        count_query += 'AND locationID = ? ';
+                        count_post.push(location_id);
+
+                    } else {
+                        select_query += 'WHERE A.locationID = ? ';
+                        select_post.push(location_id);
+
+                        // count query
+                        count_query += 'WHERE locationID = ? ';
+                        count_post.push(location_id);
+                    }
+
+                    counter++;
+                }
+
+                // last should come first
+                select_query += 'ORDER BY A.time DESC ';
+
+                // set limit and offset
+                select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+                // get metadata for user's publication
+                gDB.query(count_query, count_post).then(count_results => {
+                    // get publication
+                    gDB.query(select_query, select_post).then(results => {
+                        for (let i = 0; i < results.length; i++) {
+                            // check to get cover image for products
+                            if (results[i].coverImageRelativeURL) {
+                                // add featured image to results
+                                results[i].cover_img = {
+                                    big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL,
+                                    medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'medium'),
+                                    small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'small'),
+                                    tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'tiny')
+                                };
+                            }
+
+                            // check if user has a profile picture
+                            if (results[i].profilePictureSmallURL) {
+                                // add user to results
+                                results[i].user = {
+                                    id: results[i].userID,
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    image: {
+                                        big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                        medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                        small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                    }
+                                };
+
+                            } else {
+                                // add user to results
+                                results[i].user = {
+                                    id: results[i].userID,
+                                    name: results[i].lastName + ' ' + results[i].firstName,
+                                    image: null
+                                };
+                            }
+
+                            // remove keys
+                            delete results[i].coverImageRelativeURL;
+                            delete results[i].userID;
+                            delete results[i].firstName;
+                            delete results[i].lastName;
+                            delete results[i].profilePictureSmallURL;
+                            delete results[i].profilePictureMediumURL;
+                            delete results[i].profilePictureBigURL;
+                        }
+
+                        // send result to client
+                        res.status(200);
+                        res.json({
+                            products: results,
+                            metadata: {
+                                result_set: {
+                                    count: results.length,
+                                    offset: offset,
+                                    limit: limit,
+                                    total: count_results[0].total
+                                }
+                            }
+                        });
+
+                        return;
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+
+            } else { // no user's information
+                let select_query = 'SELECT workID AS id, storeID AS store_id';
+                let select_post = [];
+                let count_query = 'SELECT COUNT(*) AS total FROM works ';
+                let count_post = [];
+
+                req_fields.forEach(elem => {
+                    if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                        if (permitted_field_count == 0) {
+                            select_query += `, ${mappped_field_name.get(elem)}`;
+
+                        } else {
+                            select_query += `, ${mappped_field_name.get(elem)}`;
+                        }
+
+                        field_already_exist.push(elem);
+                        permitted_field_count++; // increment by one
+                    }
+                });
+
+                select_query += ' FROM works ';
+
+                let counter = 0; // count numbers of search keyword
+
+                if (category_id) {
+                    select_query += 'WHERE categoryID = ? ';
+                    select_post.push(category_id);
+
+                    // count query
+                    count_query += 'WHERE categoryID = ? ';
+                    count_post.push(category_id);
+
+                    counter++;
+                }
+
+                if (location_id) {
+                    if (counter > 0) {
+                        select_query += 'AND locationID = ? ';
+                        select_post.push(location_id);
+
+                        // count query
+                        count_query += 'AND locationID = ? ';
+                        count_post.push(location_id);
+
+                    } else {
+                        select_query += 'WHERE locationID = ? ';
+                        select_post.push(location_id);
+
+                        // count query
+                        count_query += 'WHERE locationID = ? ';
+                        count_post.push(location_id);
+                    }
+
+                    counter++;
+                }
+
+                // last should come first
+                select_query += 'ORDER BY time DESC ';
+
+                // set limit and offset
+                select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+                // get metadata for user's publication
+                gDB.query(count_query, count_post).then(count_results => {
+                    // get publication
+                    gDB.query(select_query, select_post).then(results => {
+                        for (let i = 0; i < results.length; i++) {
+                            // check to get cover image for products
+                            if (results[i].coverImageRelativeURL) {
+                                // add featured image to results
+                                results[i].cover_img = {
+                                    big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL,
+                                    medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'medium'),
+                                    small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'small'),
+                                    tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].coverImageRelativeURL).replace('big', 'tiny')
+                                };
+                            }
+
+                            // remove keys
+                            delete results[i].coverImageRelativeURL;
+                        }
+
+                        // send result to client
+                        res.status(200);
+                        res.json({
+                            products: results,
+                            metadata: {
+                                result_set: {
+                                    count: results.length,
+                                    offset: offset,
+                                    limit: limit,
+                                    total: count_results[0].total
+                                }
+                            }
+                        });
+
+                        return;
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            }
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get a product
+router.get('/products/:product_id', custom_utils.allowedScopes(['read:products', 'read:stores']), (req, res) => {
+    // check if product id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.product_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    let req_fields = null;
+
+    if (req.query.fields) {
+        req_fields = custom_utils.filterInArray(
+            req.query.fields.split(','),
+            ['user', 'images', 'location', 'category', 'name', 'description', 'negotiable', 'email', 'phoneNumber', 'price', 'time']
+        );
+    }
+
+    const mappped_field_name = new Map([
+        ['location', 'A.locationID AS location_id'],
+        ['category', 'A.categoryID AS category_id'],
+        ['name', 'A.productName AS name'],
+        ['description', 'A.productDescription AS description'],
+        ['negotiable', 'A.priceNegotiable AS negotiable'],
+        ['price', 'A.price'],
+        ['email', 'C.contactEmail, D.email'],
+        ['phoneNumber', 'C.contactPhoneNumber, D.phoneNumber AS phone_number'],
+        ['time', 'A.time']
+    ]);
+
+    let field_already_exist = [];
+    let permitted_field_count = 0;
+    let get_contact_info = true;
+
+    // check to retrieve information about the user that add the product
+    if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
+        let select_query = 'SELECT A.userID, A.storeID AS store_id';
+        let get_product_images = false;
+
+        if (req_fields || req_fields.length > 0) {
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            // get seller contact information
+            if (req_fields.find(f => (f == 'email' || f == 'phoneNumber'))) {
+                select_query += ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL, ' +
+                    'FROM products AS A LEFT JOIN user AS B ON A.userID = B.userID LEFT JOIN stores AS C ON A.storeID = C.storeID ' +
+                    'LEFT JOIN product_contact_info AS D ON A.productID = D.productID ';
+
+            } else {
+                select_query += ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
+                    'FROM products AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+                get_contact_info = false;
+            }
+
+            if (req_fields.find(f => f == 'images')) {
+                get_product_images = true;
+            }
+
+        } else {
+            select_query += ', A.locationID AS location_id, A.categoryID AS category_id, ' +
+                'A.productName AS name, A.productDescription AS description, A.price, A.priceNegotiable AS negotiable, B.firstName, B.lastName, ' +
+                'B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL, C.contactEmail, C.contactPhoneNumber, ' +
+                'D.email, D.phoneNumber AS phone_number, A.time FROM products AS A LEFT JOIN user AS B ON A.userID = B.userID LEFT JOIN stores AS C ON A.storeID = C.storeID ' +
+                'LEFT JOIN product_contact_info AS D ON A.productID = D.productID ';
+
+            get_product_images = true;
+        }
+
+        // where condition
+        select_query += 'WHERE productID = ? LIMIT 1';
+
+        // check if product exist and retrieve
+        gDB.query(select_query, [req.params.product_id]).then(product_results => {
+            // check if product exist
+            if (product_results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Product can't be found"
+                });
+
+                return;
+            }
+
+            if (req_fields && !get_product_images) { // fetch only product no picture
+                // check to get contact information
+                if (get_contact_info) {
+                    if (req_fields.find(f => f == 'email')) { // for email
+                        if (product_results[0].contactEmail) {
+                            product_results[0].email = product_results[0].contactEmail;
+                            delete product_results[0].contactEmail; // remove key
+
+                        } else {
+                            delete product_results[0].contactEmail; // remove key
+                        }
+                    }
+
+                    if (req_fields.find(f => f == 'phoneNumber')) { // for phone number
+                        if (product_results[0].contactPhoneNumber) {
+                            product_results[0].phone_number = product_results[0].contactPhoneNumber;
+                            delete product_results[0].contactPhoneNumber; // remove key
+
+                        } else {
+                            delete product_results[0].contactPhoneNumber; // remove key
+                        }
+                    }
+                }
+
+                // check if user has a profile picture
+                if (product_results[0].profilePictureSmallURL) {
+                    // add user to results
+                    product_results[0].user = {
+                        id: product_results[0].userID,
+                        name: product_results[0].lastName + ' ' + product_results[0].firstName,
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + product_results[0].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + product_results[0].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + product_results[0].profilePictureSmallURL
+                        }
+                    };
+
+                } else {
+                    // add user to results
+                    product_results[0].user = {
+                        id: product_results[0].userID,
+                        name: product_results[0].lastName + ' ' + product_results[0].firstName,
+                        image: null
+                    };
+                }
+
+                // remove keys
+                delete product_results[0].userID;
+                delete product_results[0].firstName;
+                delete product_results[0].lastName;
+                delete product_results[0].profilePictureSmallURL;
+                delete product_results[0].profilePictureMediumURL;
+                delete product_results[0].profilePictureBigURL;
+
+                // send result to client
+                res.status(200);
+                res.json(product_results[0]);
+
+                return;
+            }
+
+            // get picture(s) for product
+            gDB.query(
+                'SELECT imageRelativeURL FROM product_images WHERE productID = ?',
+                [req.params.product_id]
+            ).then(results => {
+                let product_images = [];
+
+                // prepare image
+                for (let i = 0; i < results.length; i++) {
+                    product_images.push({
+                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
+                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
+                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
+                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
+                    });
+                }
+
+                // add to result
+                product_results[0].images = product_images;
+
+                // check to get contact information
+                if (get_contact_info) {
+                    if (!req_fields || req_fields.find(f => f == 'email')) { // for email
+                        if (product_results[0].contactEmail) {
+                            product_results[0].email = product_results[0].contactEmail;
+                            delete product_results[0].contactEmail; // remove key
+
+                        } else {
+                            delete product_results[0].contactEmail; // remove key
+                        }
+                    }
+
+                    if (!req_fields || req_fields.find(f => f == 'phoneNumber')) { // for phone number
+                        if (product_results[0].contactPhoneNumber) {
+                            product_results[0].phone_number = product_results[0].contactPhoneNumber;
+                            delete product_results[0].contactPhoneNumber; // remove key
+
+                        } else {
+                            delete product_results[0].contactPhoneNumber; // remove key
+                        }
+                    }
+                }
+
+                // check if user has a profile picture
+                if (product_results[0].profilePictureSmallURL) {
+                    // add user to results
+                    product_results[0].user = {
+                        id: product_results[0].userID,
+                        name: product_results[0].lastName + ' ' + product_results[0].firstName,
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + product_results[0].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + product_results[0].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + product_results[0].profilePictureSmallURL
+                        }
+                    };
+
+                } else {
+                    // add user to results
+                    product_results[0].user = {
+                        id: product_results[0].userID,
+                        name: product_results[0].lastName + ' ' + product_results[0].firstName,
+                        image: null
+                    };
+                }
+
+                // remove keys
+                delete product_results[0].userID;
+                delete product_results[0].firstName;
+                delete product_results[0].lastName;
+                delete product_results[0].profilePictureSmallURL;
+                delete product_results[0].profilePictureMediumURL;
+                delete product_results[0].profilePictureBigURL;
+
+                // send result to client
+                res.status(200);
+                res.json(product_results[0]);
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    } else { // no user's information
+        let select_query = 'SELECT A.storeID AS store_id';
+
+        req_fields.forEach(elem => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (permitted_field_count == 0) {
+                    select_query += `, ${mappped_field_name.get(elem)}`;
+
+                } else {
+                    select_query += `, ${mappped_field_name.get(elem)}`;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        // get seller contact information
+        if (req_fields.find(f => (f == 'email' || f == 'phoneNumber'))) {
+            select_query += ' FROM products AS A LEFT JOIN stores AS C ON A.storeID = C.storeID ' +
+                'LEFT JOIN product_contact_info AS D ON A.productID = D.productID ';
+
+            get_contact_info = true;
+
+        } else { // don't get seller contact information
+            select_query += ' FROM products AS A ';
+            get_contact_info = false;
+        }
+
+        // where condition
+        select_query += 'WHERE A.productID = ? LIMIT 1';
+
+        // check if product exist and retrieve
+        gDB.query(select_query, [req.params.product_id]).then(product_results => {
+            // check if product exist
+            if (product_results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Product can't be found"
+                });
+
+                return;
+            }
+
+            if (!req_fields.find(f => f == 'images')) { // fetch only product no picture
+                // check to get contact information
+                if (get_contact_info) {
+                    if (req_fields.find(f => f == 'email')) { // for email
+                        if (product_results[0].contactEmail) {
+                            product_results[0].email = product_results[0].contactEmail;
+                            delete product_results[0].contactEmail; // remove key
+
+                        } else {
+                            delete product_results[0].contactEmail; // remove key
+                        }
+                    }
+
+                    if (req_fields.find(f => f == 'phoneNumber')) { // for phone number
+                        if (product_results[0].contactPhoneNumber) {
+                            product_results[0].phone_number = product_results[0].contactPhoneNumber;
+                            delete product_results[0].contactPhoneNumber; // remove key
+
+                        } else {
+                            delete product_results[0].contactPhoneNumber; // remove key
+                        }
+                    }
+                }
+
+                // send result to client
+                res.status(200);
+                res.json(product_results[0]);
+
+                return;
+            }
+
+            // get picture(s) for product
+            gDB.query(
+                'SELECT imageRelativeURL FROM product_images WHERE productID = ?',
+                [req.params.product_id]
+            ).then(results => {
+                let product_images = [];
+
+                // prepare image
+                for (let i = 0; i < results.length; i++) {
+                    product_images.push({
+                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
+                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
+                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
+                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
+                    });
+                }
+
+                // add to result
+                product_results[0].images = product_images;
+
+                // check to get contact information
+                if (get_contact_info) {
+                    if (req_fields.find(f => f == 'email')) { // for email
+                        if (product_results[0].contactEmail) {
+                            product_results[0].email = product_results[0].contactEmail;
+                            delete product_results[0].contactEmail; // remove key
+
+                        } else {
+                            delete product_results[0].contactEmail; // remove key
+                        }
+                    }
+
+                    if (req_fields.find(f => f == 'phoneNumber')) { // for phone number
+                        if (product_results[0].contactPhoneNumber) {
+                            product_results[0].phone_number = product_results[0].contactPhoneNumber;
+                            delete product_results[0].contactPhoneNumber; // remove key
+
+                        } else {
+                            delete product_results[0].contactPhoneNumber; // remove key
+                        }
+                    }
+                }
+
+                // send result to client
+                res.status(200);
+                res.json(product_results[0]);
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+    }
+});
+
+// get a service
+router.get('/services/:service_id', custom_utils.allowedScopes(['read:services', 'read:stores']), (req, res) => {
+    // check if service id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.service_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    let req_fields = null;
+
+    if (req.query.fields) {
+        req_fields = custom_utils.filterInArray(
+            req.query.fields.split(','),
+            ['user', 'images', 'location', 'category', 'name', 'description', 'email', 'phoneNumber', 'price', 'time']
+        );
+    }
+
+    const mappped_field_name = new Map([
+        ['location', 'A.locationID AS location_id'],
+        ['category', 'A.categoryID AS category_id'],
+        ['name', 'A.workName AS name'],
+        ['description', 'A.workDescription AS description'],
+        ['price', 'A.price'],
+        ['email', 'C.contactEmail AS email'],
+        ['phoneNumber', 'C.contactPhoneNumber AS phone_number'],
+        ['time', 'A.time']
+    ]);
+
+    let field_already_exist = [];
+    let permitted_field_count = 0;
+
+    // check to retrieve information about the user that add the product
+    if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
+        let select_query = 'SELECT A.userID, A.storeID AS store_id';
+        let get_service_images = false;
+
+        if (req_fields || req_fields.length > 0) {
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            // get seller contact information
+            if (req_fields.find(f => (f == 'email' || f == 'phoneNumber'))) {
+                select_query += ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL, ' +
+                    'FROM works AS A LEFT JOIN user AS B ON A.userID = B.userID LEFT JOIN services AS C ON A.storeID = C.storeID ';
+
+            } else {
+                select_query += ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
+                    'FROM works AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+            }
+
+            if (req_fields.find(f => f == 'images')) {
+                get_service_images = true;
+            }
+
+        } else {
+            select_query += ', A.locationID AS location_id, A.categoryID AS category_id, ' +
+                'A.workName AS name, A.workDescription AS description, A.price, B.firstName, B.lastName, ' +
+                'B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL, C.contactEmail AS email, C.contactPhoneNumber AS phone_number, ' +
+                ' A.time FROM works AS A LEFT JOIN user AS B ON A.userID = B.userID LEFT JOIN services AS C ON A.storeID = C.storeID ';
+
+            get_service_images = true;
+        }
+
+        // where condition
+        select_query += 'WHERE workID = ? LIMIT 1';
+
+        // check if work exist and retrieve
+        gDB.query(select_query, [req.params.service_id]).then(work_results => {
+            // check if work exist
+            if (work_results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Service can't be found"
+                });
+
+                return;
+            }
+
+            if (req_fields && !get_service_images) { // fetch only work no picture
+                // check if user has a profile picture
+                if (work_results[0].profilePictureSmallURL) {
+                    // add user to results
+                    work_results[0].user = {
+                        id: work_results[0].userID,
+                        name: work_results[0].lastName + ' ' + work_results[0].firstName,
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + work_results[0].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + work_results[0].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + work_results[0].profilePictureSmallURL
+                        }
+                    };
+
+                } else {
+                    // add user to results
+                    work_results[0].user = {
+                        id: work_results[0].userID,
+                        name: work_results[0].lastName + ' ' + work_results[0].firstName,
+                        image: null
+                    };
+                }
+
+                // remove keys
+                delete work_results[0].userID;
+                delete work_results[0].firstName;
+                delete work_results[0].lastName;
+                delete work_results[0].profilePictureSmallURL;
+                delete work_results[0].profilePictureMediumURL;
+                delete work_results[0].profilePictureBigURL;
+
+                // send result to client
+                res.status(200);
+                res.json(work_results[0]);
+
+                return;
+            }
+
+            // get picture(s) for work
+            gDB.query(
+                'SELECT imageRelativeURL FROM work_images WHERE workID = ?',
+                [req.params.service_id]
+            ).then(results => {
+                let work_images = [];
+
+                // prepare image
+                for (let i = 0; i < results.length; i++) {
+                    work_images.push({
+                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
+                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
+                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
+                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
+                    });
+                }
+
+                // add to result
+                work_results[0].images = work_images;
+
+                // check if user has a profile picture
+                if (work_results[0].profilePictureSmallURL) {
+                    // add user to results
+                    work_results[0].user = {
+                        id: work_results[0].userID,
+                        name: work_results[0].lastName + ' ' + work_results[0].firstName,
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + work_results[0].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + work_results[0].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + work_results[0].profilePictureSmallURL
+                        }
+                    };
+
+                } else {
+                    // add user to results
+                    work_results[0].user = {
+                        id: work_results[0].userID,
+                        name: work_results[0].lastName + ' ' + work_results[0].firstName,
+                        image: null
+                    };
+                }
+
+                // remove keys
+                delete work_results[0].userID;
+                delete work_results[0].firstName;
+                delete work_results[0].lastName;
+                delete work_results[0].profilePictureSmallURL;
+                delete work_results[0].profilePictureMediumURL;
+                delete work_results[0].profilePictureBigURL;
+
+                // send result to client
+                res.status(200);
+                res.json(work_results[0]);
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    } else { // no user's information
+        let select_query = 'SELECT A.storeID AS store_id';
+
+        req_fields.forEach(elem => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (permitted_field_count == 0) {
+                    select_query += `, ${mappped_field_name.get(elem)}`;
+
+                } else {
+                    select_query += `, ${mappped_field_name.get(elem)}`;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        // get seller contact information
+        if (req_fields.find(f => (f == 'email' || f == 'phoneNumber'))) {
+            select_query += ' FROM works AS A LEFT JOIN services AS C ON A.storeID = C.storeID ';
+
+        } else { // don't get seller contact information
+            select_query += ' FROM works AS A ';
+        }
+
+        // where condition
+        select_query += 'WHERE A.workID = ? LIMIT 1';
+
+        // check if work exist and retrieve
+        gDB.query(select_query, [req.params.service_id]).then(work_results => {
+            // check if work exist
+            if (work_results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Service can't be found"
+                });
+
+                return;
+            }
+
+            if (!req_fields.find(f => f == 'images')) { // fetch only work no picture
+                // send result to client
+                res.status(200);
+                res.json(work_results[0]);
+
+                return;
+            }
+
+            // get picture(s) for work
+            gDB.query(
+                'SELECT imageRelativeURL FROM work_images WHERE workID = ?',
+                [req.params.service_id]
+            ).then(results => {
+                let work_images = [];
+
+                // prepare image
+                for (let i = 0; i < results.length; i++) {
+                    work_images.push({
+                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
+                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
+                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
+                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
+                    });
+                }
+
+                // add to result
+                work_results[0].images = work_images;
+
+                // send result to client
+                res.status(200);
+                res.json(work_results[0]);
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+    }
 });
 
 router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read:hellos:all']), (req, res) => {
