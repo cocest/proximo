@@ -245,6 +245,20 @@ class Utilities {
         }
     }
 
+    static filterInArray(list, filter_list) {
+        let filtered_list = [];
+        for (let i = 0; i < list.length; i++) {
+            for (let j = 0; j < filter_list.length; j++) {
+                if (list[i] == filter_list[j]) {
+                    filtered_list.push(list[i]);
+                    break;
+                }
+            }
+        }
+
+        return filtered_list;
+    }
+
     static pointInsideRect(point, bounds) {
         // determine if point is inside pass in rectangle
         if (point.x > bounds[0] && point.x < bounds[2] && point.y > bounds[1] && point.y < bounds[3]) {
