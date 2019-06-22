@@ -5308,7 +5308,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
 
                 // remove keys
                 delete results[i].userID,
-                delete results[i].firstName;
+                    delete results[i].firstName;
                 delete results[i].lastName;
                 delete results[i].profilePictureSmallURL;
                 delete results[i].profilePictureMediumURL;
@@ -5558,7 +5558,7 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
 
                 // remove keys
                 delete results[i].userID,
-                delete results[i].firstName;
+                    delete results[i].firstName;
                 delete results[i].lastName;
                 delete results[i].profilePictureSmallURL;
                 delete results[i].profilePictureMediumURL;
@@ -6162,7 +6162,7 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
 
         // remove keys
         delete results[0].userID,
-        delete results[0].firstName;
+            delete results[0].firstName;
         delete results[0].lastName;
         delete results[0].profilePictureSmallURL;
         delete results[0].profilePictureMediumURL;
@@ -6295,7 +6295,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
 
         // remove keys
         delete results[0].userID,
-        delete results[0].firstName;
+            delete results[0].firstName;
         delete results[0].lastName;
         delete results[0].profilePictureSmallURL;
         delete results[0].profilePictureMediumURL;
@@ -6596,7 +6596,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
 
                             // remove keys
                             delete results[i].userID,
-                            delete results[i].firstName;
+                                delete results[i].firstName;
                             delete results[i].lastName;
                             delete results[i].profilePictureSmallURL;
                             delete results[i].profilePictureMediumURL;
@@ -6968,7 +6968,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
 
                             // remove keys
                             delete results[i].userID,
-                            delete results[i].firstName;
+                                delete results[i].firstName;
                             delete results[i].lastName;
                             delete results[i].profilePictureSmallURL;
                             delete results[i].profilePictureMediumURL;
@@ -8410,6 +8410,7 @@ router.get('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['read:
                     reply_count: cmt_results[0].replyCount,
                     time: cmt_results[0].time,
                     user: {
+                        id: cmt_results[0].userID,
                         name: results[0].lastName + ' ' + results[0].firstName,
                         image: {
                             big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
@@ -8427,6 +8428,7 @@ router.get('/news/:news_id/comments/:cmt_id', custom_utils.allowedScopes(['read:
                     reply_count: cmt_results[0].replyCount,
                     time: cmt_results[0].time,
                     user: {
+                        id: cmt_results[0].userID,
                         name: results[0].lastName + ' ' + results[0].firstName,
                         image: null
                     }
@@ -8507,6 +8509,7 @@ router.get('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(
                     reply_count: cmt_results[0].replyCount,
                     time: cmt_results[0].time,
                     user: {
+                        id: cmt_results[0].userID,
                         name: results[0].lastName + ' ' + results[0].firstName,
                         image: {
                             big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[0].profilePictureBigURL,
@@ -8524,6 +8527,7 @@ router.get('/articles/:article_id/comments/:cmt_id', custom_utils.allowedScopes(
                     reply_count: cmt_results[0].replyCount,
                     time: cmt_results[0].time,
                     user: {
+                        id: cmt_results[0].userID,
                         name: results[0].lastName + ' ' + results[0].firstName,
                         image: null
                     }
@@ -8639,7 +8643,7 @@ router.get('/news/:news_id/comments', custom_utils.allowedScopes(['read:news', '
         ).then(cmt_results => {
             // get all comment
             gDB.query(
-                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                 'B.profilePictureBigURL FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
                 `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                 [
@@ -8657,6 +8661,7 @@ router.get('/news/:news_id/comments', custom_utils.allowedScopes(['read:news', '
                             reply_count: results[i].replyCount,
                             time: results[i].time,
                             user: {
+                                id: results[i].userID,
                                 name: results[i].lastName + ' ' + results[i].firstName,
                                 image: {
                                     big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
@@ -8673,6 +8678,7 @@ router.get('/news/:news_id/comments', custom_utils.allowedScopes(['read:news', '
                             reply_count: results[i].replyCount,
                             time: results[i].time,
                             user: {
+                                id: results[i].userID,
                                 name: results[i].lastName + ' ' + results[i].firstName,
                                 image: null
                             }
@@ -8820,7 +8826,7 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
         ).then(cmt_results => {
             // get all comment
             gDB.query(
-                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                'SELECT A.commentID, A.comment, A.replyCount, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                 'B.profilePictureBigURL FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
                 `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                 [
@@ -8838,6 +8844,7 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
                             reply_count: results[i].replyCount,
                             time: results[i].time,
                             user: {
+                                id: results[i].userID,
                                 name: results[i].lastName + ' ' + results[i].firstName,
                                 image: {
                                     big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
@@ -8854,6 +8861,7 @@ router.get('/articles/:article_id/comments', custom_utils.allowedScopes(['read:a
                             reply_count: results[i].replyCount,
                             time: results[i].time,
                             user: {
+                                id: results[i].userID,
                                 name: results[i].lastName + ' ' + results[i].firstName,
                                 image: null
                             }
@@ -9371,7 +9379,7 @@ router.get('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes
             ).then(cmt_results => {
                 // get all comment
                 gDB.query(
-                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                     'B.profilePictureBigURL FROM news_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ? ' +
                     `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                     [
@@ -9389,6 +9397,7 @@ router.get('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes
                                 reply_count: results[i].replyCount,
                                 time: results[i].time,
                                 user: {
+                                    id: results[i].userID,
                                     name: results[i].lastName + ' ' + results[i].firstName,
                                     image: {
                                         big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
@@ -9405,6 +9414,7 @@ router.get('/news/:news_id/comments/:cmt_id/replies', custom_utils.allowedScopes
                                 reply_count: results[i].replyCount,
                                 time: results[i].time,
                                 user: {
+                                    id: results[i].userID,
                                     name: results[i].lastName + ' ' + results[i].firstName,
                                     image: null
                                 }
@@ -9583,7 +9593,7 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
             ).then(cmt_results => {
                 // get all comment
                 gDB.query(
-                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                    'SELECT A.commentID, A.comment, A.replyCount, A.time, B.firstName, B.userID, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                     'B.profilePictureBigURL FROM article_comments AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ? ' +
                     `AND A.replyToCommentID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
                     [
@@ -9601,6 +9611,7 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
                                 reply_count: results[i].replyCount,
                                 time: results[i].time,
                                 user: {
+                                    id: results[i].userID,
                                     name: results[i].lastName + ' ' + results[i].firstName,
                                     image: {
                                         big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
@@ -9617,6 +9628,7 @@ router.get('/articles/:article_id/comments/:cmt_id/replies', custom_utils.allowe
                                 reply_count: results[i].replyCount,
                                 time: results[i].time,
                                 user: {
+                                    id: results[i].userID,
                                     name: results[i].lastName + ' ' + results[i].firstName,
                                     image: null
                                 }
@@ -14494,7 +14506,7 @@ router.put('/stores/:store_id/products/:product_id', custom_utils.allowedScopes(
             // check if bio is provided
             if (req.body.name) {
                 query += 'name = ?';
-                post.push(req.body.name);
+                query_post.push(req.body.name);
                 input_count++;
             }
 
@@ -14733,7 +14745,7 @@ router.put('/stores/:store_id/services/:service_id', custom_utils.allowedScopes(
             // check if bio is provided
             if (req.body.name) {
                 query += 'name = ?';
-                post.push(req.body.name);
+                query_post.push(req.body.name);
                 input_count++;
             }
 
@@ -15532,8 +15544,8 @@ router.post('/products', custom_utils.allowedScopes(['write:products']), (req, r
                                 post: [
                                     product_id,
                                     user_id,
-                                    req.params.email ? req.params.email : '',
-                                    req.params.phoneNumber
+                                    req.body.email ? req.body.email : '',
+                                    req.body.phoneNumber
                                 ]
                             },
                             {
@@ -15665,6 +15677,9 @@ router.put('/products/:product_id', custom_utils.allowedScopes(['write:products'
         return;
     }
 
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
     // check if product exist and not a product in store
     gDB.query('SELECT storeID, userID FROM products WHERE productID = ? LIMIT 1', [req.params.product_id]).then(results => {
         if (results.length < 1) {
@@ -15778,14 +15793,18 @@ router.put('/products/:product_id', custom_utils.allowedScopes(['write:products'
         }
 
         // prepare the update query
+        let transaction = [];
         let query = 'UPDATE products SET ';
+        let query_2 = 'UPDATE product_contact_info SET ';
         let query_post = [];
+        let query_post_2 = [];
         let input_count = 0;
+        let input_count_2 = 0;
 
-        // check if bio is provided
+        // check if name is provided
         if (req.body.name) {
             query += 'name = ?';
-            post.push(req.body.name);
+            query_post.push(req.body.name);
             input_count++;
         }
 
@@ -15829,37 +15848,46 @@ router.put('/products/:product_id', custom_utils.allowedScopes(['write:products'
         }
 
         if (req.body.email) {
-            if (input_count < 1) {
-                query += 'email = ?';
-                query_post.push(req.body.email);
-
-            } else {
-                query += ', email = ?';
-                query_post.push(req.body.email);
-            }
-
-            input_count++;
+            query_2 += 'email = ?';
+            query_post_2.push(req.body.email);
+            input_count_2++;
         }
 
         if (req.body.phoneNumber) {
-            if (input_count < 1) {
-                query += 'phoneNumber = ?';
-                query_post.push(req.body.phoneNumber);
+            if (input_count_2 < 1) {
+                query_2 += 'phoneNumber = ?';
+                query_post_2.push(req.body.phoneNumber);
 
             } else {
-                query += ', phoneNumber = ?';
+                query_2 += ', phoneNumber = ?';
                 query_post.push(req.body.phoneNumber);
             }
 
-            input_count++;
+            input_count_2++;
         }
 
-        // last part of the query
-        query += ' WHERE productID = ? LIMIT 1';
-        query_post.push(req.params.product_id);
+        // check if first table should be updated
+        if (query_post.length > 0) {
+            // last part of the query
+            query += ' WHERE productID = ? LIMIT 1';
+            query_post.push(req.params.product_id);
 
-        // get store type
-        gDB.query(query, query_post).then(results => {
+            // add to transaction
+            transaction.push({ query: query, post: query_post });
+        }
+
+        // check if second table should be updated
+        if (query_post_2.length > 0) {
+            // last part of the query
+            query_2 += ' WHERE productID = ? LIMIT 1';
+            query_post_2.push(req.params.product_id);
+
+            // add to transaction
+            transaction.push({ query: query_2, post: query_post_2 });
+        }
+
+        // update product in store and it contact information
+        gDB.transaction(...transaction).then(results => {
             return res.status(200).send();
 
         }).catch(err => {
@@ -15916,6 +15944,9 @@ router.delete('/products/:product_id', custom_utils.allowedScopes(['write:produc
 
         return;
     }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
 
     // check if product exist and not a product in store
     gDB.query('SELECT storeID, userID FROM products WHERE productID = ? LIMIT 1', [req.params.product_id]).then(results => {
@@ -15991,7 +16022,7 @@ router.delete('/products/:product_id', custom_utils.allowedScopes(['write:produc
                     return;
                 }
 
-                // delete product and all the related contents
+                // delete a product and all the related contents
                 gDB.transaction(
                     {
                         query: 'DELETE FROM product_contact_info WHERE productID = ? LIMIT 1',
@@ -17861,6 +17892,1684 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
                 // send result to client
                 res.status(200);
                 res.json(work_results[0]);
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+    }
+});
+
+// add house to realestate for rent or purchase
+router.post('/realEstate/houses', custom_utils.allowedScopes(['write:houses']), (req, res) => {
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // pass in queries
+    let purpose = req.query.for;
+    let location_id = req.query.locationID;
+
+    if (!purpose) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "for",
+            message: "for has to be defined"
+        });
+
+    } else if (!/^(rent|buy)$/.test(purpose)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "for",
+            message: "for value is invalid"
+        });
+
+    }
+
+    if (!location_id) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "locationID",
+            message: "locationID has to be defined"
+        });
+
+    } else if (!/^\d+$/.test(location_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "locationID",
+            message: "locationID value is invalid"
+        });
+
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if location ID exist
+    gDB.query('SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1', [location_id]).then(results => {
+        if (results.length < 1) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "locationID",
+                message: "locationID value is invalid"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_query",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        uploads(req, res, (err) => {
+            // check if enctype is multipart form data
+            if (!req.is('multipart/form-data')) {
+                res.status(415);
+                res.json({
+                    error_code: "invalid_request_body",
+                    message: "Encode type not supported"
+                });
+
+                return;
+            }
+
+            // check if files contain data
+            if (!req.files) {
+                res.status(400);
+                res.json({
+                    error_code: "invalid_request",
+                    message: "At least, one image must be provided"
+                });
+
+                return;
+            }
+
+            // A Multer error occurred when uploading
+            if (err instanceof multer.MulterError) {
+                if (err.code == 'LIMIT_FILE_SIZE') {
+                    res.status(400);
+                    res.json({
+                        error_code: "size_exceeded",
+                        message: "Image your uploading exceeded allowed size"
+                    });
+
+                    return;
+                }
+
+                if (err.code == 'LIMIT_FILE_COUNT') {
+                    res.status(400);
+                    res.json({
+                        error_code: "file_count_exceeded",
+                        message: "Allowed number of image exceeded"
+                    });
+
+                    return;
+                }
+
+                // other multer errors
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+
+            } else if (err) { // An unknown error occurred when uploading
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            }
+
+            // validate submitted data
+            const invalid_inputs = [];
+
+            if (!req.body.description) {
+                invalid_inputs.push({
+                    error_code: "undefined_input",
+                    field: "description",
+                    message: "description has to be defined"
+                });
+
+            } else if (typeof req.body.description != 'string') {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "description",
+                    message: "description is not acceptable"
+                });
+
+            } else if (req.body.description.length > 1500) { // check if description exceed 1500 characters
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "description",
+                    message: "description exceed maximum allowed text"
+                });
+            }
+
+            if (!req.body.price) {
+                invalid_inputs.push({
+                    error_code: "undefined_input",
+                    field: "price",
+                    message: "price has to be defined"
+                });
+
+            } else if (!/^([1-9][0-9]*([.]{1}[0-9]+)?|[0]([.]{1}[0-9]+)?)$/.test(req.body.price)) {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "price",
+                    message: "price format is not acceptable"
+                });
+            }
+
+            if (!req.body.negotiable) {
+                invalid_inputs.push({
+                    error_code: "undefined_input",
+                    field: "negotiable",
+                    message: "negotiable has to be defined"
+                });
+
+            } else if (!/^[0-1]$/.test(req.body.negotiable)) {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "negotiable",
+                    message: "negotiable value is invalid"
+                });
+            }
+
+            if (!req.body.address) {
+                invalid_inputs.push({
+                    error_code: "undefined_input",
+                    field: "address",
+                    message: "address has to be defined"
+                });
+
+            } else if (typeof req.body.address != 'string') {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "address",
+                    message: "address is not acceptable"
+                });
+            }
+
+            // contact information
+            if (req.body.email && !validator.isEmail(req.body.email)) {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "email",
+                    message: "email is not acceptable"
+                });
+            }
+
+            if (!req.body.phoneNumber) {
+                invalid_inputs.push({
+                    error_code: "undefined_input",
+                    field: "phoneNumber",
+                    message: "phoneNumber has to be defined"
+                });
+
+            } else if (!/^\d+$/.test(req.body.phoneNumber)) {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "phoneNumber",
+                    message: "phoneNumber value is invalid"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_field",
+                    errors: invalid_inputs
+                });
+
+                return;
+            }
+
+            const image_buffers = [];
+            const img_paths = [];
+            let file_mime;
+            let img_format_not_supported = false;
+            let supported_images = [
+                'jpg',
+                'png',
+                'gif',
+                'jp2'
+            ];
+            const save_image_ext = 'png';
+
+            // read all the uploaded image and add them to buffer
+            for (let i = 0; i < req.files.length; i++) {
+                // add to array
+                image_buffers.push(fs.readFileSync(req.files[i].path));
+
+                // image path
+                img_paths.push(req.files[i].path);
+
+                if (!img_format_not_supported) {
+                    // read minimum byte from buffer required to determine file mime
+                    file_mime = file_type(Buffer.from(image_buffers[i], 0, file_type.minimumBytes));
+
+                    if (!(file_mime.mime.split('/')[0] == 'image' && supported_images.find(e => e == file_mime.ext))) {
+                        img_format_not_supported = true;
+                    }
+                }
+            }
+
+            // delete all the uploaded image
+            for (let j = 0; j < img_paths.length; j++) {
+                fs.unlinkSync(img_paths[j]); // delete the uploaded file
+            }
+
+            // check if any image is not supported
+            if (img_format_not_supported) {
+                res.status(406);
+                res.json({
+                    error_code: "unsupported_format",
+                    message: "Uploaded image(s) is not supported"
+                });
+
+                return;
+            }
+
+            // resize uploaded image(s)
+            const resize = imgBuffer => {
+                return new Promise((resolve, rejected) => {
+                    sharp(imgBuffer)
+                        .resize({
+                            height: 1080, // resize image using the set height
+                            withoutEnlargement: true
+                        })
+                        .toFormat(save_image_ext)
+                        .toBuffer()
+                        .then(buffer => {
+                            // resolve the promise
+                            resolve(buffer);
+                        })
+                        .catch(err => {
+                            rejected(err);
+                        });
+                });
+            };
+
+            Promise.all(image_buffers.map(resize)).then(buffers => {
+                // save the resized image(s) to aws s3 bucket
+                // upload each file
+                const uploadImage = pass_buffer => {
+                    return new Promise((resolve, rejected) => {
+                        const object_unique_name = rand_token.uid(34) + '.' + save_image_ext;
+
+                        const upload_params = {
+                            Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                            Body: pass_buffer,
+                            Key: 'house/images/big/' + object_unique_name,
+                            ACL: gConfig.AWS_S3_BUCKET_PERMISSION
+                        };
+
+                        s3.upload(upload_params, (err, data) => {
+                            if (err) {
+                                rejected(err);
+
+                            } else {
+                                resolve(data); // file uploaded successfully
+                            }
+                        });
+                    });
+                };
+
+                Promise.all(buffers.map(uploadImage)).then(datas => {
+                    const house_id = rand_token.generate(32); // generate 32 digit unique id
+                    const insert_values = [];
+
+                    for (let i = 0; i < datas.length; i++) {
+                        insert_values.push([
+                            house_id,
+                            url_parse(datas[i].Location, true).pathname.replace('/', '')
+                        ]);
+                    }
+
+                    //add product and images to database
+                    gDB.transaction(
+                        {
+                            query: 'INSERT INTO realestate_houses (houseID, userID, locationID, for, featuredImageRelativeURL, description, price, ' +
+                                'negotiable, address, contactEmail, contactPhoneNumber) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                            post: [
+                                house_id,
+                                user_id,
+                                location_id,
+                                purpose == 'rent' ? 1 : 2,
+                                url_parse(datas[0].Location, true).pathname.replace('/', ''),
+                                req.body.description,
+                                req.body.price,
+                                req.body.negotiable,
+                                req.body.address,
+                                req.body.email,
+                                req.body.phoneNumber
+                            ]
+                        },
+                        {
+                            query: 'INSERT INTO realestate_house_images (houseID, imageRelativeURL) VALUES ?',
+                            post: [insert_values]
+                        }
+                    ).then(results => {
+                        res.status(200);
+                        res.json({
+                            house_id: house_id
+                        });
+
+                        return;
+
+                    }).catch(err => {
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// update the information of the house
+router.put('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:houses']), (req, res) => {
+    // check if house id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.house_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if house exist
+    gDB.query('SELECT userID FROM realestate_houses WHERE houseID = ? LIMIT 1', [req.params.house_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "House can't be found"
+            });
+
+            return;
+        }
+
+        // check if is user's store
+        if (results[0].userID != user_id) {
+            res.status(401);
+            res.json({
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        // validate submitted data
+        const invalid_inputs = [];
+
+        if (!req.body.description) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "description",
+                message: "description has to be defined"
+            });
+
+        } else if (typeof req.body.description != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "description",
+                message: "description is not acceptable"
+            });
+
+        } else if (req.body.description.length > 1500) { // check if description exceed 1500 characters
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "description",
+                message: "description exceed maximum allowed text"
+            });
+        }
+
+        if (!req.body.price) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "price",
+                message: "price has to be defined"
+            });
+
+        } else if (!/^([1-9][0-9]*([.]{1}[0-9]+)?|[0]([.]{1}[0-9]+)?)$/.test(req.body.price)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "price",
+                message: "price format is not acceptable"
+            });
+        }
+
+        if (!req.body.negotiable) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "negotiable",
+                message: "negotiable has to be defined"
+            });
+
+        } else if (!/^[0-1]$/.test(req.body.negotiable)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "negotiable",
+                message: "negotiable value is invalid"
+            });
+        }
+
+        if (!req.body.address) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "address",
+                message: "address has to be defined"
+            });
+
+        } else if (typeof req.body.address != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "address",
+                message: "address is not acceptable"
+            });
+        }
+
+        // contact information
+        if (req.body.email && !validator.isEmail(req.body.email)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "email",
+                message: "email is not acceptable"
+            });
+        }
+
+        if (!req.body.phoneNumber) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "phoneNumber",
+                message: "phoneNumber has to be defined"
+            });
+
+        } else if (!/^\d+$/.test(req.body.phoneNumber)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "phoneNumber",
+                message: "phoneNumber value is invalid"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        // prepare the update query
+        let query = 'UPDATE realestate_houses SET ';
+        let query_post = [];
+        let input_count = 0;
+
+        // check if description is provided
+        if (req.body.description) {
+            query += 'description = ?';
+            post.push(req.body.description);
+            input_count++;
+        }
+
+        if (req.body.price) {
+            if (input_count < 1) {
+                query += 'price = ?';
+                query_post.push(req.body.price);
+
+            } else {
+                query += ', price = ?';
+                query_post.push(req.body.price);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.negotiable) {
+            if (input_count < 1) {
+                query += 'negotiable = ?';
+                query_post.push(req.body.negotiable);
+
+            } else {
+                query += ', negotiable = ?';
+                query_post.push(req.body.negotiable);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.address) {
+            if (input_count < 1) {
+                query += 'address = ?';
+                query_post.push(req.body.address);
+
+            } else {
+                query += ', address = ?';
+                query_post.push(req.body.address);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.email) {
+            if (input_count < 1) {
+                query += 'contactEmail = ?';
+                query_post.push(req.body.email);
+
+            } else {
+                query += ', contactEmail = ?';
+                query_post.push(req.body.email);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.phoneNumber) {
+            if (input_count < 1) {
+                query += 'contactPhoneNumber = ?';
+                query_post.push(req.body.phoneNumber);
+
+            } else {
+                query += ', contactPhoneNumber = ?';
+                query_post.push(req.body.phoneNumber);
+            }
+
+            input_count++;
+        }
+
+        // last part of the query
+        query += ' WHERE houseID = ? LIMIT 1';
+        query_post.push(req.params.house_id);
+
+        // update product in store
+        gDB.query(query, query_post).then(results => {
+            return res.status(200).send();
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete added house from the list
+router.delete('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:houses']), (req, res) => {
+    // check if house id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.house_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if house exist
+    gDB.query('SELECT userID FROM realestate_houses WHERE houseID = ? LIMIT 1', [req.params.house_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "House can't be found"
+            });
+
+            return;
+        }
+
+        // check if is user's store
+        if (results[0].userID != user_id) {
+            res.status(401);
+            res.json({
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        // get image(s) for house
+        gDB.query(
+            'SELECT imageRelativeURL FROM realestate_house_images WHERE houseID = ?',
+            [req.params.house_id]
+        ).then(results => {
+            let delete_objs = [];
+
+            // add object(s) to delete
+            for (let i = 0; i < results.length; i++) {
+                delete_objs.push({ Key: results[i].imageRelativeURL });
+            }
+
+            // set aws s3 access credentials
+            aws.config.update({
+                apiVersion: '2006-03-01',
+                accessKeyId: gConfig.AWS_ACCESS_ID,
+                secretAccessKey: gConfig.AWS_SECRET_KEY,
+                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+            });
+
+            const s3 = new aws.S3();
+
+            // initialise objects to delete
+            const deleteParam = {
+                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                Delete: {
+                    Objects: delete_objs
+                }
+            };
+
+            s3.deleteObjects(deleteParam, (err, data) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                }
+
+                // delete a house and all the related contents
+                gDB.transaction(
+                    {
+                        query: 'DELETE FROM realestate_houses WHERE houseID = ? LIMIT 1',
+                        post: [req.params.house_id]
+                    },
+                    {
+                        query: 'DELETE FROM realestate_house_images WHERE houseID = ?',
+                        post: [req.params.house_id]
+                    }
+                ).then(results => {
+                    return res.status(200).send();
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get list of house for rent or purchase
+router.get('/realEstate/houses', custom_utils.allowedScopes(['reag:houses']), (req, res) => {
+    // initialise variables
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    let purpose = req.query.for;
+    const location_id = req.query.locationID;
+    const pass_user_id = req.query.userID;
+    const invalid_inputs = [];
+
+    // check if pass user ID is valid
+    if (pass_user_id && !/^\d+$/.test(pass_user_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "userID",
+            message: "userID value is invalid"
+        });
+    }
+
+    // check if for is valid
+    if (purpose && !/^(rent|buy)$/.test(purpose)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "for",
+            message: "for value is invalid"
+        });
+    }
+
+    // check if query location ID is valid
+    if (location_id && !/^\d+$/.test(location_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "locationID",
+            message: "locationID value is invalid"
+        });
+    }
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if region with location ID exist
+    gDB.query('SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1', [location_id ? location_id : 0]).then(results => {
+        if (location_id && results.length < 1) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "locationID",
+                message: "locationID value is invalid"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_query",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        if (pass_limit && pass_limit < limit) {
+            limit = pass_limit;
+        }
+
+        if (pass_offset) {
+            offset = pass_offset;
+        }
+
+        let req_fields = null;
+
+        if (req.query.fields) {
+            req_fields = custom_utils.filterInArray(
+                req.query.fields.split(','),
+                ['user', 'location', 'featuredImage', 'description', 'price', 'time']
+            );
+        }
+
+        const mappped_field_name = new Map([
+            ['location', 'locationID AS location_id'],
+            ['featuredImage', 'featuredImageRelativeURL AS featured_img'],
+            ['description', 'description'],
+            ['price', 'price'],
+            ['time', 'time']
+        ]);
+
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+
+        // check to retrieve information about the user that add the house
+        if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
+            let select_query = 'SELECT A.houseID AS id, A.userID';
+            let select_post = [];
+            let count_query = 'SELECT COUNT(*) AS total FROM realestate_houses ';
+            let count_post = [];
+
+            // check if valid and required fields is given
+            if (req_fields && req_fields.length > 0) {
+                req_fields.forEach(elem => {
+                    if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                        if (permitted_field_count == 0) {
+                            select_query += `, A.${mappped_field_name.get(elem)}`;
+
+                        } else {
+                            select_query += `, A.${mappped_field_name.get(elem)}`;
+                        }
+
+                        field_already_exist.push(elem);
+                        permitted_field_count++; // increment by one
+                    }
+                });
+
+                select_query +=
+                    ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                    'B.profilePictureBigURL FROM realestate_houses AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+            } else { // no fields selection
+                select_query +=
+                    ', A.locationID AS location_id, A.featuredImageRelativeURL AS featured_img, A.description, ' +
+                    'A.price, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
+                    'B.profilePictureBigURL FROM realestate_houses AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+            }
+
+            let counter = 0; // count numbers of search keyword
+
+            if (pass_user_id) {
+                select_query += 'WHERE A.userID = ? ';
+                select_post.push(pass_user_id);
+
+                // count query
+                count_query += 'WHERE userID = ? ';
+                count_post.push(pass_user_id);
+
+                counter++;
+            }
+
+            if (location_id) {
+                if (counter > 0) {
+                    select_query += 'AND A.locationID = ? ';
+                    select_post.push(location_id);
+
+                    // count query
+                    count_query += 'AND locationID = ? ';
+                    count_post.push(location_id);
+
+                } else {
+                    select_query += 'WHERE A.locationID = ? ';
+                    select_post.push(location_id);
+
+                    // count query
+                    count_query += 'WHERE locationID = ? ';
+                    count_post.push(location_id);
+                }
+
+                counter++;
+            }
+
+            if (purpose) {
+                if (counter > 0) {
+                    select_query += 'AND A.for = ? ';
+                    select_post.push(purpose == 'rent' ? 1 : 2);
+
+                    // count query
+                    count_query += 'AND for = ? ';
+                    count_post.push(purpose == 'rent' ? 1 : 2);
+
+                } else {
+                    select_query += 'WHERE A.for = ? ';
+                    select_post.push(purpose == 'rent' ? 1 : 2);
+
+                    // count query
+                    count_query += 'WHERE for = ? ';
+                    count_post.push(purpose == 'rent' ? 1 : 2);
+                }
+
+                counter++;
+            }
+
+            // last should come first
+            select_query += 'ORDER BY A.time DESC ';
+
+            // set limit and offset
+            select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+            // get metadata for houses
+            gDB.query(count_query, count_post).then(count_results => {
+                // get houses
+                gDB.query(select_query, select_post).then(results => {
+                    for (let i = 0; i < results.length; i++) {
+                        // check to get featured image for houses
+                        if (results[i].featured_img) {
+                            // add featured image to results
+                            results[i].featured_img = {
+                                big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img,
+                                medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img).replace('big', 'medium'),
+                                small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img).replace('big', 'small'),
+                                tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img).replace('big', 'tiny')
+                            };
+                        }
+
+                        // check if user has a profile picture
+                        if (results[i].profilePictureSmallURL) {
+                            // add user to results
+                            results[i].user = {
+                                id: results[i].userID,
+                                name: results[i].lastName + ' ' + results[i].firstName,
+                                image: {
+                                    big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureBigURL,
+                                    medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureMediumURL,
+                                    small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + results[i].profilePictureSmallURL
+                                }
+                            };
+
+                        } else {
+                            // add user to results
+                            results[i].user = {
+                                id: results[i].userID,
+                                name: results[i].lastName + ' ' + results[i].firstName,
+                                image: null
+                            };
+                        }
+
+                        // remove keys
+                        delete results[i].userID;
+                        delete results[i].firstName;
+                        delete results[i].lastName;
+                        delete results[i].profilePictureSmallURL;
+                        delete results[i].profilePictureMediumURL;
+                        delete results[i].profilePictureBigURL;
+                    }
+
+                    // send result to client
+                    res.status(200);
+                    res.json({
+                        houses: results,
+                        metadata: {
+                            result_set: {
+                                count: results.length,
+                                offset: offset,
+                                limit: limit,
+                                total: count_results[0].total
+                            }
+                        }
+                    });
+
+                    return;
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        } else { // no user's information
+            let select_query = 'SELECT houseID AS id';
+            let select_post = [];
+            let count_query = 'SELECT COUNT(*) AS total FROM realestate_houses ';
+            let count_post = [];
+
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            select_query += ' FROM realestate_houses ';
+
+            let counter = 0; // count numbers of search keyword
+
+            if (pass_user_id) {
+                select_query += 'WHERE userID = ? ';
+                select_post.push(pass_user_id);
+
+                // count query
+                count_query += 'WHERE userID = ? ';
+                count_post.push(pass_user_id);
+
+                counter++;
+            }
+
+            if (location_id) {
+                if (counter > 0) {
+                    select_query += 'AND locationID = ? ';
+                    select_post.push(location_id);
+
+                    // count query
+                    count_query += 'AND locationID = ? ';
+                    count_post.push(location_id);
+
+                } else {
+                    select_query += 'WHERE locationID = ? ';
+                    select_post.push(location_id);
+
+                    // count query
+                    count_query += 'WHERE locationID = ? ';
+                    count_post.push(location_id);
+                }
+
+                counter++;
+            }
+
+            if (purpose) {
+                if (counter > 0) {
+                    select_query += 'AND for = ? ';
+                    select_post.push(purpose == 'rent' ? 1 : 2);
+
+                    // count query
+                    count_query += 'AND for = ? ';
+                    count_post.push(purpose == 'rent' ? 1 : 2);
+
+                } else {
+                    select_query += 'WHERE for = ? ';
+                    select_post.push(purpose == 'rent' ? 1 : 2);
+
+                    // count query
+                    count_query += 'WHERE for = ? ';
+                    count_post.push(purpose == 'rent' ? 1 : 2);
+                }
+
+                counter++;
+            }
+
+            // last should come first
+            select_query += 'ORDER BY time DESC ';
+
+            // set limit and offset
+            select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+            // get metadata for houses
+            gDB.query(count_query, count_post).then(count_results => {
+                // get houses
+                gDB.query(select_query, select_post).then(results => {
+                    for (let i = 0; i < results.length; i++) {
+                        // check to get featured image for houses
+                        if (results[i].featured_img) {
+                            // add featured image to results
+                            results[i].featured_img = {
+                                big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img,
+                                medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img).replace('big', 'medium'),
+                                small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img).replace('big', 'small'),
+                                tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img).replace('big', 'tiny')
+                            };
+                        }
+                    }
+
+                    // send result to client
+                    res.status(200);
+                    res.json({
+                        houses: results,
+                        metadata: {
+                            result_set: {
+                                count: results.length,
+                                offset: offset,
+                                limit: limit,
+                                total: count_results[0].total
+                            }
+                        }
+                    });
+
+                    return;
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+        }
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get a house for rent or purchase
+router.get('/realEstate/houses/:house_id', custom_utils.allowedScopes(['read:houses']), (req, res) => {
+    // check if house id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.house_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    let req_fields = null;
+
+    if (req.query.fields) {
+        req_fields = custom_utils.filterInArray(
+            req.query.fields.split(','),
+            ['user', 'images', 'location', 'description', 'negotiable', 'address', 'email', 'phoneNumber', 'price', 'time']
+        );
+    }
+
+    const mappped_field_name = new Map([
+        ['location', 'locationID AS location_id'],
+        ['description', 'description'],
+        ['negotiable', 'negotiable'],
+        ['address', 'address'],
+        ['email', 'contactEmail AS email'],
+        ['phoneNumber', 'contactPhoneNumber AS phone_number'],
+        ['price', 'price'],
+        ['time', 'time']
+    ]);
+
+    let field_already_exist = [];
+    let permitted_field_count = 0;
+
+    // check to retrieve information about the user that add the product
+    if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
+        let select_query = 'SELECT A.userID';
+        let get_house_images = false;
+
+        if (req_fields || req_fields.length > 0) {
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `, A.${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, A.${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            select_query +=
+                ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
+                'FROM realestate_houses AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+            if (req_fields.find(f => f == 'images')) {
+                get_house_images = true;
+            }
+
+        } else { // no fields selection
+            select_query += ', A.locationID AS location_id, A.negotiable, A.description, A.address, A.contactEmail AS email, ' + 
+                'A.contactPhoneNumber AS phone_number, A.price, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+                'B.profilePictureMediumURL, B.profilePictureBigURL FROM realestate_houses AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+            get_house_images = true;
+        }
+
+        // where condition
+        select_query += 'WHERE houseID = ? LIMIT 1';
+
+        // check if house exist and retrieve
+        gDB.query(select_query, [req.params.house_id]).then(house_results => {
+            // check if house exist
+            if (house_results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "House can't be found"
+                });
+
+                return;
+            }
+
+            if (req_fields && !get_house_images) { // fetch only house no picture
+                // check if user has a profile picture
+                if (house_results[0].profilePictureSmallURL) {
+                    // add user to results
+                    house_results[0].user = {
+                        id: house_results[0].userID,
+                        name: house_results[0].lastName + ' ' + house_results[0].firstName,
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + house_results[0].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + house_results[0].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + house_results[0].profilePictureSmallURL
+                        }
+                    };
+
+                } else {
+                    // add user to results
+                    house_results[0].user = {
+                        id: house_results[0].userID,
+                        name: house_results[0].lastName + ' ' + house_results[0].firstName,
+                        image: null
+                    };
+                }
+
+                // remove keys
+                delete house_results[0].userID;
+                delete house_results[0].firstName;
+                delete house_results[0].lastName;
+                delete house_results[0].profilePictureSmallURL;
+                delete house_results[0].profilePictureMediumURL;
+                delete house_results[0].profilePictureBigURL;
+
+                // send result to client
+                res.status(200);
+                res.json(house_results[0]);
+
+                return;
+            }
+
+            // get picture(s) for house
+            gDB.query(
+                'SELECT imageRelativeURL FROM realestate_house_images WHERE houseID = ?',
+                [req.params.house_id]
+            ).then(results => {
+                let house_images = [];
+
+                // prepare image
+                for (let i = 0; i < results.length; i++) {
+                    house_images.push({
+                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
+                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
+                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
+                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
+                    });
+                }
+
+                // add to result
+                house_results[0].images = house_images;
+
+                // check if user has a profile picture
+                if (house_results[0].profilePictureSmallURL) {
+                    // add user to results
+                    house_results[0].user = {
+                        id: house_results[0].userID,
+                        name: house_results[0].lastName + ' ' + house_results[0].firstName,
+                        image: {
+                            big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + house_results[0].profilePictureBigURL,
+                            medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + house_results[0].profilePictureMediumURL,
+                            small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + house_results[0].profilePictureSmallURL
+                        }
+                    };
+
+                } else {
+                    // add user to results
+                    house_results[0].user = {
+                        id: house_results[0].userID,
+                        name: house_results[0].lastName + ' ' + house_results[0].firstName,
+                        image: null
+                    };
+                }
+
+                // remove keys
+                delete house_results[0].userID;
+                delete house_results[0].firstName;
+                delete house_results[0].lastName;
+                delete house_results[0].profilePictureSmallURL;
+                delete house_results[0].profilePictureMediumURL;
+                delete house_results[0].profilePictureBigURL;
+
+                // send result to client
+                res.status(200);
+                res.json(house_results[0]);
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    } else { // no user's information
+        let select_query = 'SELECT ';
+
+        req_fields.forEach(elem => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (permitted_field_count == 0) {
+                    select_query += `${mappped_field_name.get(elem)}`;
+
+                } else {
+                    select_query += `, ${mappped_field_name.get(elem)}`;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        // check if thier is no field select from this table
+        if (permitted_field_count < 1){
+            select_query += '1 FROM realestate_houses ';
+
+        } else {
+            select_query += ' FROM realestate_houses ';
+        }
+
+        // where condition
+        select_query += 'WHERE houseID = ? LIMIT 1';
+
+        // check if house exist and retrieve
+        gDB.query(select_query, [req.params.house_id]).then(house_results => {
+            // check if house exist
+            if (house_results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "House can't be found"
+                });
+
+                return;
+            }
+
+            if (!req_fields.find(f => f == 'images')) { // fetch only house no picture
+                // send result to client
+                res.status(200);
+                res.json(house_results[0]);
+
+                return;
+            }
+
+            // get picture(s) for house
+            gDB.query(
+                'SELECT imageRelativeURL FROM realestate_house_images WHERE houseID = ?',
+                [req.params.house_id]
+            ).then(results => {
+                let house_images = [];
+
+                // prepare image
+                for (let i = 0; i < results.length; i++) {
+                    house_images.push({
+                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
+                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
+                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
+                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
+                    });
+                }
+
+                // add to result
+                house_results[0].images = house_images;
+
+                // send result to client
+                res.status(200);
+                res.json(house_results[0]);
 
                 return;
 
