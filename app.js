@@ -48,7 +48,7 @@ app.use('/api/v1', api_route_v1);
 // create the requested image size and store it to aws s3 bucket and redirect user to the source
 app.get('/resizeImage/:base_folder/images/:resize_size/:image_name', (req, res) => {
     // check if parse base folder name is valid
-    if (!/^(article|news|store|house)$/.test(req.params.base_folder)) {
+    if (!/^(article|news|store|house|emergency)$/.test(req.params.base_folder)) {
         res.status(404);
         res.json({
             error_code: "file_not_found",

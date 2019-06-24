@@ -5214,7 +5214,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     let count_query = 'SELECT COUNT(*) AS total FROM news ';
     let count_post = [];
 
-    // check if valid and required fields is given
+    // check if is valid and required fields is given
     if (req.query.fields) {
         // split the provided fields
         let req_fields = req.query.fields.split(',');
@@ -5307,8 +5307,8 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
                 }
 
                 // remove keys
-                delete results[i].userID,
-                    delete results[i].firstName;
+                delete results[i].userID;
+                delete results[i].firstName;
                 delete results[i].lastName;
                 delete results[i].profilePictureSmallURL;
                 delete results[i].profilePictureMediumURL;
@@ -5557,8 +5557,8 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
                 }
 
                 // remove keys
-                delete results[i].userID,
-                    delete results[i].firstName;
+                delete results[i].userID;
+                delete results[i].firstName;
                 delete results[i].lastName;
                 delete results[i].profilePictureSmallURL;
                 delete results[i].profilePictureMediumURL;
@@ -6071,10 +6071,10 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
     }
 
     const mappped_field_name = new Map([
-        ['categoryID', 'categoryID AS category_id'],
-        ['continentID', 'continentID AS continent_id'],
-        ['countryID', 'countryID AS country_id'],
-        ['regionID', 'regionID AS region_id'],
+        ['category', 'categoryID AS category_id'],
+        ['continent', 'continentID AS continent_id'],
+        ['country', 'countryID AS country_id'],
+        ['region', 'regionID AS region_id'],
         ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
         ['title', 'title'],
         ['highlight', 'highlight'],
@@ -6161,8 +6161,8 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         }
 
         // remove keys
-        delete results[0].userID,
-            delete results[0].firstName;
+        delete results[0].userID;
+        delete results[0].firstName;
         delete results[0].lastName;
         delete results[0].profilePictureSmallURL;
         delete results[0].profilePictureMediumURL;
@@ -6204,10 +6204,10 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
     }
 
     const mappped_field_name = new Map([
-        ['categoryID', 'categoryID AS category_id'],
-        ['continentID', 'continentID AS continent_id'],
-        ['countryID', 'countryID AS country_id'],
-        ['regionID', 'regionID AS region_id'],
+        ['category', 'categoryID AS category_id'],
+        ['continent', 'continentID AS continent_id'],
+        ['country', 'countryID AS country_id'],
+        ['region', 'regionID AS region_id'],
         ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
         ['title', 'title'],
         ['highlight', 'highlight'],
@@ -6294,8 +6294,8 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         }
 
         // remove keys
-        delete results[0].userID,
-            delete results[0].firstName;
+        delete results[0].userID;
+        delete results[0].firstName;
         delete results[0].lastName;
         delete results[0].profilePictureSmallURL;
         delete results[0].profilePictureMediumURL;
@@ -6595,8 +6595,8 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                             }
 
                             // remove keys
-                            delete results[i].userID,
-                                delete results[i].firstName;
+                            delete results[i].userID;
+                            delete results[i].firstName;
                             delete results[i].lastName;
                             delete results[i].profilePictureSmallURL;
                             delete results[i].profilePictureMediumURL;
@@ -6967,8 +6967,8 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                             }
 
                             // remove keys
-                            delete results[i].userID,
-                                delete results[i].firstName;
+                            delete results[i].userID;
+                            delete results[i].firstName;
                             delete results[i].lastName;
                             delete results[i].profilePictureSmallURL;
                             delete results[i].profilePictureMediumURL;
@@ -10378,7 +10378,6 @@ router.post('/stores', custom_utils.allowedScopes(['write:stores']), (req, res) 
             field: "categoryID",
             message: "categoryID value is invalid"
         });
-
     }
 
     if (!location_id) {
@@ -10394,7 +10393,6 @@ router.post('/stores', custom_utils.allowedScopes(['write:stores']), (req, res) 
             field: "locationID",
             message: "locationID value is invalid"
         });
-
     }
 
     // check if any input is invalid
@@ -10742,7 +10740,7 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
                 message: "type is not provided"
             });
 
-        } else if (store_type && !/^(product|service)$/.test(store_type)) {
+        } else if (!/^(product|service)$/.test(store_type)) {
             invalid_inputs.push({
                 error_code: "invalid_value",
                 field: "type",
@@ -10891,7 +10889,7 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
                 message: "type is not provided"
             });
 
-        } else if (store_type && !/^(product|service)$/.test(store_type)) {
+        } else if (!/^(product|service)$/.test(store_type)) {
             invalid_inputs.push({
                 error_code: "invalid_value",
                 field: "type",
@@ -12706,7 +12704,7 @@ router.delete('/stores/:store_id/upload/featuredImage', custom_utils.allowedScop
                 return;
             }
 
-            // delete store and all the related contents
+            // delete store featured image
             gDB.query(
                 'UPDATE ?? SET featuredImageRelativeURL = ? WHERE storeID = ? LIMIT 1',
                 [table_name, '', req.params.store_id]
@@ -19351,8 +19349,8 @@ router.get('/realEstate/houses/:house_id', custom_utils.allowedScopes(['read:hou
             }
 
         } else { // no fields selection
-            select_query += ', A.locationID AS location_id, A.negotiable, A.description, A.address, A.contactEmail AS email, ' + 
-                'A.contactPhoneNumber AS phone_number, A.price, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' + 
+            select_query += ', A.locationID AS location_id, A.negotiable, A.description, A.address, A.contactEmail AS email, ' +
+                'A.contactPhoneNumber AS phone_number, A.price, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM realestate_houses AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
             get_house_images = true;
@@ -19516,7 +19514,7 @@ router.get('/realEstate/houses/:house_id', custom_utils.allowedScopes(['read:hou
         });
 
         // check if thier is no field select from this table
-        if (permitted_field_count < 1){
+        if (permitted_field_count < 1) {
             select_query += '1 FROM realestate_houses ';
 
         } else {
@@ -19603,6 +19601,1416 @@ router.get('/realEstate/houses/:house_id', custom_utils.allowedScopes(['read:hou
             return;
         });
     }
+});
+
+// get all the categories for contact emergency
+router.get('/emergency/contact/categories', custom_utils.allowedScopes(['read:emergency']), (req, res) => {
+    // fetch categories from database
+    gDB.query('SELECT categoryID AS id, categoryName AS name FROM emergency_contact_categories').then(results => {
+        // return result to client
+        res.status(200);
+        res.json({
+            categories: results
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// add emergency contact to database
+router.post('/emergency/contacts', custom_utils.allowedScopes(['write:emergency:admin']), (req, res) => {
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // pass in queries
+    let category_id = req.query.categoryID;
+    let location_id = req.query.locationID;
+
+    // check if URL query is defined and valid
+    const invalid_inputs = [];
+
+    if (!category_id) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "categoryID",
+            message: "categoryID has to be defined"
+        });
+
+    } else if (!/^\d+$/.test(category_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "categoryID",
+            message: "categoryID value is invalid"
+        });
+    }
+
+    if (!location_id) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "locationID",
+            message: "locationID has to be defined"
+        });
+
+    } else if (!/^\d+$/.test(location_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "locationID",
+            message: "locationID value is invalid"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if category exist
+    gDB.query('SELECT 1 FROM emergency_contact_categories WHERE categoryID = ? LIMIT 1', category_id).then(results => {
+        if (results.length < 1) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "categoryID",
+                message: "categoryID value is invalid"
+            });
+        }
+
+        // check if location ID exist
+        gDB.query('SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1', [location_id]).then(results => {
+            if (results.length < 1) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "locationID",
+                    message: "locationID value is invalid"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_query",
+                    errors: invalid_inputs
+                });
+
+                return;
+            }
+
+            // validate submitted data
+            if (!req.body.title) {
+                invalid_inputs.push({
+                    error_code: "undefined_input",
+                    field: "title",
+                    message: "title has to be defined"
+                });
+
+            } else if (!/^([a-zA-Z0-9]+([ ]?[a-zA-Z0-9]+)*)$/.test(req.body.title)) {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "title",
+                    message: "title is not acceptable"
+                });
+            }
+
+            if (!req.body.address) {
+                invalid_inputs.push({
+                    error_code: "undefined_input",
+                    field: "address",
+                    message: "address has to be defined"
+                });
+
+            } else if (typeof req.body.address != 'string') {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "address",
+                    message: "address is not acceptable"
+                });
+            }
+
+            if (req.body.email && !validator.isEmail(req.body.email)) {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "email",
+                    message: "email is not acceptable"
+                });
+            }
+
+            if (!req.body.phoneNumber) {
+                invalid_inputs.push({
+                    error_code: "undefined_input",
+                    field: "phoneNumber",
+                    message: "phoneNumber has to be defined"
+                });
+
+            } else if (!/^\d+$/.test(req.body.phoneNumber)) {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "phoneNumber",
+                    message: "phoneNumber is not acceptable"
+                });
+            }
+
+            if (req.body.about && typeof req.body.about != 'string') {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "about",
+                    message: "about is not acceptable"
+                });
+
+            } else if (req.body.about && req.body.about.length > 1500) { // check if about exceed 1500 characters
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "about",
+                    message: "about exceed maximum allowed text"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_field",
+                    errors: invalid_inputs
+                });
+
+                return;
+            }
+
+            // create emergency contact for users
+            gDB.query(
+                'INSERT INTO emergency_contacts (categoryID, locationID, title, address, email, phoneNumber, about) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [
+                    category_id,
+                    location_id,
+                    req.body.title,
+                    req.body.address,
+                    req.body.email ? req.body.email : '',
+                    req.body.phoneNumber,
+                    req.body.about ? req.body.about : ''
+                ]
+            ).then(results => {
+                // send id to client
+                res.status(201);
+                res.json({
+                    contact_id: results.insertId
+                });
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// edit or update emergency contact information
+router.put('/emergency/contacts/:contact_id', custom_utils.allowedScopes(['write:emergency:admin']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.contact_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // check if contact exist
+    gDB.query('SELECT 1 FROM emergency_contacts WHERE contactID = ? LIMIT 1', [req.params.contact_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Contact can't be found"
+            });
+
+            return;
+        }
+
+        // validate submitted data
+        const invalid_inputs = [];
+
+        if (req.body.title && !/^([a-zA-Z0-9]+([ ]?[a-zA-Z0-9]+)*)$/.test(req.body.title)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "title",
+                message: "title is not acceptable"
+            });
+        }
+
+        if (req.body.address && typeof req.body.address != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "address",
+                message: "address is not acceptable"
+            });
+        }
+
+        if (req.body.email && !validator.isEmail(req.body.email)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "email",
+                message: "email is not acceptable"
+            });
+        }
+
+        if (req.body.phoneNumber && !/^\d+$/.test(req.body.phoneNumber)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "phoneNumber",
+                message: "phoneNumber is not acceptable"
+            });
+        }
+
+        if (req.body.about && typeof req.body.about != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "about",
+                message: "about is not acceptable"
+            });
+
+        } else if (req.body.about && req.body.about.length > 1500) { // check if about exceed 1500 characters
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "about",
+                message: "about exceed maximum allowed text"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        // prepare the update query
+        let query = 'UPDATE emergency_contacts SET ';
+        let query_post = [];
+        let input_count = 0;
+
+        if (req.body.title) {
+            query += 'title = ?';
+            post.push(req.body.title);
+            input_count++;
+        }
+
+        if (req.body.address) {
+            if (input_count < 1) {
+                query += 'address = ?';
+                query_post.push(req.body.address);
+
+            } else {
+                query += ', address = ?';
+                query_post.push(req.body.address);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.email) {
+            if (input_count < 1) {
+                query += 'email = ?';
+                query_post.push(req.body.email);
+
+            } else {
+                query += ', email = ?';
+                query_post.push(req.body.email);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.phoneNumber) {
+            if (input_count < 1) {
+                query += 'phoneNumber = ?';
+                query_post.push(req.body.phoneNumber);
+
+            } else {
+                query += ', phoneNumber = ?';
+                query_post.push(req.body.phoneNumber);
+            }
+
+            input_count++;
+        }
+
+        if (req.body.about) {
+            if (input_count < 1) {
+                query += 'about = ?';
+                query_post.push(req.body.about);
+
+            } else {
+                query += ', about = ?';
+                query_post.push(req.body.about);
+            }
+
+            input_count++;
+        }
+
+        // last part of the query
+        query += ' WHERE contactID = ? LIMIT 1';
+        query_post.push(req.params.contact_id);
+
+        // update emergency contact
+        gDB.query(query, query_post).then(results => {
+            return res.status(200).send();
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete an emergency contact
+router.delete('/emergency/contacts/:contact_id', custom_utils.allowedScopes(['write:emergency:admin']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.contact_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if contact exist and get an featured image if there any
+    gDB.query(
+        'SELECT featuredImageRelativeURL FROM emergency_contacts WHERE contactID = ? LIMIT 1',
+        [req.params.contact_id]
+    ).then(results => {
+        if (results.length < 1) {
+            return res.status(200).send();
+        }
+
+        // check if there is featured image to delete
+        if (results[0].featuredImageRelativeURL) {
+            // set aws s3 access credentials
+            aws.config.update({
+                apiVersion: '2006-03-01',
+                accessKeyId: gConfig.AWS_ACCESS_ID,
+                secretAccessKey: gConfig.AWS_SECRET_KEY,
+                region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+            });
+
+            const s3 = new aws.S3();
+
+            // initialise objects to delete
+            const deleteParam = {
+                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                Delete: {
+                    Objects: [{ Key: results[0].featuredImageRelativeURL }]
+                }
+            };
+
+            s3.deleteObjects(deleteParam, (err, data) => {
+                if (err) {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                }
+
+                // delete an emergency contact
+                gDB.query(
+                    'DELETE FROM emergency_contacts WHERE contactID = ? LIMIT 1',
+                    [req.params.contact_id]
+                ).then(results => {
+                    return res.status(200).send();
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+            });
+
+        } else { // no image
+            // delete an emergency contact
+            gDB.query(
+                'DELETE FROM emergency_contacts WHERE contactID = ? LIMIT 1',
+                [req.params.contact_id]
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+        }
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// upload image for emergency contact
+router.post('/emergency/contacts/:contact_id/upload/featuredImage', custom_utils.allowedScopes(['write:emergency:admin']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.contact_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if contact exist
+    gDB.query('SELECT 1 FROM emergency_contacts WHERE contactID = ? LIMIT 1', [req.params.contact_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Contact can't be found"
+            });
+
+            return;
+        }
+
+        upload(req, res, (err) => {
+            // check if enctype is multipart form data
+            if (!req.is('multipart/form-data')) {
+                res.status(415);
+                res.json({
+                    error_code: "invalid_request_body",
+                    message: "Encode type not supported"
+                });
+
+                return;
+            }
+
+            // check if file contain data
+            if (!req.file) {
+                res.status(400);
+                res.json({
+                    error_code: "invalid_request",
+                    message: "Bad request"
+                });
+
+                return;
+            }
+
+            // A Multer error occurred when uploading
+            if (err instanceof multer.MulterError) {
+                if (err.code == 'LIMIT_FILE_SIZE') {
+                    res.status(400);
+                    res.json({
+                        error_code: "size_exceeded",
+                        message: "Image your uploading exceeded allowed size"
+                    });
+
+                    return;
+                }
+
+                // other multer errors
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+
+            } else if (err) { // An unknown error occurred when uploading
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            }
+
+            let file_path = req.file.path; // uploaded file location
+            const save_image_ext = 'png';
+
+            // read uploaded image as buffer
+            let image_buffer = fs.readFileSync(file_path);
+
+            // check file type and if is supported
+            let supported_images = [
+                'jpg',
+                'png',
+                'gif',
+                'jp2'
+            ];
+
+            // read minimum byte from buffer required to determine file mime
+            let file_mime = file_type(Buffer.from(image_buffer, 0, file_type.minimumBytes));
+
+            if (!(file_mime.mime.split('/')[0] == 'image' && supported_images.find(e => e == file_mime.ext))) {
+                // delete the uploaded file
+                fs.unlinkSync(file_path);
+
+                res.status(406);
+                res.json({
+                    error_code: "unsupported_format",
+                    message: "Uploaded image is not supported"
+                });
+
+                return;
+            }
+
+            // resize the image if it exceeded the maximum resolution
+            sharp(image_buffer)
+                .resize({
+                    height: 1080, // resize image using the set height
+                    withoutEnlargement: true
+                })
+                .toFormat(save_image_ext)
+                .toBuffer()
+                .then(outputBuffer => {
+                    // no higher than 1080 pixels
+                    // and no larger than the input image
+
+                    // upload buffer to aws s3 bucket
+                    // set aws s3 access credentials
+                    aws.config.update({
+                        apiVersion: '2006-03-01',
+                        accessKeyId: gConfig.AWS_ACCESS_ID,
+                        secretAccessKey: gConfig.AWS_SECRET_KEY,
+                        region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+                    });
+
+                    const s3 = new aws.S3();
+
+                    // delete the uploaded file
+                    fs.unlinkSync(file_path);
+
+                    const uploadImage = () => {
+                        const object_unique_name = rand_token.uid(34) + '.' + save_image_ext;
+                        let dir_name = 'emergency';
+
+                        const upload_params = {
+                            Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                            Body: outputBuffer,
+                            Key: dir_name + '/images/big/' + object_unique_name,
+                            ACL: gConfig.AWS_S3_BUCKET_PERMISSION
+                        };
+
+                        s3.upload(upload_params, (err, data) => {
+                            if (err) {
+                                res.status(500);
+                                res.json({
+                                    error_code: "internal_error",
+                                    message: "Internal error"
+                                });
+
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+
+                                return;
+                            }
+
+                            if (data) { // file uploaded successfully
+                                let img_path = dir_name + '/images/big/' + object_unique_name;
+
+                                // save file location to database
+                                gDB.query(
+                                    'UPDATE emergency_contacts SET featuredImageRelativeURL = ? WHERE contactID = ? LIMIT 1',
+                                    [
+                                        img_path,
+                                        req.params.contact_id
+                                    ]
+                                ).then(results => {
+                                    // send result to client
+                                    res.status(200);
+                                    res.json({
+                                        image: {
+                                            big: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/big/${object_unique_name}`,
+                                            medium: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/medium/${object_unique_name}`,
+                                            small: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/small/${object_unique_name}`,
+                                            tiny: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/tiny/${object_unique_name}`
+                                        }
+                                    });
+
+                                }).catch(err => {
+                                    res.status(500);
+                                    res.json({
+                                        error_code: "internal_error",
+                                        message: "Internal error"
+                                    });
+
+                                    // log the error to log file
+                                    gLogger.log('error', err.message, {
+                                        stack: err.stack
+                                    });
+
+                                    return;
+                                });
+                            }
+                        });
+                    };
+
+                    // check if featured image has been uploaded before
+                    gDB.query(
+                        'SELECT featuredImageRelativeURL FROM emergency_contacts WHERE contactID = ? LIMIT 1',
+                        [req.params.contact_id]
+                    ).then(results => {
+                        if (results[0].featuredImageRelativeURL) {
+                            // delete the previous uploaded image
+                            const deleteParam = {
+                                Bucket: gConfig.AWS_S3_BUCKET_NAME,
+                                Delete: {
+                                    Objects: [{ Key: results[0].featuredImageRelativeURL }]
+                                }
+                            };
+
+                            s3.deleteObjects(deleteParam, (err, data) => {
+                                if (err) {
+                                    res.status(500);
+                                    res.json({
+                                        error_code: "internal_error",
+                                        message: "Internal error"
+                                    });
+
+                                    // log the error to log file
+                                    gLogger.log('error', err.message, {
+                                        stack: err.stack
+                                    });
+
+                                    return;
+
+                                } else {
+                                    uploadImage();
+                                }
+                            });
+
+                        } else { // no upload
+                            uploadImage();
+                        }
+
+                    }).catch(err => {
+                        // delete the uploaded file
+                        fs.unlinkSync(file_path);
+
+                        res.status(500);
+                        res.json({
+                            error_code: "internal_error",
+                            message: "Internal error"
+                        });
+
+                        // log the error to log file
+                        gLogger.log('error', err.message, {
+                            stack: err.stack
+                        });
+
+                        return;
+                    });
+
+                }).catch(err => {
+                    // delete the uploaded file
+                    fs.unlinkSync(file_path);
+
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete uploaded image for emergency contact
+router.delete('/emergency/contacts/:contact_id/upload/featuredImage', custom_utils.allowedScopes(['write:emergency:admin']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.contact_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if contact exist and get featured image for emergency contact
+    gDB.query(
+        'SELECT featuredImageRelativeURL FROM emergency_contacts WHERE contactID = ? LIMIT 1',
+        [req.params.contact_id]
+    ).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Contact can't be found"
+            });
+
+            return;
+        }
+
+        // check if image exist
+        if (!results[0].featuredImageRelativeURL) {
+            return res.status(200).send();
+        }
+
+        // set aws s3 access credentials
+        aws.config.update({
+            apiVersion: '2006-03-01',
+            accessKeyId: gConfig.AWS_ACCESS_ID,
+            secretAccessKey: gConfig.AWS_SECRET_KEY,
+            region: gConfig.AWS_S3_BUCKET_REGION // region where the bucket reside
+        });
+
+        const s3 = new aws.S3();
+
+        // initialise objects to delete
+        const deleteParam = {
+            Bucket: gConfig.AWS_S3_BUCKET_NAME,
+            Delete: {
+                Objects: [{ Key: results[0].featuredImageRelativeURL }]
+            }
+        };
+
+        s3.deleteObjects(deleteParam, (err, data) => {
+            if (err) {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            }
+
+            // delete contact featured image
+            gDB.query(
+                'UPDATE emergency_contacts SET featuredImageRelativeURL = ? WHERE contactID = ? LIMIT 1',
+                ['', req.params.contact_id]
+            ).then(results => {
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get list of emergency contact
+router.get('/emergency/contacts', custom_utils.allowedScopes(['read:emergency']), (req, res) => {
+    //define and initialise variables
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    const location_id = req.query.locationID;
+    const category_id = req.query.categoryID;
+    const invalid_inputs = [];
+
+    // check if query category ID is provided and valid
+    if (!category_id) {
+        invalid_inputs.push({
+            error_code: "undefined_value",
+            field: "categoryID",
+            message: "categoryID is not provided"
+        });
+
+    } else if (!/^\d+$/.test(category_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "categoryID",
+            message: "categoryID value is invalid"
+        });
+    }
+
+    // check if query location ID is valid
+    if (location_id && !/^\d+$/.test(location_id)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "locationID",
+            message: "locationID value is invalid"
+        });
+    }
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if region with location ID exist
+    gDB.query('SELECT 1 FROM map_regions WHERE regionID = ? LIMIT 1', [location_id ? location_id : 0]).then(results => {
+        if (location_id && results.length < 1) {
+            invalid_inputs.push({
+                error_code: "invalid_value",
+                field: "locationID",
+                message: "locationID value is invalid"
+            });
+        }
+
+        // check if category ID exist
+        gDB.query(
+            'SELECT 1 FROM emergency_contact_categories WHERE categoryID = ? LIMIT 1',
+            [category_id ? category_id : 0]
+        ).then(results => {
+            if (category_id && results.length < 1) {
+                invalid_inputs.push({
+                    error_code: "invalid_value",
+                    field: "categoryID",
+                    message: "categoryID value is invalid"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_query",
+                    errors: invalid_inputs
+                });
+
+                return;
+            }
+
+            if (pass_limit && pass_limit < limit) {
+                limit = pass_limit;
+            }
+
+            if (pass_offset) {
+                offset = pass_offset;
+            }
+
+            const mappped_field_name = new Map([
+                ['location', 'locationID AS location_id'],
+                ['featuredImage', 'featuredImageRelativeURL AS featured_img'],
+                ['title', 'title'],
+                ['address', 'address'],
+                ['time', 'time']
+            ]);
+            let select_query = 'SELECT contactID AS id, ';
+            let select_post = [];
+            let count_query = 'SELECT COUNT(*) AS total FROM emergency_contacts ';
+            let count_post = [];
+
+            // check if is valid and required fields is given
+            if (req.query.fields) {
+                // split the provided fields
+                let req_fields = req.query.fields.split(',');
+                let permitted_field_count = 0;
+                let field_already_exist = [];
+
+                req_fields.forEach(elem => {
+                    if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                        if (permitted_field_count == 0) {
+                            select_query += `${mappped_field_name.get(elem)}`;
+
+                        } else {
+                            select_query += `, ${mappped_field_name.get(elem)}`;
+                        }
+
+                        field_already_exist.push(elem);
+                        permitted_field_count++; // increment by one
+                    }
+                });
+
+                if (permitted_field_count < 1) {
+                    select_query =
+                        'SELECT contactID AS id, locationID AS location_id, featuredImageRelativeURL AS featured_img, ' +
+                        'title, address, time FROM emergency_contacts ';
+
+                } else {
+                    select_query += ' FROM emergency_contacts ';
+                }
+
+            } else { // no fields selection
+                select_query += 'locationID AS location_id, featuredImageRelativeURL AS featured_img, title, address, time FROM emergency_contacts ';
+            }
+
+            // add search keywords to SQL query
+            // category
+            select_query += 'WHERE categoryID = ? ';
+            select_post.push(category_id);
+
+            // for count query
+            count_query += 'WHERE categoryID = ? ';
+            count_post.push(category_id);
+
+            // location
+            if (location_id) {
+                select_query += 'AND locationID = ? ';
+                select_post.push(location_id);
+
+                // for count query
+                count_query += 'AND locationID = ? ';
+                count_post.push(location_id);
+            }
+
+            // set limit and offset
+            select_query += `LIMIT ${limit} OFFSET ${offset}`;
+
+            // get metadata for contacts
+            gDB.query(count_query, count_post).then(count_results => {
+                // get contacts
+                gDB.query(select_query, select_post).then(results => {
+                    for (let i = 0; i < results.length; i++) {
+                        // check if contact has featured image
+                        if (results[i].featured_img) {
+                            // add featured image to the results
+                            results[i].featured_img = {
+                                big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img,
+                                medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img).replace('big', 'medium'),
+                                small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img).replace('big', 'small'),
+                                tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].featured_img).replace('big', 'tiny')
+                            };
+
+                        } else if (typeof results[i].featured_img != 'undefined') {
+                            // add featured image to the results
+                            results[i].featured_img = null;
+                        }
+                    }
+
+                    // send result to client
+                    res.status(200);
+                    res.json({
+                        contacts: results,
+                        metadata: {
+                            result_set: {
+                                count: results.length,
+                                offset: offset,
+                                limit: limit,
+                                total: count_results[0].total
+                            }
+                        }
+                    });
+
+                    return;
+
+                }).catch(err => {
+                    res.status(500);
+                    res.json({
+                        error_code: "internal_error",
+                        message: "Internal error"
+                    });
+
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+
+                    return;
+                });
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+    });
+});
+
+// get an emergency contact
+router.get('/emergency/contacts/:contact_id', custom_utils.allowedScopes(['read:emergency']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.contact_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if contact exist
+    gDB.query('SELECT 1 FROM emergency_contacts WHERE contactID = ? LIMIT 1', [req.params.contact_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Contact can't be found"
+            });
+
+            return;
+        }
+
+        const mappped_field_name = new Map([
+            ['category', 'categoryID AS category_id'],
+            ['location', 'locationID AS location_id'],
+            ['featuredImage', 'featuredImageRelativeURL AS featured_img'],
+            ['title', 'title'],
+            ['address', 'address'],
+            ['email', 'email'],
+            ['phoneNumber', 'phoneNumber AS phone_number'],
+            ['about', 'about'],
+            ['time', 'time']
+        ]);
+        let select_query = 'SELECT ';
+
+        // check if is valid and required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            let req_fields = req.query.fields.split(',');
+            let permitted_field_count = 0;
+            let field_already_exist = [];
+
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1) {
+                select_query =
+                    'SELECT categoryID AS category_id, locationID AS location_id, featuredImageRelativeURL AS featured_img, ' +
+                    'title, address, email, phoneNumber AS phone_number, about, time FROM emergency_contacts ';
+
+            } else {
+                select_query += ' FROM emergency_contacts ';
+            }
+
+        } else { // no fields selection
+            select_query +=
+                'categoryID AS category_id, locationID AS location_id, featuredImageRelativeURL AS featured_img, ' +
+                'title, address, email, phoneNumber AS phone_number, about, time FROM emergency_contacts ';
+        }
+
+        // SQL WHERE statement
+        select_query += 'WHERE contactID = ? LIMIT 1';
+
+        // get a contact
+        gDB.query(select_query, [req.params.contact_id]).then(results => {
+            // check if contact has featured image
+            if (results[0].featured_img) {
+                // add featured image to the results
+                results[0].featured_img = {
+                    big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featured_img,
+                    medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featured_img).replace('big', 'medium'),
+                    small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featured_img).replace('big', 'small'),
+                    tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[0].featured_img).replace('big', 'tiny')
+                };
+
+            } else if (typeof results[0].featured_img != 'undefined') {
+                // add featured image to the results
+                results[0].featured_img = null;
+            }
+
+            // send result to client
+            res.status(200);
+            res.send(results[0]);
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+    });
 });
 
 router.get(/^\/hellos\/(\d+)$/, custom_utils.allowedScopes(['read:hellos', 'read:hellos:all']), (req, res) => {
