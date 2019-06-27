@@ -12262,7 +12262,7 @@ router.post('/stores/:store_id/upload/featuredImage', custom_utils.allowedScopes
         return;
     }
 
-    let table_name = store_type == 'production' ? 'stores' : 'services';
+    let table_name = store_type == 'product' ? 'stores' : 'services';
 
     // check if user has created a store
     gDB.query(
@@ -12458,7 +12458,7 @@ router.post('/stores/:store_id/upload/featuredImage', custom_utils.allowedScopes
                                     ]
                                 ).then(results => {
                                     // send result to client
-                                    res.status(200);
+                                    res.status(201);
                                     res.json({
                                         image: {
                                             big: `${gConfig.AWS_S3_WEB_BASE_URL}/${dir_name}/images/big/${object_unique_name}`,
@@ -12637,7 +12637,7 @@ router.delete('/stores/:store_id/upload/featuredImage', custom_utils.allowedScop
         return;
     }
 
-    let table_name = store_type == 'production' ? 'stores' : 'services';
+    let table_name = store_type == 'product' ? 'stores' : 'services';
 
     // check if store exist
     gDB.query(
@@ -13096,7 +13096,7 @@ router.post('/stores/:store_id/products', custom_utils.allowedScopes(['write:sto
                             post: [insert_values]
                         }
                     ).then(results => {
-                        res.status(200);
+                        res.status(201);
                         res.json({
                             product_id: product_id
                         });
@@ -13278,14 +13278,22 @@ router.get('/stores/:store_id/products', custom_utils.allowedScopes(['read:store
             select_query += ', productName AS name, coverImageRelativeURL, price, time FROM products ';
         }
 
+        // fetch only from this store
+        select_query += 'WHERE storeID = ? ';
+        select_post.push(req.params.store_id);
+
+        // count query
+        count_query += 'WHERE storeID = ? ';
+        count_post.push(req.params.store_id);
+
         // search database for match
         if (search_product) {
             search_product = decodeURIComponent(search_product);
-            select_query += 'WHERE MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+            select_query += 'AND MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
             select_post.push(search_product);
 
             // count query
-            count_query += 'WHERE MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+            count_query += 'AND MATCH(productName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
             count_post.push(search_product);
 
         } else {
@@ -13509,179 +13517,6 @@ router.get('/stores/:store_id/products/:product_id', custom_utils.allowedScopes(
                 // send result to client
                 res.status(200);
                 res.json(product_results[0]);
-
-                return;
-
-            }).catch(err => {
-                res.status(500);
-                res.json({
-                    error_code: "internal_error",
-                    message: "Internal error"
-                });
-
-                // log the error to log file
-                gLogger.log('error', err.message, {
-                    stack: err.stack
-                });
-
-                return;
-            });
-
-        }).catch(err => {
-            res.status(500);
-            res.json({
-                error_code: "internal_error",
-                message: "Internal error"
-            });
-
-            // log the error to log file
-            gLogger.log('error', err.message, {
-                stack: err.stack
-            });
-
-            return;
-        });
-
-    }).catch(err => {
-        res.status(500);
-        res.json({
-            error_code: "internal_error",
-            message: "Internal error"
-        });
-
-        // log the error to log file
-        gLogger.log('error', err.message, {
-            stack: err.stack
-        });
-
-        return;
-    });
-});
-
-// get a service in a store
-router.get('/stores/:store_id/services/:service_id', custom_utils.allowedScopes(['write:stores']), (req, res) => {
-    // check if store id is integer and product id is valid
-    if (!(/^\d+$/.test(req.params.store_id) && /^[a-zA-Z0-9]{32}$/.test(req.params.service_id))) {
-        res.status(400);
-        res.json({
-            error_code: "invalid_id",
-            message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if store exist
-    gDB.query('SELECT 1 FROM services WHERE storeID = ? LIMIT 1', [req.params.service_id]).then(results => {
-        if (results.length < 1) {
-            res.status(404);
-            res.json({
-                error_code: "file_not_found",
-                message: "Store can't be found"
-            });
-
-            return;
-        }
-
-        const mappped_field_name = new Map([
-            ['name', 'workName AS name'],
-            ['description', 'workDescription AS description'],
-            ['price', 'price'],
-            ['time', 'time']
-        ]);
-        let select_query = 'SELECT ';
-        let req_fields = null;
-        let permitted_field_count = 0;
-        let select_only_image = false;
-
-        // check if valid and required fields is given
-        if (req.query.fields) {
-            // split the provided fields
-            req_fields = req.query.fields.split(',');
-            let field_already_exist = [];
-
-            req_fields.forEach(elem => {
-                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
-                    if (permitted_field_count == 0) {
-                        select_query += `${mappped_field_name.get(elem)}`;
-
-                    } else {
-                        select_query += `, ${mappped_field_name.get(elem)}`;
-                    }
-
-                    field_already_exist.push(elem);
-                    permitted_field_count++; // increment by one
-                }
-            });
-
-            if (permitted_field_count < 1 && req_fields.find(f => f == 'images')) {
-                select_query = 'SELECT workID FROM works ';
-                select_only_image = true;
-
-            } else if (permitted_field_count < 1) {
-                select_query = 'SELECT workName AS name, workDescription AS description, price, time FROM works ';
-
-            } else {
-                select_query += ' FROM works ';
-            }
-
-        } else { // no fields selection
-            select_query += 'workName AS name, workDescription AS description, price, time FROM works ';
-        }
-
-        // where condition
-        select_query += 'WHERE storeID = ? AND workID = ? LIMIT 1';
-
-        // check if product exist and retrieve
-        gDB.query(select_query, [req.params.store_id, req.params.service_id]).then(service_results => {
-            // check if product exist
-            if (service_results.length < 1) {
-                res.status(404);
-                res.json({
-                    error_code: "file_not_found",
-                    message: "Service can't be found"
-                });
-
-                return;
-            }
-
-            // check to fetch only picture(s) for service
-            if (select_only_image) {
-                // delete workID
-                delete service_results[0].workID;
-
-            } else if (req_fields && !req_fields.find(f => f == 'images')) {
-                // fetch only service no picture
-                // send result to client
-                res.status(200);
-                res.json(service_results[0]);
-
-                return;
-            }
-
-            // get picture(s) for service
-            gDB.query(
-                'SELECT imageRelativeURL FROM work_images WHERE workID = ?',
-                [req.params.service_id]
-            ).then(results => {
-                let service_images = [];
-
-                // prepare image
-                for (let i = 0; i < results.length; i++) {
-                    service_images.push({
-                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
-                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
-                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
-                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
-                    });
-                }
-
-                // add to result
-                service_results[0].images = service_images;
-
-                // send result to client
-                res.status(200);
-                res.json(service_results[0]);
 
                 return;
 
@@ -14068,7 +13903,7 @@ router.post('/stores/:store_id/services', custom_utils.allowedScopes(['write:sto
                             post: [insert_values]
                         }
                     ).then(results => {
-                        res.status(200);
+                        res.status(201);
                         res.json({
                             service_id: work_id
                         });
@@ -14250,14 +14085,22 @@ router.get('/stores/:store_id/services', custom_utils.allowedScopes(['read:store
             select_query += ', workName AS name, coverImageRelativeURL, price, time FROM works ';
         }
 
+        // fetch only from this store
+        select_query += 'WHERE storeID = ? ';
+        select_post.push(req.params.store_id);
+
+        // count query
+        count_query += 'WHERE storeID = ? ';
+        count_post.push(req.params.store_id);
+
         // search database for match
         if (search_service) {
             search_service = decodeURIComponent(search_service);
-            select_query += 'WHERE MATCH(workName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+            select_query += 'AND MATCH(workName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
             select_post.push(search_service);
 
             // count query
-            count_query += 'WHERE MATCH(workName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
+            count_query += 'AND MATCH(workName) AGAINST(? IN NATURAL LANGUAGE MODE) ';
             count_post.push(search_service);
 
         } else {
@@ -14305,6 +14148,179 @@ router.get('/stores/:store_id/services', custom_utils.allowedScopes(['read:store
                         }
                     }
                 });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get a service in a store
+router.get('/stores/:store_id/services/:service_id', custom_utils.allowedScopes(['write:stores']), (req, res) => {
+    // check if store id is integer and product id is valid
+    if (!(/^\d+$/.test(req.params.store_id) && /^[a-zA-Z0-9]{32}$/.test(req.params.service_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if store exist
+    gDB.query('SELECT 1 FROM services WHERE storeID = ? LIMIT 1', [req.params.service_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        const mappped_field_name = new Map([
+            ['name', 'workName AS name'],
+            ['description', 'workDescription AS description'],
+            ['price', 'price'],
+            ['time', 'time']
+        ]);
+        let select_query = 'SELECT ';
+        let req_fields = null;
+        let permitted_field_count = 0;
+        let select_only_image = false;
+
+        // check if valid and required fields is given
+        if (req.query.fields) {
+            // split the provided fields
+            req_fields = req.query.fields.split(',');
+            let field_already_exist = [];
+
+            req_fields.forEach(elem => {
+                if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                    if (permitted_field_count == 0) {
+                        select_query += `${mappped_field_name.get(elem)}`;
+
+                    } else {
+                        select_query += `, ${mappped_field_name.get(elem)}`;
+                    }
+
+                    field_already_exist.push(elem);
+                    permitted_field_count++; // increment by one
+                }
+            });
+
+            if (permitted_field_count < 1 && req_fields.find(f => f == 'images')) {
+                select_query = 'SELECT workID FROM works ';
+                select_only_image = true;
+
+            } else if (permitted_field_count < 1) {
+                select_query = 'SELECT workName AS name, workDescription AS description, price, time FROM works ';
+
+            } else {
+                select_query += ' FROM works ';
+            }
+
+        } else { // no fields selection
+            select_query += 'workName AS name, workDescription AS description, price, time FROM works ';
+        }
+
+        // where condition
+        select_query += 'WHERE storeID = ? AND workID = ? LIMIT 1';
+
+        // check if product exist and retrieve
+        gDB.query(select_query, [req.params.store_id, req.params.service_id]).then(service_results => {
+            // check if product exist
+            if (service_results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Service can't be found"
+                });
+
+                return;
+            }
+
+            // check to fetch only picture(s) for service
+            if (select_only_image) {
+                // delete workID
+                delete service_results[0].workID;
+
+            } else if (req_fields && !req_fields.find(f => f == 'images')) {
+                // fetch only service no picture
+                // send result to client
+                res.status(200);
+                res.json(service_results[0]);
+
+                return;
+            }
+
+            // get picture(s) for service
+            gDB.query(
+                'SELECT imageRelativeURL FROM work_images WHERE workID = ?',
+                [req.params.service_id]
+            ).then(results => {
+                let service_images = [];
+
+                // prepare image
+                for (let i = 0; i < results.length; i++) {
+                    service_images.push({
+                        big: gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL,
+                        medium: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'medium'),
+                        small: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'small'),
+                        tiny: (gConfig.AWS_S3_WEB_BASE_URL + '/' + results[i].imageRelativeURL).replace('big', 'tiny')
+                    });
+                }
+
+                // add to result
+                service_results[0].images = service_images;
+
+                // send result to client
+                res.status(200);
+                res.json(service_results[0]);
 
                 return;
 
@@ -15153,6 +15169,106 @@ router.delete('/stores/:store_id/services/:service_id', custom_utils.allowedScop
     });
 });
 
+// get used and available slot for product or service
+router.get('/stores/:store_id/slot', custom_utils.allowedScopes(['read:stores']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.store_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // pass in queries
+    let store_type = req.query.type;
+
+    // check if URL query is defined and valid
+    const invalid_inputs = [];
+
+    if (!store_type) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "type",
+            message: "type has to be defined"
+        });
+
+    } else if (!/^(product|service)$/.test(store_type)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "type",
+            message: "type value is invalid"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    let table_name = store_type == 'product' ? 'stores' : 'services';
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if store exist and retrieve necessary information
+    gDB.query(
+        'SELECT userID, slotCount AS count, usedSlotCount AS used FROM ?? WHERE storeID = ? LIMIT 1',
+        [table_name, req.params.store_id]
+    ).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        // check if is user's store
+        if (results[0].userID != user_id) {
+            res.status(401);
+            res.json({
+                error_code: "unauthorized_user",
+                message: "Unauthorized"
+            });
+
+            return;
+        }
+
+        // delete user ID
+        delete results[0].userID;
+
+        // send result to client
+        res.status(200);
+        res.json(results[0]);
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // post product without actually having a store
 router.post('/products', custom_utils.allowedScopes(['write:products']), (req, res) => {
     // check if account is verified
@@ -15567,7 +15683,7 @@ router.post('/products', custom_utils.allowedScopes(['write:products']), (req, r
                                 post: [insert_values]
                             }
                         ).then(results => {
-                            res.status(200);
+                            res.status(201);
                             res.json({
                                 product_id: product_id
                             });
@@ -16264,7 +16380,7 @@ router.get('/products', custom_utils.allowedScopes(['read:products', 'read:store
 
                 let counter = 0; // count numbers of search keyword
 
-                // override store query value
+                // override store's query value
                 if (pass_user_id) in_store = 0;
 
                 if (in_store) {
@@ -18317,7 +18433,7 @@ router.post('/realEstate/houses', custom_utils.allowedScopes(['write:houses']), 
                             post: [insert_values]
                         }
                     ).then(results => {
-                        res.status(200);
+                        res.status(201);
                         res.json({
                             house_id: house_id
                         });
@@ -18425,7 +18541,7 @@ router.put('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:ho
             return;
         }
 
-        // check if is user's store
+        // check if is the user
         if (results[0].userID != user_id) {
             res.status(401);
             res.json({
@@ -18439,21 +18555,14 @@ router.put('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:ho
         // validate submitted data
         const invalid_inputs = [];
 
-        if (!req.body.description) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "description",
-                message: "description has to be defined"
-            });
-
-        } else if (typeof req.body.description != 'string') {
+        if (req.body.description && typeof req.body.description != 'string') {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "description",
                 message: "description is not acceptable"
             });
 
-        } else if (req.body.description.length > 1500) { // check if description exceed 1500 characters
+        } else if (req.body.description && req.body.description.length > 1500) { // check if description exceed 1500 characters
             invalid_inputs.push({
                 error_code: "invalid_data",
                 field: "description",
@@ -18461,14 +18570,7 @@ router.put('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:ho
             });
         }
 
-        if (!req.body.price) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "price",
-                message: "price has to be defined"
-            });
-
-        } else if (!/^([1-9][0-9]*([.]{1}[0-9]+)?|[0]([.]{1}[0-9]+)?)$/.test(req.body.price)) {
+        if (req.body.price && !/^([1-9][0-9]*([.]{1}[0-9]+)?|[0]([.]{1}[0-9]+)?)$/.test(req.body.price)) {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "price",
@@ -18476,14 +18578,7 @@ router.put('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:ho
             });
         }
 
-        if (!req.body.negotiable) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "negotiable",
-                message: "negotiable has to be defined"
-            });
-
-        } else if (!/^[0-1]$/.test(req.body.negotiable)) {
+        if (req.body.negotiable && !/^[0-1]$/.test(req.body.negotiable)) {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "negotiable",
@@ -18491,14 +18586,7 @@ router.put('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:ho
             });
         }
 
-        if (!req.body.address) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "address",
-                message: "address has to be defined"
-            });
-
-        } else if (typeof req.body.address != 'string') {
+        if (req.body.address && typeof req.body.address != 'string') {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "address",
@@ -18515,14 +18603,7 @@ router.put('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:ho
             });
         }
 
-        if (!req.body.phoneNumber) {
-            invalid_inputs.push({
-                error_code: "undefined_input",
-                field: "phoneNumber",
-                message: "phoneNumber has to be defined"
-            });
-
-        } else if (!/^\d+$/.test(req.body.phoneNumber)) {
+        if (req.body.phoneNumber && !/^\d+$/.test(req.body.phoneNumber)) {
             invalid_inputs.push({
                 error_code: "invalid_input",
                 field: "phoneNumber",
@@ -18697,7 +18778,7 @@ router.delete('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write
             return;
         }
 
-        // check if is user's store
+        // check if is the user
         if (results[0].userID != user_id) {
             res.status(401);
             res.json({
@@ -18815,7 +18896,7 @@ router.delete('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write
 });
 
 // get list of house for rent or purchase
-router.get('/realEstate/houses', custom_utils.allowedScopes(['reag:houses']), (req, res) => {
+router.get('/realEstate/houses', custom_utils.allowedScopes(['read:houses']), (req, res) => {
     // initialise variables
     let limit = 50;
     let offset = 0;
