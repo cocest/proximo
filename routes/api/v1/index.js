@@ -11771,7 +11771,7 @@ router.put('/stores/:store_id', custom_utils.allowedScopes(['write:stores']), (r
         'SELECT userID FROM ?? WHERE storeID = ? LIMIT 1',
         [
             store_type == 'product' ? 'stores' : 'services',
-            req.params.store_id,
+            req.params.store_id
         ]
     ).then(results => {
         if (results.length < 1) {
@@ -15289,6 +15289,9 @@ router.post('/products', custom_utils.allowedScopes(['write:products']), (req, r
     let category_id = req.query.categoryID;
     let location_id = req.query.locationID;
 
+    // validate submitted data
+    let invalid_inputs = [];
+
     if (!category_id) {
         invalid_inputs.push({
             error_code: "undefined_query",
@@ -15786,6 +15789,26 @@ router.put('/products/:product_id', custom_utils.allowedScopes(['write:products'
         res.json({
             error_code: "account_not_verified",
             message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
         });
 
         return;
@@ -18041,6 +18064,1678 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
     }
 });
 
+// rate a store
+router.post('/rate/stores/:store_id', custom_utils.allowedScopes(['write:stores']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.store_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // pass in queries
+    const store_type = req.query.type;
+    const user_rating = req.query.rating;
+
+    // check if URL query is defined and valid
+    const invalid_inputs = [];
+
+    if (!store_type) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "type",
+            message: "type has to be defined"
+        });
+
+    } else if (!/^(product|service)$/.test(store_type)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "type",
+            message: "type value is invalid"
+        });
+    }
+
+    if (!user_rating) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "rating",
+            message: "rating has to be defined"
+        });
+
+    } else if (!/^[1-5]$/.test(user_rating)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "rating",
+            message: "rating value is invalid"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if store exist
+    gDB.query(
+        'SELECT storeID FROM ?? WHERE storeID = ? LIMIT',
+        [
+            store_type == 'product' ? 'stores' : 'services',
+            req.params.store_id
+        ]
+    ).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        // rate the store
+        gDB.query(
+            'INSERT INTO store_rating (storeID, userID, rating) VALUES (?, ?, ?)',
+            [
+                results[0].storeID,
+                user_id,
+                user_rating
+            ]
+        ).then(results => {
+            // return success to client
+            return res.status(200).send();
+
+        }).catch(err => {
+            // check if is a duplicate error
+            if (err.code == 'ER_DUP_ENTRY' || err.errno == 1062) {
+                res.status(409);
+                res.json({
+                    error_code: "data_already_exist",
+                    message: "User has rated this store"
+                });
+
+                return;
+            }
+
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get store rating by users
+router.get('/rate/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (req, res) => {
+    // check if id is integer
+    if (!/^\d+$/.test(req.params.store_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // pass in queries
+    const store_type = req.query.type;
+
+    // check if URL query is defined and valid
+    const invalid_inputs = [];
+
+    if (!store_type) {
+        invalid_inputs.push({
+            error_code: "undefined_query",
+            field: "type",
+            message: "type has to be defined"
+        });
+
+    } else if (!/^(product|service)$/.test(store_type)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "type",
+            message: "type value is invalid"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if store exist
+    gDB.query(
+        'SELECT 1 FROM ?? WHERE storeID = ? LIMIT 1',
+        [
+            store_type == 'product' ? 'stores' : 'services',
+            req.params.store_id
+        ]
+    ).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Store can't be found"
+            });
+
+            return;
+        }
+
+        //calculate the statistic of store rating by the user
+        gDB.query(
+            `SELECT 
+               COUNT(*) AS rating_count,
+               SUM(CASE WHEN rating = '5' THEN 1 ELSE 0 END) AS count_1,
+               SUM(CASE WHEN rating = '4' THEN 1 ELSE 0 END) AS count_2,
+               SUM(CASE WHEN rating = '3' THEN 1 ELSE 0 END) AS count_3,
+               SUM(CASE WHEN rating = '2' THEN 1 ELSE 0 END) AS count_4,
+               SUM(CASE WHEN rating = '1' THEN 1 ELSE 0 END) AS count_5
+            FROM store_rating WHERE storeID = ?`,
+            [req.params.store_id]
+        ).then(results => {
+            // return statistics to client
+            res.status(200);
+            res.json({
+                metadata: {
+                    stat: {
+                        count: results[0].rating_count,
+                        rate: {
+                            "5": { count: results[0].count_1, percent: (results[0].count_1 * 100) / results[0].rating_count },
+                            "4": { count: results[0].count_2, percent: (results[0].count_2 * 100) / results[0].rating_count },
+                            "3": { count: results[0].count_3, percent: (results[0].count_3 * 100) / results[0].rating_count },
+                            "2": { count: results[0].count_4, percent: (results[0].count_4 * 100) / results[0].rating_count },
+                            "1": { count: results[0].count_5, percent: (results[0].count_5 * 100) / results[0].rating_count }
+                        }
+                    }
+                }
+            });
+
+            return;
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// rate a product
+router.post('/products/:product_id/reviews', custom_utils.allowedScopes(['write:products']), (req, res) => {
+    // check if id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.product_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if product exist
+    gDB.query('SELECT storeID FROM products WHERE productID = ? LIMIT 1', [req.params.product_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Product can't be found"
+            });
+
+            return;
+        }
+
+        // validate submitted data
+        let invalid_inputs = [];
+
+        if (!req.body.rating) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "rating",
+                message: "rating has to be defined"
+            });
+
+        } else if (!/^[1-5]$/.test(req.body.rating)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "rating",
+                message: "rating value is invalid"
+            });
+        }
+
+        if (!req.body.comment) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "comment",
+                message: "comment has to be defined"
+            });
+
+        } else if (typeof req.body.comment != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "comment",
+                message: "comment is not acceptable"
+            });
+
+        } else if (req.body.comment.length > 1500) {
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "comment",
+                message: "comment exceed maximum allowed text"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        // add rate and review for product
+        gDB.query(
+            'INSERT INTO product_reviews (storeID, productID, userID, rating, comment) ' +
+            'VALUES (?, ?, ?, ?, ?)',
+            [
+                results[0].storeID,
+                req.params.product_id,
+                user_id,
+                req.body.rating,
+                req.body.comment
+            ]
+        ).then(results => {
+            // return success to client
+            res.status(200);
+            res.json({
+                review_id: results.insertId
+            });
+
+            return;
+
+        }).catch(err => {
+            // check if is a duplicate error
+            if (err.code == 'ER_DUP_ENTRY' || err.errno == 1062) {
+                res.status(409);
+                res.json({
+                    error_code: "data_already_exist",
+                    message: "User has rated this product"
+                });
+
+                return;
+            }
+
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// update review for product. You can only update before 10 minutes elapse.
+router.put('/products/:product_id/reviews/:review_id', custom_utils.allowedScopes(['write:products']), (req, res) => {
+    // check if product id is valid and review id is integer
+    if (!(/^[a-zA-Z0-9]{32}$/.test(req.params.product_id) && /^\d+$/.test(req.params.review_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if product exist
+    gDB.query('SELECT 1 FROM products WHERE productID = ? LIMIT 1', [req.params.product_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Product can't be found"
+            });
+
+            return;
+        }
+
+        // check if review exist and fetch time the review was added
+        gDB.query(
+            'SELECT userID, time FROM product_reviews WHERE reviewID = ? LIMIT 1',
+            [req.params.review_id]
+        ).then(results => {
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Review can't be found"
+                });
+
+                return;
+            }
+
+            // check if is user's review
+            if (results[0].userID != user_id) {
+                res.status(401);
+                res.json({
+                    error_code: "unauthorized_user",
+                    message: "Unauthorized"
+                });
+
+                return;
+            }
+
+            // check if there is still time for update (Note: calculation are done in seconds)
+            if (((new Date()).getTime() / 1000 - results[0].time) > 600) {
+                res.status(403);
+                res.json({
+                    error_code: "time_elapsed",
+                    message: "Review can't be updated"
+                });
+
+                return;
+            }
+
+            // validate submitted data
+            let invalid_inputs = [];
+
+            if (req.body.comment && typeof req.body.comment != 'string') {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "comment",
+                    message: "comment is not acceptable"
+                });
+
+            } else if (req.body.comment && req.body.comment.length > 1500) {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "comment",
+                    message: "comment exceed maximum allowed text"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_field",
+                    errors: invalid_inputs
+                });
+
+                return;
+            }
+
+            // update comment
+            gDB.query(
+                'UPDATE product_reviews SET comment = ? WHERE reviewID = ? LIMIT 1',
+                [req.body.comment ? req.body.comment : '', req.params.review_id]
+            ).then(results => {
+                // send success to client
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete user rating and review before 10 minutes elapse
+router.delete('/products/:product_id/reviews/:review_id', custom_utils.allowedScopes(['write:products']), (req, res) => {
+    // check if product id is valid and review id is integer
+    if (!(/^[a-zA-Z0-9]{32}$/.test(req.params.product_id) && /^\d+$/.test(req.params.review_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if product exist
+    gDB.query('SELECT 1 FROM products WHERE productID = ? LIMIT 1', [req.params.product_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Product can't be found"
+            });
+
+            return;
+        }
+
+        // check if review exist and fetch time the review was added
+        gDB.query(
+            'SELECT userID, time FROM product_reviews WHERE reviewID = ? LIMIT 1',
+            [req.params.review_id]
+        ).then(results => {
+            // check if is user's review
+            if (results.length > 0 && results[0].userID != user_id) {
+                res.status(401);
+                res.json({
+                    error_code: "unauthorized_user",
+                    message: "Unauthorized"
+                });
+
+                return;
+            }
+
+            if (results.length < 1) {
+                // send success to client
+                return res.status(200).send();
+            }
+
+            // check if there is still time for delete (Note: calculation are done in seconds)
+            if (((new Date()).getTime() / 1000 - results[0].time) > 600) {
+                res.status(403);
+                res.json({
+                    error_code: "time_elapsed",
+                    message: "Review can't be deleted"
+                });
+
+                return;
+            }
+
+            // delete user's rating and review
+            gDB.query('DELETE FROM product_reviews WHERE reviewID = ? LIMIT 1', [req.params.review_id]).then(results => {
+                // send success to client
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get list of rate and review for a product
+router.get('/products/:product_id/reviews', custom_utils.allowedScopes(['read:products']), (req, res) => {
+    // check if product id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.product_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // initialise variables
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    const invalid_inputs = [];
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if product exist
+    gDB.query('SELECT 1 FROM products WHERE productID = ? LIMIT 1', [req.params.product_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Product can't be found"
+            });
+
+            return;
+        }
+
+        if (pass_limit && pass_limit < limit) {
+            limit = pass_limit;
+        }
+
+        if (pass_offset) {
+            offset = pass_offset;
+        }
+
+        // get list of rate and review
+        gDB.query(
+            'SELECT A.reviewID AS id, A.rating, A.userID, A.comment, A.time, B.firstName, B.lastName, ' +
+            'B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL FROM product_reviews AS A ' +
+            `LEFT JOIN user AS B ON A.userID = B.userID WHERE A.productID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
+            [req.params.product_id]
+        ).then(review_results => {
+            // check if there is review
+            if (review_results.length < 1) {
+                // return result to client
+                res.status(200);
+                res.json({
+                    reviews: [],
+                    metadata: {
+                        stat: {
+                            count: 0,
+                            rate: {
+                                "5": { count: 0, percent: 0 },
+                                "4": { count: 0, percent: 0 },
+                                "3": { count: 0, percent: 0 },
+                                "2": { count: 0, percent: 0 },
+                                "1": { count: 0, percent: 0 }
+                            }
+                        },
+                        result_set: {
+                            count: 0,
+                            offset: offset,
+                            limit: limit,
+                            total: 0
+                        }
+                    }
+                });
+
+                return;
+            }
+
+            // calculate the statistic of product rating and review by the user
+            gDB.query(
+                `SELECT 
+                    COUNT(*) AS review_count,
+                    SUM(CASE WHEN rating = '5' THEN 1 ELSE 0 END) AS count_1,
+                    SUM(CASE WHEN rating = '4' THEN 1 ELSE 0 END) AS count_2,
+                    SUM(CASE WHEN rating = '3' THEN 1 ELSE 0 END) AS count_3,
+                    SUM(CASE WHEN rating = '2' THEN 1 ELSE 0 END) AS count_4,
+                    SUM(CASE WHEN rating = '1' THEN 1 ELSE 0 END) AS count_5
+                FROM product_reviews WHERE productID = ?`,
+                [req.params.product_id]
+            ).then(count_results => {
+                // remove keys and add user property to result
+                for (let i = 0; i < review_results.length; i++) {
+                    // add user property to result
+                    // check if user has a profile picture
+                    if (review_results[i].profilePictureSmallURL) {
+                        // add user to results
+                        review_results[i].user = {
+                            id: review_results[i].userID,
+                            name: review_results[i].lastName + ' ' + review_results[i].firstName,
+                            image: {
+                                big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + review_results[i].profilePictureBigURL,
+                                medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + review_results[i].profilePictureMediumURL,
+                                small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + review_results[i].profilePictureSmallURL
+                            }
+                        };
+
+                    } else {
+                        // add user to results
+                        review_results[i].user = {
+                            id: review_results[i].userID,
+                            name: review_results[i].lastName + ' ' + review_results[i].firstName,
+                            image: null
+                        };
+                    }
+
+                    // remove keys
+                    delete review_results[i].userID;
+                    delete review_results[i].firstName;
+                    delete review_results[i].lastName;
+                    delete review_results[i].profilePictureSmallURL;
+                    delete review_results[i].profilePictureMediumURL;
+                    delete review_results[i].profilePictureBigURL;
+                }
+
+                // send result and statistics to client
+                res.status(200);
+                res.json({
+                    reviews: review_results,
+                    metadata: {
+                        stat: {
+                            count: count_results[0].review_count,
+                            rate: {
+                                "5": { count: count_results[0].count_1, percent: (count_results[0].count_1 * 100) / count_results[0].review_count },
+                                "4": { count: count_results[0].count_2, percent: (count_results[0].count_2 * 100) / count_results[0].review_count },
+                                "3": { count: count_results[0].count_3, percent: (count_results[0].count_3 * 100) / count_results[0].review_count },
+                                "2": { count: count_results[0].count_4, percent: (count_results[0].count_4 * 100) / count_results[0].review_count },
+                                "1": { count: count_results[0].count_5, percent: (count_results[0].count_5 * 100) / count_results[0].review_count }
+                            }
+                        },
+                        result_set: {
+                            count: review_results.length,
+                            offset: offset,
+                            limit: limit,
+                            total: count_results[0].review_count
+                        }
+                    }
+                });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// rate a service
+router.post('/services/:service_id/reviews', custom_utils.allowedScopes(['write:services']), (req, res) => {
+    // check if id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.service_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if service (work) exist
+    gDB.query('SELECT storeID FROM works WHERE workID = ? LIMIT 1', [req.params.service_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Service can't be found"
+            });
+
+            return;
+        }
+
+        // validate submitted data
+        let invalid_inputs = [];
+
+        if (!req.body.rating) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "rating",
+                message: "rating has to be defined"
+            });
+
+        } else if (!/^[1-5]$/.test(req.body.rating)) {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "rating",
+                message: "rating value is invalid"
+            });
+        }
+
+        if (!req.body.comment) {
+            invalid_inputs.push({
+                error_code: "undefined_input",
+                field: "comment",
+                message: "comment has to be defined"
+            });
+
+        } else if (typeof req.body.comment != 'string') {
+            invalid_inputs.push({
+                error_code: "invalid_input",
+                field: "comment",
+                message: "comment is not acceptable"
+            });
+
+        } else if (req.body.comment.length > 1500) {
+            invalid_inputs.push({
+                error_code: "invalid_data",
+                field: "comment",
+                message: "comment exceed maximum allowed text"
+            });
+        }
+
+        // check if any input is invalid
+        if (invalid_inputs.length > 0) {
+            // send json error message to client
+            res.status(406);
+            res.json({
+                error_code: "invalid_field",
+                errors: invalid_inputs
+            });
+
+            return;
+        }
+
+        // add rate and review for service (work)
+        gDB.query(
+            'INSERT INTO service_reviews (storeID, serviceID, userID, rating, comment) ' +
+            'VALUES (?, ?, ?, ?, ?)',
+            [
+                results[0].storeID,
+                req.params.service_id,
+                user_id,
+                req.body.rating,
+                req.body.comment
+            ]
+        ).then(results => {
+            // return success to client
+            res.status(200);
+            res.json({
+                review_id: results.insertId
+            });
+
+            return;
+
+        }).catch(err => {
+            // check if is a duplicate error
+            if (err.code == 'ER_DUP_ENTRY' || err.errno == 1062) {
+                res.status(409);
+                res.json({
+                    error_code: "data_already_exist",
+                    message: "User has rated this service"
+                });
+
+                return;
+            }
+
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// update review for service. You can only update before 10 minutes elapse.
+router.put('/services/:service_id/reviews/:review_id', custom_utils.allowedScopes(['write:services']), (req, res) => {
+    // check if product id is valid and review id is integer
+    if (!(/^[a-zA-Z0-9]{32}$/.test(req.params.service_id) && /^\d+$/.test(req.params.review_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if service (work) exist
+    gDB.query('SELECT 1 FROM works WHERE workID = ? LIMIT 1', [req.params.service_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Service can't be found"
+            });
+
+            return;
+        }
+
+        // check if review exist and fetch time the review was added
+        gDB.query(
+            'SELECT userID, time FROM service_reviews WHERE reviewID = ? LIMIT 1',
+            [req.params.review_id]
+        ).then(results => {
+            if (results.length < 1) {
+                res.status(404);
+                res.json({
+                    error_code: "file_not_found",
+                    message: "Review can't be found"
+                });
+
+                return;
+            }
+
+            // check if is user's review
+            if (results[0].userID != user_id) {
+                res.status(401);
+                res.json({
+                    error_code: "unauthorized_user",
+                    message: "Unauthorized"
+                });
+
+                return;
+            }
+
+            // check if there is still time for update (Note: calculation are done in seconds)
+            if (((new Date()).getTime() / 1000 - results[0].time) > 600) {
+                res.status(403);
+                res.json({
+                    error_code: "time_elapsed",
+                    message: "Review can't be updated"
+                });
+
+                return;
+            }
+
+            // validate submitted data
+            let invalid_inputs = [];
+
+            if (req.body.comment && typeof req.body.comment != 'string') {
+                invalid_inputs.push({
+                    error_code: "invalid_input",
+                    field: "comment",
+                    message: "comment is not acceptable"
+                });
+
+            } else if (req.body.comment && req.body.comment.length > 1500) {
+                invalid_inputs.push({
+                    error_code: "invalid_data",
+                    field: "comment",
+                    message: "comment exceed maximum allowed text"
+                });
+            }
+
+            // check if any input is invalid
+            if (invalid_inputs.length > 0) {
+                // send json error message to client
+                res.status(406);
+                res.json({
+                    error_code: "invalid_field",
+                    errors: invalid_inputs
+                });
+
+                return;
+            }
+
+            // update comment
+            gDB.query(
+                'UPDATE service_reviews SET comment = ? WHERE reviewID = ? LIMIT 1',
+                [req.body.comment ? req.body.comment : '', req.params.review_id]
+            ).then(results => {
+                // send success to client
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// delete user rating and review before 10 minutes elapse
+router.delete('/services/:service_id/reviews/:review_id', custom_utils.allowedScopes(['write:services']), (req, res) => {
+    // check if service id is valid and review id is integer
+    if (!(/^[a-zA-Z0-9]{32}$/.test(req.params.service_id) && /^\d+$/.test(req.params.review_id))) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if account is verified
+    if (!req.user.account_verified) {
+        res.status(401);
+        res.json({
+            error_code: "account_not_verified",
+            message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    // get user's ID from access token
+    const user_id = req.user.access_token.user_id;
+
+    // check if service (work) exist
+    gDB.query('SELECT 1 FROM works WHERE workID = ? LIMIT 1', [req.params.service_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Service can't be found"
+            });
+
+            return;
+        }
+
+        // check if review exist and fetch time the review was added
+        gDB.query(
+            'SELECT userID, time FROM service_reviews WHERE reviewID = ? LIMIT 1',
+            [req.params.review_id]
+        ).then(results => {
+            // check if is user's review
+            if (results.length > 0 && results[0].userID != user_id) {
+                res.status(401);
+                res.json({
+                    error_code: "unauthorized_user",
+                    message: "Unauthorized"
+                });
+
+                return;
+            }
+
+            if (results.length < 1) {
+                // send success to client
+                return res.status(200).send();
+            }
+
+            // check if there is still time for delete (Note: calculation are done in seconds)
+            if (((new Date()).getTime() / 1000 - results[0].time) > 600) {
+                res.status(403);
+                res.json({
+                    error_code: "time_elapsed",
+                    message: "Review can't be deleted"
+                });
+
+                return;
+            }
+
+            // delete user's rating and review
+            gDB.query('DELETE FROM service_reviews WHERE reviewID = ? LIMIT 1', [req.params.review_id]).then(results => {
+                // send success to client
+                return res.status(200).send();
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
+// get list of rate and review for a service
+router.get('/services/:service_id/reviews', custom_utils.allowedScopes(['read:services']), (req, res) => {
+    // check if service id is valid
+    if (!/^[a-zA-Z0-9]{32}$/.test(req.params.service_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // initialise variables
+    let limit = 50;
+    let offset = 0;
+    let pass_limit = req.query.limit;
+    let pass_offset = req.query.offset;
+    const invalid_inputs = [];
+
+    // check if limit is defined and valid
+    if (pass_limit && !/^\d+$/.test(pass_limit)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "limit",
+            message: "value must be integer"
+        });
+    }
+
+    // check if offset is defined and valid
+    if (pass_offset && !/^\d+$/.test(pass_offset)) {
+        invalid_inputs.push({
+            error_code: "invalid_value",
+            field: "offset",
+            message: "value must be integer"
+        });
+    }
+
+    // check if any input is invalid
+    if (invalid_inputs.length > 0) {
+        // send json error message to client
+        res.status(406);
+        res.json({
+            error_code: "invalid_query",
+            errors: invalid_inputs
+        });
+
+        return;
+    }
+
+    // check if service (work) exist
+    gDB.query('SELECT 1 FROM works WHERE workID = ? LIMIT 1', [req.params.service_id]).then(results => {
+        if (results.length < 1) {
+            res.status(404);
+            res.json({
+                error_code: "file_not_found",
+                message: "Service can't be found"
+            });
+
+            return;
+        }
+
+        if (pass_limit && pass_limit < limit) {
+            limit = pass_limit;
+        }
+
+        if (pass_offset) {
+            offset = pass_offset;
+        }
+
+        // get list of rate and review
+        gDB.query(
+            'SELECT A.reviewID AS id, A.rating, A.userID, A.comment, A.time, B.firstName, B.lastName, ' +
+            'B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL FROM service_reviews AS A ' +
+            `LEFT JOIN user AS B ON A.userID = B.userID WHERE A.serviceID = ? ORDER BY A.time DESC LIMIT ${limit} OFFSET ${offset}`,
+            [req.params.service_id]
+        ).then(review_results => {
+            // check if there is review
+            if (review_results.length < 1) {
+                // return result to client
+                res.status(200);
+                res.json({
+                    reviews: [],
+                    metadata: {
+                        stat: {
+                            count: 0,
+                            rate: {
+                                "5": { count: 0, percent: 0 },
+                                "4": { count: 0, percent: 0 },
+                                "3": { count: 0, percent: 0 },
+                                "2": { count: 0, percent: 0 },
+                                "1": { count: 0, percent: 0 }
+                            }
+                        },
+                        result_set: {
+                            count: 0,
+                            offset: offset,
+                            limit: limit,
+                            total: 0
+                        }
+                    }
+                });
+
+                return;
+            }
+
+            // calculate the statistic of product rating and review by the user
+            gDB.query(
+                `SELECT 
+                    COUNT(*) AS review_count,
+                    SUM(CASE WHEN rating = '5' THEN 1 ELSE 0 END) AS count_1,
+                    SUM(CASE WHEN rating = '4' THEN 1 ELSE 0 END) AS count_2,
+                    SUM(CASE WHEN rating = '3' THEN 1 ELSE 0 END) AS count_3,
+                    SUM(CASE WHEN rating = '2' THEN 1 ELSE 0 END) AS count_4,
+                    SUM(CASE WHEN rating = '1' THEN 1 ELSE 0 END) AS count_5
+                FROM service_reviews WHERE serviceID = ?`,
+                [req.params.service_id]
+            ).then(count_results => {
+                // remove keys and add user property to result
+                for (let i = 0; i < review_results.length; i++) {
+                    // add user property to result
+                    // check if user has a profile picture
+                    if (review_results[i].profilePictureSmallURL) {
+                        // add user to results
+                        review_results[i].user = {
+                            id: review_results[i].userID,
+                            name: review_results[i].lastName + ' ' + review_results[i].firstName,
+                            image: {
+                                big: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + review_results[i].profilePictureBigURL,
+                                medium: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + review_results[i].profilePictureMediumURL,
+                                small: gConfig.AWS_S3_BASE_URL + '/' + gConfig.AWS_S3_BUCKET_NAME + '/' + review_results[i].profilePictureSmallURL
+                            }
+                        };
+
+                    } else {
+                        // add user to results
+                        review_results[i].user = {
+                            id: review_results[i].userID,
+                            name: review_results[i].lastName + ' ' + review_results[i].firstName,
+                            image: null
+                        };
+                    }
+
+                    // remove keys
+                    delete review_results[i].userID;
+                    delete review_results[i].firstName;
+                    delete review_results[i].lastName;
+                    delete review_results[i].profilePictureSmallURL;
+                    delete review_results[i].profilePictureMediumURL;
+                    delete review_results[i].profilePictureBigURL;
+                }
+
+                // send result and statistics to client
+                res.status(200);
+                res.json({
+                    reviews: review_results,
+                    metadata: {
+                        stat: {
+                            count: count_results[0].review_count,
+                            rate: {
+                                "5": { count: count_results[0].count_1, percent: (count_results[0].count_1 * 100) / count_results[0].review_count },
+                                "4": { count: count_results[0].count_2, percent: (count_results[0].count_2 * 100) / count_results[0].review_count },
+                                "3": { count: count_results[0].count_3, percent: (count_results[0].count_3 * 100) / count_results[0].review_count },
+                                "2": { count: count_results[0].count_4, percent: (count_results[0].count_4 * 100) / count_results[0].review_count },
+                                "1": { count: count_results[0].count_5, percent: (count_results[0].count_5 * 100) / count_results[0].review_count }
+                            }
+                        },
+                        result_set: {
+                            count: review_results.length,
+                            offset: offset,
+                            limit: limit,
+                            total: count_results[0].review_count
+                        }
+                    }
+                });
+
+                return;
+
+            }).catch(err => {
+                res.status(500);
+                res.json({
+                    error_code: "internal_error",
+                    message: "Internal error"
+                });
+
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+
+                return;
+            });
+
+        }).catch(err => {
+            res.status(500);
+            res.json({
+                error_code: "internal_error",
+                message: "Internal error"
+            });
+
+            // log the error to log file
+            gLogger.log('error', err.message, {
+                stack: err.stack
+            });
+
+            return;
+        });
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
+});
+
 // add house to realestate for rent or purchase
 router.post('/realEstate/houses', custom_utils.allowedScopes(['write:houses']), (req, res) => {
     // check if account is verified
@@ -18521,6 +20216,26 @@ router.put('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:ho
         res.json({
             error_code: "account_not_verified",
             message: "User should verify their email"
+        });
+
+        return;
+    }
+
+    if (!req.body) { // check if body contain data
+        res.status(400);
+        res.json({
+            error_code: "invalid_request",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    if (!req.is('application/json')) { // check if content type is supported
+        res.status(415);
+        res.json({
+            error_code: "invalid_request_body",
+            message: "Unsupported body format"
         });
 
         return;

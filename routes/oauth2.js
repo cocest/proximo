@@ -246,10 +246,11 @@ router.post('/token', (req, res) => {
             } else {
                 // get client credentials
                 gDB.query(
-                    'SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1',
-                    [req.body.client_id]
-                ).then(results => {
-                    if (results.length < 1) {
+                    'SELECT A.clientSecret, A.permittedGrants, B.allowedRole FROM registeredapplication AS A ' + 
+                    'LEFT JOIN app_permitted_role AS B ON A.id = B.id AND B.permittedGrant = ? WHERE A.clientID = ? LIMIT 1',
+                    [req.body.grant_type, req.body.client_id]
+                ).then(reg_results => {
+                    if (reg_results.length < 1) {
                         res.status(401);
                         res.json({
                             error_code: "unauthorized_client",
@@ -260,7 +261,7 @@ router.post('/token', (req, res) => {
 
                     } else {
                         // compare client_secret to hash in database
-                        bcrypt.compare(req.body.client_secret, results[0].clientSecret).then(hash_res => {
+                        bcrypt.compare(req.body.client_secret, reg_results[0].clientSecret).then(hash_res => {
                             if (!hash_res) {
                                 res.status(401);
                                 res.json({
@@ -272,7 +273,7 @@ router.post('/token', (req, res) => {
 
                             } else {
                                 // check if client is allow to use this authorization process
-                                if (!results[0].permittedGrants.trim().split(' ').find(g => g == 'password')) {
+                                if (!reg_results[0].permittedGrants.trim().split(' ').find(g => g == 'password')) {
                                     res.status(401);
                                     res.json({
                                         error_code: "authorization_not_allowed",
@@ -314,7 +315,7 @@ router.post('/token', (req, res) => {
 
                                                 } else {
                                                     // get access scope(s) or permission
-                                                    custom_utils.assignAPIPrivileges(req, ['user'], (err, assign_scopes) => {
+                                                    custom_utils.assignAPIPrivileges(req, reg_results[0].allowedRole.trim().split(' '), (err, assign_scopes) => {
                                                         if (err) {
                                                             if (err.errorCode == 'scope_not_allowed') {
                                                                 res.status(403);
@@ -609,9 +610,10 @@ router.post('/token', (req, res) => {
             } else {
                 // get client credentials
                 gDB.query(
-                    'SELECT clientSecret, permittedGrants FROM registeredapplication WHERE clientID = ? LIMIT 1',
-                    [req.body.client_id]
-                ).then(results => {
+                    'SELECT A.clientSecret, A.permittedGrants, B.allowedRole FROM registeredapplication AS A ' + 
+                    'LEFT JOIN app_permitted_role AS B ON A.id = B.id AND B.permittedGrant = ? WHERE A.clientID = ? LIMIT 1',
+                    [req.body.grant_type, req.body.client_id]
+                ).then(reg_results => {
                     if (results.length < 1) {
                         res.status(401);
                         res.json({
@@ -623,7 +625,7 @@ router.post('/token', (req, res) => {
 
                     } else {
                         // compare client_secret to hash in database
-                        bcrypt.compare(req.body.client_secret, results[0].clientSecret).then(hash_res => {
+                        bcrypt.compare(req.body.client_secret, reg_results[0].clientSecret).then(hash_res => {
                             if (!hash_res) {
                                 res.status(401);
                                 res.json({
@@ -635,7 +637,7 @@ router.post('/token', (req, res) => {
 
                             } else {
                                 // check if client is allow to use this authorization process
-                                if (!results[0].permittedGrants.trim().split(' ').find(g => g == 'client_credentials')) {
+                                if (!reg_results[0].permittedGrants.trim().split(' ').find(g => g == 'client_credentials')) {
                                     res.status(401);
                                     res.json({
                                         error_code: "authorization_not_allowed",
@@ -646,7 +648,7 @@ router.post('/token', (req, res) => {
 
                                 } else {
                                     // get access scope(s) or permission
-                                    custom_utils.assignAPIPrivileges(req, ['client'], (err, assign_scopes) => {
+                                    custom_utils.assignAPIPrivileges(req, reg_results[0].allowedRole.trim().split(' '), (err, assign_scopes) => {
                                         if (err) {
                                             if (err.errorCode == 'scope_not_allowed') {
                                                 res.status(403);
