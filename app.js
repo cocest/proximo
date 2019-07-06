@@ -42,10 +42,13 @@ app.use(express.static(public_path));
 // route for OAuth v2
 app.use('/oauth2/v1', oauth2);
 
+// route for API version 1
+app.use('/api/v1', api_route_v1);
+
 // create the requested image size and store it to aws s3 bucket and redirect user to the source
 app.get('/resizeImage/:base_folder/images/:resize_size/:image_name', (req, res) => {
     // check if parse base folder name is valid
-    if (!/^(article|news)$/.test(req.params.base_folder)) {
+    if (!/^(article|news|store|house|emergency)$/.test(req.params.base_folder)) {
         res.status(404);
         res.json({
             error_code: "file_not_found",
@@ -178,9 +181,6 @@ app.get('/resizeImage/:base_folder/images/:resize_size/:image_name', (req, res) 
         }
     });
 });
-
-// route for API version 1
-app.use('/api/v1', api_route_v1);
 
 // logs error
 app.use((err, req, res, next) => {
