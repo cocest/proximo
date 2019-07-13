@@ -632,6 +632,36 @@ router.put('/users/:user_id', custom_utils.allowedScopes(['write:users']), (req,
         });
     }
 
+    if (req.body.bio && typeof req.body.bio != 'string') {
+        invalid_inputs.push({
+            error_code: "invalid_data",
+            field: "bio",
+            message: "data type not supported"
+        });
+
+    } else if (req.body.bio && req.body.bio.length > 500) { // check if about exceed 500 characters
+        invalid_inputs.push({
+            error_code: "invalid_data",
+            field: "bio",
+            message: "bio exceed maximum allowed text"
+        });
+    }
+
+    if (req.body.about && typeof req.body.about != 'string') {
+        invalid_inputs.push({
+            error_code: "invalid_data",
+            field: "about",
+            message: "data type not supported"
+        });
+
+    } else if (req.body.about && req.body.about.length > 1500) { // check if about exceed 1500 characters
+        invalid_inputs.push({
+            error_code: "invalid_data",
+            field: "about",
+            message: "about exceed maximum allowed text"
+        });
+    }
+
     // check if any input is invalid
     if (invalid_inputs.length > 0) {
         // send json error message to client
@@ -681,6 +711,34 @@ router.put('/users/:user_id', custom_utils.allowedScopes(['write:users']), (req,
         } else {
             query += ', dateOfBirth = ?';
             post.push(req.body.dateOfBirth);
+        }
+
+        field_count++;
+        update_account_info = true;
+    }
+
+    if (req.body.bio) {
+        if (field_count < 1) {
+            query += 'bio = ?';
+            post.push(req.body.bio);
+
+        } else {
+            query += ', bio = ?';
+            post.push(req.body.bio);
+        }
+
+        field_count++;
+        update_account_info = true;
+    }
+
+    if (req.body.about) {
+        if (field_count < 1) {
+            query += 'about = ?';
+            post.push(req.body.about);
+
+        } else {
+            query += ', about = ?';
+            post.push(req.body.about);
         }
 
         field_count++;
@@ -797,6 +855,97 @@ router.put('/users/:user_id', custom_utils.allowedScopes(['write:users']), (req,
             return;
         });
     }
+});
+
+// get user's account information
+router.get('/users/:user_id', custom_utils.allowedScopes(['read:users']), (req, res) => {
+    // check if user id is integer
+    if (!/^\d+$/.test(req.params.user_id)) {
+        res.status(400);
+        res.json({
+            error_code: "invalid_id",
+            message: "Bad request"
+        });
+
+        return;
+    }
+
+    // check if is accessing the right user or as a logged in user
+    if (!req.params.user_id == req.user.access_token.user_id) {
+        res.status(401);
+        res.json({
+            error_code: "unauthorized_user",
+            message: "Unauthorized"
+        });
+
+        return;
+    }
+
+    const mappped_field_name = new Map([
+        ['firstName', 'firstName AS first_name'],
+        ['lastName', 'lastName AS last_name'],
+        ['dateOfBirth', 'dateOfBirth AS date_of_birth'],
+        ['email', 'emailAddress AS email'],
+        ['gender', 'gender'],
+        ['bio', 'bio'],
+        ['about', 'about']
+    ]);
+    let query = 'SELECT ';
+
+    // check if valid and required fields is given
+    if (req.query.fields) {
+        // split the provided fields
+        let req_fields = req.query.fields.split(',');
+        let permitted_field_count = 0;
+        let field_already_exist = [];
+
+        req_fields.forEach(elem => {
+            if (!field_already_exist.find(f => f == elem) && mappped_field_name.get(elem)) {
+                if (permitted_field_count == 0) {
+                    query += `${mappped_field_name.get(elem)}`;
+
+                } else {
+                    query += `, ${mappped_field_name.get(elem)}`;
+                }
+
+                field_already_exist.push(elem);
+                permitted_field_count++; // increment by one
+            }
+        });
+
+        if (permitted_field_count < 1) {
+            query = 'SELECT firstName AS first_name, lastName AS last_name, dateOfBirth AS date_of_birth, emailAddress AS email, gender, bio, about FROM user WHERE userID = ? LIMIT 1';
+
+        } else {
+            query += ' FROM user WHERE userID = ? LIMIT 1';
+        }
+
+    } else { // no fields selection
+        query += 'firstName AS first_name, lastName AS last_name, dateOfBirth AS date_of_birth, emailAddress AS email, gender, bio, about FROM user WHERE userID = ? LIMIT 1';
+    }
+
+    // get user's profile information
+    gDB.query(query, [req.params.user_id]).then(results => {
+        // send result to client
+        res.status(200);
+        res.json(results[0]);
+
+        return;
+
+    }).catch(err => {
+        res.status(500);
+        res.json({
+            error_code: "internal_error",
+            message: "Internal error"
+        });
+
+        // log the error to log file
+        gLogger.log('error', err.message, {
+            stack: err.stack
+        });
+
+        return;
+    });
 });
 
 // update user's sign-in password
@@ -1620,7 +1769,7 @@ router.get('/users/:user_id/accountStatus', custom_utils.allowedScopes(['write:u
 });
 
 // upload profile picture for the user
-router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['write:users']), (req, res) => {
+router.post('/users/:user_id/profilePicture', custom_utils.allowedScopes(['write:users']), (req, res) => {
     // check if user id is integer
     if (!/^\d+$/.test(req.params.user_id)) {
         res.status(400);
@@ -2015,7 +2164,7 @@ router.post('/users/:user_id/profile/picture', custom_utils.allowedScopes(['writ
 });
 
 // get user's profile pictures
-router.get('/users/:user_id/profile/picture', custom_utils.allowedScopes(['read:users']), (req, res) => {
+router.get('/users/:user_id/profilePicture', custom_utils.allowedScopes(['read:users']), (req, res) => {
     // check if user id is integer
     if (!/^\d+$/.test(req.params.user_id)) {
         res.status(400);
@@ -2084,236 +2233,6 @@ router.get('/users/:user_id/profile/picture', custom_utils.allowedScopes(['read:
 
             return;
         }
-
-    }).catch(err => {
-        res.status(500);
-        res.json({
-            error_code: "internal_error",
-            message: "Internal error"
-        });
-
-        // log the error to log file
-        gLogger.log('error', err.message, {
-            stack: err.stack
-        });
-
-        return;
-    });
-});
-
-// set user's profile information
-router.put('/users/:user_id/profile', custom_utils.allowedScopes(['write:users']), (req, res) => {
-    // check if user id is integer
-    if (!/^\d+$/.test(req.params.user_id)) {
-        res.status(400);
-        res.json({
-            error_code: "invalid_id",
-            message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
-        });
-
-        return;
-    }
-
-    if (!req.body) { // check if body contain data
-        res.status(400);
-        res.json({
-            error_code: "invalid_request",
-            message: "Bad request"
-        });
-
-        return;
-    }
-
-    if (!req.is('application/json')) { // check if content type is supported
-        res.status(415);
-        res.json({
-            error_code: "invalid_request_body",
-            message: "Unsupported body format"
-        });
-
-        return;
-    }
-
-    // check if some field contain valid data
-    const invalid_inputs = [];
-
-    if (req.body.bio) {
-        if (typeof req.body.bio != 'string') {
-            invalid_inputs.push({
-                error_code: "invalid_data",
-                field: "bio",
-                message: "data type not supported"
-            });
-
-        } else if (req.body.bio.length > 500) { // check if about exceed 500 characters
-            invalid_inputs.push({
-                error_code: "invalid_data",
-                field: "bio",
-                message: "bio exceed maximum allowed text"
-            });
-        }
-    }
-
-    if (req.body.about) {
-        if (typeof req.body.about != 'string') {
-            invalid_inputs.push({
-                error_code: "invalid_data",
-                field: "about",
-                message: "data type not supported"
-            });
-
-        } else if (req.body.about.length > 1500) { // check if about exceed 1500 characters
-            invalid_inputs.push({
-                error_code: "invalid_data",
-                field: "about",
-                message: "about exceed maximum allowed text"
-            });
-        }
-    }
-
-    // check if any field is invalid
-    if (invalid_inputs.length > 0) {
-        // send json error message to client
-        res.status(406);
-        res.json({
-            error_code: "invalid_field",
-            errors: invalid_inputs,
-            message: "Field(s) value is invalid"
-        });
-
-        return;
-    }
-
-    // update some user's profile information 
-    let query = 'UPDATE user SET ';
-    let post = [];
-    let input_count = 0;
-
-    // check if bio is provided
-    if (req.body.bio) {
-        query += 'bio = ?';
-        post.push(req.body.bio.trim());
-        input_count++;
-    }
-
-    // check if about is provided
-    if (req.body.about) {
-        if (input_count < 1) {
-            query += 'about = ?';
-            query_post.push(req.body.about);
-
-        } else {
-            query += ', about = ?';
-            query_post.push(req.body.about);
-        }
-
-        input_count++;
-    }
-
-    //last part of query
-    query += ' WHERE userID = ? LIMIT 1';
-    post.push(req.params.user_id);
-
-    gDB.query(query, post).then(results => {
-        return res.status(200).send();
-
-    }).catch(err => {
-        res.status(500);
-        res.json({
-            error_code: "internal_error",
-            message: "Internal error"
-        });
-
-        // log the error to log file
-        gLogger.log('error', err.message, {
-            stack: err.stack
-        });
-
-        return;
-    });
-});
-
-// get user's profile information
-router.get('/users/:user_id/profile', custom_utils.allowedScopes(['read:users']), (req, res) => {
-    // check if user id is integer
-    if (!/^\d+$/.test(req.params.user_id)) {
-        res.status(400);
-        res.json({
-            error_code: "invalid_id",
-            message: "Bad request"
-        });
-
-        return;
-    }
-
-    // check if is accessing the right user or as a logged in user
-    if (!req.params.user_id == req.user.access_token.user_id) {
-        res.status(401);
-        res.json({
-            error_code: "unauthorized_user",
-            message: "Unauthorized"
-        });
-
-        return;
-    }
-
-    const permitted_fields = [
-        'bio',
-        'about'
-    ];
-
-    let query = 'SELECT ';
-
-    // check if valid and required fields is given
-    if (req.query.fields) {
-        // split the provided fields
-        let req_fields = req.query.fields.split(',');
-        let permitted_field_count = 0;
-        let field_already_exist = [];
-
-        req_fields.forEach(elem => {
-            if (!field_already_exist.find(f => f == elem) && permitted_fields.find(q => q == elem)) {
-                if (permitted_field_count == 0) {
-                    query += `${elem}`;
-
-                } else {
-                    query += `, ${elem}`;
-                }
-
-                field_already_exist.push(elem);
-                permitted_field_count++; // increment by one
-            }
-        });
-
-        if (permitted_field_count < 1) {
-            query = 'SELECT bio, about FROM user WHERE userID = ? LIMIT 1';
-
-        } else {
-            query += ' FROM user WHERE userID = ? LIMIT 1';
-        }
-
-    } else { // no fields selection
-        query += 'SELECT bio, about FROM user WHERE userID = ? LIMIT 1';
-    }
-
-    // get user's profile information
-    gDB.query(query, [req.params.user_id]).then(results => {
-        // send result to client
-        res.status(200);
-        res.json(results[0]);
-
-        return;
 
     }).catch(err => {
         res.status(500);
