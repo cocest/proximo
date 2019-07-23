@@ -3451,11 +3451,11 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
         if (req.body.title) {
             if (input_count < 1) {
                 query += 'title = ?';
-                query_post.push(req.body.title);
+                post.push(req.body.title);
 
             } else {
                 query += ', title = ?';
-                query_post.push(req.body.title);
+                post.push(req.body.title);
             }
 
             input_count++;
@@ -3465,11 +3465,11 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
         if (req.body.highlight) {
             if (input_count < 1) {
                 query += 'highlight = ?';
-                query_post.push(req.body.highlight);
+                post.push(req.body.highlight);
 
             } else {
                 query += ', highlight = ?';
-                query_post.push(req.body.highlight);
+                post.push(req.body.highlight);
             }
 
             input_count++;
@@ -3479,11 +3479,11 @@ router.put('/users/:user_id/drafts/:draft_id', custom_utils.allowedScopes(['writ
         if (req.body.content) {
             if (input_count < 1) {
                 query += 'content = ?';
-                query_post.push(req.body.content);
+                post.push(req.body.content);
 
             } else {
                 query += ', content = ?';
-                query_post.push(req.body.content);
+                post.push(req.body.content);
             }
 
             input_count++;
@@ -11782,7 +11782,7 @@ router.put('/stores/:store_id', custom_utils.allowedScopes(['write:stores']), (r
         // check if bio is provided
         if (req.body.description) {
             query += 'description = ?';
-            post.push(req.body.description);
+            query_post.push(req.body.description);
             input_count++;
         }
 
@@ -20265,7 +20265,7 @@ router.put('/realEstate/houses/:house_id', custom_utils.allowedScopes(['write:ho
         // check if description is provided
         if (req.body.description) {
             query += 'description = ?';
-            post.push(req.body.description);
+            query_post.push(req.body.description);
             input_count++;
         }
 
@@ -20718,19 +20718,19 @@ router.get('/realEstate/houses', custom_utils.allowedScopes(['read:houses']), (r
 
             if (purpose) {
                 if (counter > 0) {
-                    select_query += 'AND A.for = ? ';
+                    select_query += 'AND A.`for` = ? ';
                     select_post.push(purpose == 'rent' ? 1 : 2);
 
                     // count query
-                    count_query += 'AND for = ? ';
+                    count_query += 'AND `for` = ? ';
                     count_post.push(purpose == 'rent' ? 1 : 2);
 
                 } else {
-                    select_query += 'WHERE A.for = ? ';
+                    select_query += 'WHERE A.`for` = ? ';
                     select_post.push(purpose == 'rent' ? 1 : 2);
 
                     // count query
-                    count_query += 'WHERE for = ? ';
+                    count_query += 'WHERE `for` = ? ';
                     count_post.push(purpose == 'rent' ? 1 : 2);
                 }
 
@@ -20894,19 +20894,19 @@ router.get('/realEstate/houses', custom_utils.allowedScopes(['read:houses']), (r
 
             if (purpose) {
                 if (counter > 0) {
-                    select_query += 'AND for = ? ';
+                    select_query += 'AND `for` = ? ';
                     select_post.push(purpose == 'rent' ? 1 : 2);
 
                     // count query
-                    count_query += 'AND for = ? ';
+                    count_query += 'AND `for` = ? ';
                     count_post.push(purpose == 'rent' ? 1 : 2);
 
                 } else {
-                    select_query += 'WHERE for = ? ';
+                    select_query += 'WHERE `for` = ? ';
                     select_post.push(purpose == 'rent' ? 1 : 2);
 
                     // count query
-                    count_query += 'WHERE for = ? ';
+                    count_query += 'WHERE `for` = ? ';
                     count_post.push(purpose == 'rent' ? 1 : 2);
                 }
 
@@ -21707,7 +21707,7 @@ router.put('/emergency/contacts/:contact_id', custom_utils.allowedScopes(['write
 
         if (req.body.title) {
             query += 'title = ?';
-            post.push(req.body.title);
+            query_post.push(req.body.title);
             input_count++;
         }
 
