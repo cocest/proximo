@@ -4477,7 +4477,7 @@ router.delete('/drafts/:draft_id/medias/:media_id', custom_utils.allowedScopes([
             });
         };
 
-        // get media content to be delete in database
+        // get media content to be deleted in database
         gDB.query(
             'SELECT mediaRelativePath FROM draft_media_contents WHERE mediaID = ? LIMIT 1',
             [req.params.media_id]
@@ -4622,11 +4622,14 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
         return;
     }
 
+    // initialise
+    const restrict_publication = req.query.restrict ? req.query.restrict : 'false';
+
     // check if field(s) contain valid data
     const invalid_inputs = [];
 
     // check if query is valid
-    if (req.query.restrict && !/^(true|false)$/.test(req.query.restrict)) {
+    if (restrict_publication && !/^(true|false)$/.test(restrict_publication)) {
         invalid_inputs.push({
             error_code: "invalid_value",
             field: "restrict",
@@ -4675,7 +4678,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                 return;
             }
 
-            // fetch article stored in draft
+            // fetch news or article stored in draft
             gDB.query(
                 'SELECT categoryID, publication, featuredImageURL, title, highlight, content, published, ' +
                 'publishedContentID FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
@@ -4747,6 +4750,12 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                 let sql_transaction = []; // sql transaction
                 let del_objects = [];
 
+                // add user's draft to be deleted
+                sql_transaction.push({
+                    query: 'DELETE FROM draft WHERE draftID = ? AND userID = ? LIMIT 1',
+                    post: [req.params.draft_id, req.params.user_id]
+                });
+
                 // get media contents to be deleted
                 gDB.query(
                     'SELECT mediaRelativePath FROM delete_media_contents WHERE draftID = ? AND userID = ?',
@@ -4783,7 +4792,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                             let sql_query;
                             let sql_post;
 
-                            // check if this article is published first time
+                            // check if this news or article is published first time
                             if (draft_results[0].published == 0) { // has not been published
                                 sql_query =
                                     'INSERT INTO ?? (userID, categoryID, continentID, countryID, regionID, restrictedToLocation, ' +
@@ -4796,7 +4805,7 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                                     region_results[0].continentID,
                                     region_results[0].countryID,
                                     req.query.locationID,
-                                    req.query.restrict ? { 'true': 1, 'false': 0 }[req.query.restrict] : 0,
+                                    /^true$/.test(restrict_publication) ? 1 : 0,
                                     draft_results[0].featuredImageURL,
                                     draft_results[0].title,
                                     draft_results[0].highlight,
@@ -4833,22 +4842,25 @@ router.put('/users/:user_id/drafts/:draft_id/publish', custom_utils.allowedScope
                                 // add media content to be inserted into database
                                 let insert_values = [];
 
-                                for (let i = 0; i < draft_mc_results.length; i++) {
-                                    insert_values.push([
-                                        publication_id,
-                                        draft_mc_results[i].userID,
-                                        draft_mc_results[i].mediaID,
-                                        draft_mc_results[i].mediaRelativePath,
-                                        draft_mc_results[i].mediaOriginalName,
-                                        draft_mc_results[i].mediaType,
-                                        draft_mc_results[i].mediaExt]);
-                                }
+                                // check if there is media content
+                                if (draft_mc_results.length > 0) {
+                                    for (let i = 0; i < draft_mc_results.length; i++) {
+                                        insert_values.push([
+                                            publication_id,
+                                            draft_mc_results[i].userID,
+                                            draft_mc_results[i].mediaID,
+                                            draft_mc_results[i].mediaRelativePath,
+                                            draft_mc_results[i].mediaOriginalName,
+                                            draft_mc_results[i].mediaType,
+                                            draft_mc_results[i].mediaExt]);
+                                    }
 
-                                sql_transaction.push({
-                                    query: 'INSERT INTO ?? (??, userID, mediaID, mediaRelativePath, ' +
-                                        'mediaOriginalName, mediaType, mediaExt) VALUES ?',
-                                    post: [mc_table_name, table_id_name, insert_values]
-                                });
+                                    sql_transaction.push({
+                                        query: 'INSERT INTO ?? (??, userID, mediaID, mediaRelativePath, ' +
+                                            'mediaOriginalName, mediaType, mediaExt) VALUES ?',
+                                        post: [mc_table_name, table_id_name, insert_values]
+                                    });
+                                }
 
                                 // execute the transaction
                                 gDB.transaction(...sql_transaction).then(results => {
@@ -5122,7 +5134,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     }
 
     const mappped_field_name = new Map([
-        ['category', 'categoryID AS category_id'],
+        ['category', 'categoryID AS category'],
         ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
         ['title', 'title'],
         ['highlight', 'highlight'],
@@ -5132,6 +5144,7 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     let select_post = [];
     let count_query = 'SELECT COUNT(*) AS total FROM news ';
     let count_post = [];
+    let get_category = false;
 
     // check if is valid and required fields is given
     if (req.query.fields) {
@@ -5156,11 +5169,17 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
 
         if (permitted_field_count < 1) {
             select_query =
-                'SELECT A.newsID AS id, A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, ' +
+                'SELECT A.newsID AS id, A.categoryID AS category, A.featuredImageURL AS featured_image_url, ' +
                 'A.title, A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
+            get_category = true;
+
         } else {
+            if (req_fields.find(f => f == 'category')) {
+                get_category = true;
+            }
+
             select_query +=
                 ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
@@ -5168,9 +5187,11 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
 
     } else { // no fields selection
         select_query +=
-            'A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, ' +
+            'A.categoryID AS category, A.featuredImageURL AS featured_image_url, ' +
             'A.title, A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+        get_category = true;
     }
 
     // user publication
@@ -5202,7 +5223,34 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     gDB.query(count_query, count_post).then(count_results => {
         // get publication
         gDB.query(select_query, select_post).then(results => {
+            let fetched_categories;
+
+            // get category for news
+            const getCategory = async () => {
+                return await gDB.query('SELECT categoryID, categoryTitle FROM news_categories');
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
             for (let i = 0; i < results.length; i++) {
+                // check to add category
+                if (get_category) {
+                    results[i].category = fetched_categories.find(
+                        f => f.categoryID == results[i].category
+                    ).categoryTitle;
+                }
+
                 // check if user has a profile picture
                 if (results[i].profilePictureSmallURL) {
                     // add user to results
@@ -5372,7 +5420,7 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     }
 
     const mappped_field_name = new Map([
-        ['category', 'categoryID AS category_id'],
+        ['category', 'categoryID AS category'],
         ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
         ['title', 'title'],
         ['highlight', 'highlight'],
@@ -5382,6 +5430,7 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     let select_post = [];
     let count_query = 'SELECT COUNT(*) AS total FROM articles ';
     let count_post = [];
+    let get_category = false;
 
     // check if valid and required fields is given
     if (req.query.fields) {
@@ -5406,11 +5455,17 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
 
         if (permitted_field_count < 1) {
             select_query =
-                'SELECT A.articleID AS id, A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, ' +
+                'SELECT A.articleID AS id, A.categoryID AS category, A.featuredImageURL AS featured_image_url, ' +
                 'A.title, A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
+            get_category = true;
+
         } else {
+            if (req_fields.find(f => f == 'category')) {
+                get_category = true;
+            }
+
             select_query +=
                 ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
@@ -5418,9 +5473,11 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
 
     } else { // no fields selection
         select_query +=
-            'A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, ' +
+            'A.categoryID AS category, A.featuredImageURL AS featured_image_url, ' +
             'A.title, A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+        get_category = true;
     }
 
     // user publication
@@ -5452,7 +5509,34 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     gDB.query(count_query, count_post).then(count_results => {
         // get publication
         gDB.query(select_query, select_post).then(results => {
+            let fetched_categories;
+
+            // get category for article
+            const getCategory = async () => {
+                return await gDB.query('SELECT categoryID, categoryTitle FROM article_categories');
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
             for (let i = 0; i < results.length; i++) {
+                // check to add category
+                if (get_category) {
+                    results[i].category = fetched_categories.find(
+                        f => f.categoryID == results[i].category
+                    ).categoryTitle;
+                }
+
                 // check if user has a profile picture
                 if (results[i].profilePictureSmallURL) {
                     // add user to results
@@ -5986,11 +6070,10 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         });
 
         return;
-
     }
 
     const mappped_field_name = new Map([
-        ['category', 'categoryID AS category_id'],
+        ['category', 'categoryID AS category'],
         ['continent', 'continentID AS continent_id'],
         ['country', 'countryID AS country_id'],
         ['region', 'regionID AS region_id'],
@@ -6001,6 +6084,7 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
         ['time', 'time']
     ]);
     let query = 'SELECT ';
+    let get_category = false;
 
     // check if valid and required fields is given
     if (req.query.fields) {
@@ -6025,12 +6109,18 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
 
         if (permitted_field_count < 1) {
             query =
-                'SELECT A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
+                'SELECT A.categoryID AS category, A.continentID AS continent_id, A.countryID AS country_id, ' +
                 'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
                 'A.title, A.highlight, A.content, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
 
+            get_category = true;
+
         } else {
+            if (req_fields.find(f => f == 'category')) {
+                get_category = true;
+            }
+
             query +=
                 ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
@@ -6038,10 +6128,12 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
 
     } else { // no fields selection
         query +=
-            'A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
+            'A.categoryID AS category, A.continentID AS continent_id, A.countryID AS country_id, ' +
             'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
             'A.title, A.highlight, A.content, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.newsID = ?';
+
+        get_category = true;
     }
 
     // get publication
@@ -6055,6 +6147,33 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
             });
 
             return;
+        }
+
+        let fetched_categories;
+
+        // get category for news
+        const getCategory = async () => {
+            return await gDB.query('SELECT categoryID, categoryTitle FROM news_categories');
+        };
+
+        // check if user request for category
+        if (get_category) {
+            getCategory().then(results => {
+                fetched_categories = results;
+
+            }).catch(err => {
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+            });
+        }
+
+        // check to add category
+        if (get_category) {
+            results[0].category = fetched_categories.find(
+                f => f.categoryID == results[0].category
+            ).categoryTitle;
         }
 
         // check if user has a profile picture
@@ -6123,7 +6242,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
     }
 
     const mappped_field_name = new Map([
-        ['category', 'categoryID AS category_id'],
+        ['category', 'categoryID AS category'],
         ['continent', 'continentID AS continent_id'],
         ['country', 'countryID AS country_id'],
         ['region', 'regionID AS region_id'],
@@ -6134,6 +6253,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
         ['time', 'time']
     ]);
     let query = 'SELECT ';
+    let get_category = false;
 
     // check if valid and required fields is given
     if (req.query.fields) {
@@ -6158,12 +6278,18 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
 
         if (permitted_field_count < 1) {
             query =
-                'SELECT A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
+                'SELECT A.categoryID AS category, A.continentID AS continent_id, A.countryID AS country_id, ' +
                 'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
                 'A.title, A.highlight, A.content, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
 
+            get_category = true;
+
         } else {
+            if (req_fields.find(f => f == 'category')) {
+                get_category = true;
+            }
+
             query +=
                 ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL ' +
                 'FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
@@ -6171,10 +6297,12 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
 
     } else { // no fields selection
         query +=
-            'A.categoryID AS category_id, A.continentID AS continent_id, A.countryID AS country_id, ' +
+            'A.categoryID AS category, A.continentID AS continent_id, A.countryID AS country_id, ' +
             'A.regionID AS region_id, A.featuredImageURL AS featured_image_url, ' +
             'A.title, A.highlight, A.content, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
             'B.profilePictureMediumURL, B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID WHERE A.articleID = ?';
+
+        get_category = true;
     }
 
     // get publication
@@ -6188,6 +6316,33 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             });
 
             return;
+        }
+
+        let fetched_categories;
+
+        // get category for article
+        const getCategory = async () => {
+            return await gDB.query('SELECT categoryID, categoryTitle FROM article_categories');
+        };
+
+        // check if user request for category
+        if (get_category) {
+            getCategory().then(results => {
+                fetched_categories = results;
+
+            }).catch(err => {
+                // log the error to log file
+                gLogger.log('error', err.message, {
+                    stack: err.stack
+                });
+            });
+        }
+
+        // check to add category
+        if (get_category) {
+            results[0].category = fetched_categories.find(
+                f => f.categoryID == results[0].category
+            ).categoryTitle;
         }
 
         // check if user has a profile picture
@@ -6379,7 +6534,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                 }
 
                 const mappped_field_name = new Map([
-                    ['category', 'categoryID AS category_id'],
+                    ['category', 'categoryID AS category'],
                     ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
                     ['title', 'title'],
                     ['highlight', 'highlight'],
@@ -6389,6 +6544,7 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                 let select_post = [];
                 let count_query = 'SELECT COUNT(*) AS total FROM news ';
                 let count_post = [];
+                let get_category = false;
 
                 // check if valid and required fields is given
                 if (req.query.fields) {
@@ -6413,11 +6569,17 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
 
                     if (permitted_field_count < 1) {
                         select_query =
-                            'SELECT A.newsID AS id, A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, A.title, ' +
+                            'SELECT A.newsID AS id, A.categoryID AS category, A.featuredImageURL AS featured_image_url, A.title, ' +
                             'A.highlight, A.time, B.firstName, B.userID, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
+                        get_category = true;
+
                     } else {
+                        if (req_fields.find(f => f == 'category')) {
+                            get_category = true;
+                        }
+
                         select_query +=
                             ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
@@ -6425,9 +6587,11 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
 
                 } else { // no fields selection
                     select_query +=
-                        ' A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, A.title, ' +
+                        ' A.categoryID AS category, A.featuredImageURL AS featured_image_url, A.title, ' +
                         'A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM news AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+                    get_category = true;
                 }
 
                 // from all published location
@@ -6490,7 +6654,34 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
                     gDB.query(select_query, select_post).then(results => {
+                        let fetched_categories;
+
+                        // get category for news
+                        const getCategory = async () => {
+                            return await gDB.query('SELECT categoryID, categoryTitle FROM news_categories');
+                        };
+
+                        // check if user request for category
+                        if (get_category) {
+                            getCategory().then(results => {
+                                fetched_categories = results;
+
+                            }).catch(err => {
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+                            });
+                        }
+
                         for (let i = 0; i < results.length; i++) {
+                            // check to add category
+                            if (get_category) {
+                                results[i].category = fetched_categories.find(
+                                    f => f.categoryID == results[i].category
+                                ).categoryTitle;
+                            }
+
                             // check if user has a profile picture
                             if (results[i].profilePictureSmallURL) {
                                 // add user to results
@@ -6751,7 +6942,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                 }
 
                 const mappped_field_name = new Map([
-                    ['category', 'categoryID AS category_id'],
+                    ['category', 'categoryID AS category'],
                     ['featuredImageURL', 'featuredImageURL AS featured_image_url'],
                     ['title', 'title'],
                     ['highlight', 'highlight'],
@@ -6761,6 +6952,7 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                 let select_post = [];
                 let count_query = 'SELECT COUNT(*) AS total FROM articles ';
                 let count_post = [];
+                let get_category = false;
 
                 // check if valid and required fields is given
                 if (req.query.fields) {
@@ -6785,11 +6977,17 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
 
                     if (permitted_field_count < 1) {
                         select_query =
-                            'SELECT A.newsID AS id, A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, A.title, ' +
+                            'SELECT A.newsID AS id, A.categoryID AS category, A.featuredImageURL AS featured_image_url, A.title, ' +
                             'A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
+                        get_category = true;
+
                     } else {
+                        if (req_fields.find(f => f == 'category')) {
+                            get_category = true;
+                        }
+
                         select_query +=
                             ', B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
@@ -6797,9 +6995,11 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
 
                 } else { // no fields selection
                     select_query +=
-                        ' A.categoryID AS category_id, A.featuredImageURL AS featured_image_url, A.title, ' +
+                        ' A.categoryID AS category, A.featuredImageURL AS featured_image_url, A.title, ' +
                         'A.highlight, A.time, B.userID, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM articles AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+                    get_category = true;
                 }
 
                 // from all published location
@@ -6862,7 +7062,35 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
                     gDB.query(select_query, select_post).then(results => {
+
+                        let fetched_categories;
+
+                        // get category for news
+                        const getCategory = async () => {
+                            return await gDB.query('SELECT categoryID, categoryTitle FROM article_categories');
+                        };
+
+                        // check if user request for category
+                        if (get_category) {
+                            getCategory().then(results => {
+                                fetched_categories = results;
+
+                            }).catch(err => {
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+                            });
+                        }
+
                         for (let i = 0; i < results.length; i++) {
+                            // check to add category
+                            if (get_category) {
+                                results[i].category = fetched_categories.find(
+                                    f => f.categoryID == results[i].category
+                                ).categoryTitle;
+                            }
+
                             // check if user has a profile picture
                             if (results[i].profilePictureSmallURL) {
                                 // add user to results
@@ -10700,7 +10928,7 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
 
         const mappped_field_name = new Map([
             ['location', 'locationID AS location_id'],
-            ['category', 'categoryID AS category_id'],
+            ['category', 'categoryID AS category'],
             ['name', 'storeName AS name'],
             ['featuredImage', 'featuredImageRelativeURL'],
             ['description', 'description'],
@@ -10708,6 +10936,7 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
         ]);
         let select_query = 'SELECT storeID AS id, ';
         let select_post = [];
+        let get_category = false;
 
         // check if valid and required fields is given
         if (req.query.fields) {
@@ -10732,18 +10961,26 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
 
             if (permitted_field_count < 1) {
                 select_query =
-                    'SELECT storeID AS id, categoryID AS category_id, storeName As name, featuredImageRelativeURL, ' +
+                    'SELECT storeID AS id, categoryID AS category, storeName As name, featuredImageRelativeURL, ' +
                     `storeDescription AS description, locationID AS location_id, time, FROM ${store_table_name} `;
 
+                get_category = true;
+
             } else {
+                if (req_fields.find(f => f == 'category')) {
+                    get_category = true;
+                }
+
                 select_query +=
                     ` FROM ${store_table_name} `;
             }
 
         } else { // no fields selection
             select_query +=
-                'categoryID AS category_id, storeName As name, featuredImageRelativeURL, ' +
+                'categoryID AS category, storeName As name, featuredImageRelativeURL, ' +
                 `storeDescription AS description, locationID AS location_id, time, FROM ${store_table_name} `;
+
+            get_category = true;
         }
 
         // query search condition
@@ -10758,6 +10995,35 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
                 res.json({ stores: [] });
 
                 return;
+            }
+
+            let fetched_categories;
+
+            // get category
+            const getCategory = async () => {
+                return await gDB.query(
+                    'SELECT categoryID, categoryName FROM ' + (store_type == 'product' ? 'product_categories' : 'service_categories')
+                );
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
+            // check to add category
+            if (get_category) {
+                results[0].category = fetched_categories.find(
+                    f => f.categoryID == results[0].category
+                ).categoryName;
             }
 
             // check if this store has featured image
@@ -10940,7 +11206,7 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
 
                 const mappped_field_name = new Map([
                     ['location', 'locationID AS location_id'],
-                    ['category', 'categoryID AS category_id'],
+                    ['category', 'categoryID AS category'],
                     ['name', 'storeName AS name'],
                     ['featuredImage', 'featuredImageRelativeURL'],
                     ['description', 'description'],
@@ -10949,6 +11215,7 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
 
                 let permitted_field_count = 0;
                 let field_already_exist = [];
+                let get_category = false;
 
                 // check to retrieve information about the user that add the product
                 if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
@@ -10973,15 +11240,21 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
                             }
                         });
 
+                        if (req_fields.find(f => f == 'category')) {
+                            get_category = true;
+                        }
+
                         select_query +=
                             ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                             `B.profilePictureBigURL FROM ${store_table_name} AS A LEFT JOIN user AS B ON A.userID = B.userID `;
 
                     } else {
                         select_query +=
-                            ', A.categoryID AS category_id, A.storeName As name, A.featuredImageRelativeURL, ' +
+                            ', A.categoryID AS category, A.storeName As name, A.featuredImageRelativeURL, ' +
                             'A.storeDescription AS description, A.locationID AS location_id, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                             `B.profilePictureMediumURL, B.profilePictureBigURL FROM ${store_table_name} AS A LEFT JOIN user AS B ON A.userID = B.userID `;
+
+                        get_category = true;
                     }
 
                     let counter = 0; // count numbers of search keyword
@@ -11052,7 +11325,37 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
                     gDB.query(count_query, count_post).then(count_results => {
                         // get publication
                         gDB.query(select_query, select_post).then(results => {
+
+                            let fetched_categories;
+
+                            // get category
+                            const getCategory = async () => {
+                                return await gDB.query(
+                                    'SELECT categoryID, categoryName FROM ' + category_table_name
+                                );
+                            };
+
+                            // check if user request for category
+                            if (get_category) {
+                                getCategory().then(results => {
+                                    fetched_categories = results;
+
+                                }).catch(err => {
+                                    // log the error to log file
+                                    gLogger.log('error', err.message, {
+                                        stack: err.stack
+                                    });
+                                });
+                            }
+
                             for (let i = 0; i < results.length; i++) {
+                                // check to add category
+                                if (get_category) {
+                                    results[i].category = fetched_categories.find(
+                                        f => f.categoryID == results[i].category
+                                    ).categoryName;
+                                }
+
                                 // check if this store has featured image
                                 if (results[i].featuredImageRelativeURL) {
                                     // add featured image to results
@@ -11402,7 +11705,7 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
 
     const mappped_field_name = new Map([
         ['location', 'locationID AS location_id'],
-        ['category', 'categoryID AS category_id'],
+        ['category', 'categoryID AS category'],
         ['name', 'storeName AS name'],
         ['featuredImage', 'featuredImageRelativeURL'],
         ['description', 'description'],
@@ -11414,6 +11717,7 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
 
     let field_already_exist = [];
     let permitted_field_count = 0;
+    let get_category = false;
 
     // check to retrieve information about the user that add the product
     if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
@@ -11434,15 +11738,21 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
                 }
             });
 
+            if (req_fields.find(f => f == 'category')) {
+                get_category = true;
+            }
+
             select_query +=
                 ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                 `B.profilePictureBigURL FROM ${store_table_name} AS A LEFT JOIN user AS B ON A.userID = B.userID `;
 
         } else {
             select_query +=
-                ', A.categoryID AS category_id, A.storeName As name, A.featuredImageRelativeURL, A.storeDescription AS description, ' +
+                ', A.categoryID AS category, A.storeName As name, A.featuredImageRelativeURL, A.storeDescription AS description, ' +
                 'A.locationID AS location_id, A.contactAddress AS address, A.contactEmail AS email, A.contactPhoneNumber AS phone_number, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, ' +
                 `B.profilePictureMediumURL, B.profilePictureBigURL FROM ${store_table_name} AS A LEFT JOIN user AS B ON A.userID = B.userID `;
+
+            get_category = true;
         }
 
         // where condition
@@ -11459,6 +11769,35 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
                 });
 
                 return;
+            }
+
+            let fetched_categories;
+
+            // get category
+            const getCategory = async () => {
+                return await gDB.query(
+                    'SELECT categoryID, categoryName FROM ' + (store_type == 'product' ? 'product_categories' : 'service_categories')
+                );
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
+            // check to add category
+            if (get_category) {
+                results[0].category = fetched_categories.find(
+                    f => f.categoryID == results[0].category
+                ).categoryName;
             }
 
             // check if this store has featured image
@@ -11545,6 +11884,10 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
             }
         });
 
+        if (req_fields.find(f => f == 'category')) {
+            get_category = true;
+        }
+
         select_query += ` FROM ${store_table_name} `;
 
         // where condition
@@ -11561,6 +11904,36 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
                 });
 
                 return;
+            }
+
+
+            let fetched_categories;
+
+            // get category
+            const getCategory = async () => {
+                return await gDB.query(
+                    'SELECT categoryID, categoryName FROM ' + (store_type == 'product' ? 'product_categories' : 'service_categories')
+                );
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
+            // check to add category
+            if (get_category) {
+                results[0].category = fetched_categories.find(
+                    f => f.categoryID == results[0].category
+                ).categoryName;
             }
 
             // check if this store has featured image
@@ -16276,7 +16649,7 @@ router.get('/products', custom_utils.allowedScopes(['read:products', 'read:store
 
             const mappped_field_name = new Map([
                 ['location', 'locationID AS location_id'],
-                ['category', 'categoryID AS category_id'],
+                ['category', 'categoryID AS category'],
                 ['name', 'storeName AS name'],
                 ['coverImage', 'coverImageRelativeURL'],
                 ['price', 'price'],
@@ -16285,6 +16658,7 @@ router.get('/products', custom_utils.allowedScopes(['read:products', 'read:store
 
             let permitted_field_count = 0;
             let field_already_exist = [];
+            let get_category = false;
 
             // check to retrieve information about the user that add the product
             if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
@@ -16309,15 +16683,21 @@ router.get('/products', custom_utils.allowedScopes(['read:products', 'read:store
                         }
                     });
 
+                    if (req_fields.find(f => f == 'category')) {
+                        get_category = true;
+                    }
+
                     select_query +=
                         ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM products AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
                 } else { // no fields selection
                     select_query +=
-                        ', A.locationID AS location_id, A.categoryID AS category_id, A.productName As name, ' +
+                        ', A.locationID AS location_id, A.categoryID AS category, A.productName As name, ' +
                         'A.coverImageRelativeURL, A.price, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM products AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+                    get_category = true;
                 }
 
                 let counter = 0; // count numbers of search keyword
@@ -16446,7 +16826,36 @@ router.get('/products', custom_utils.allowedScopes(['read:products', 'read:store
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
                     gDB.query(select_query, select_post).then(results => {
+                        let fetched_categories;
+
+                        // get category
+                        const getCategory = async () => {
+                            return await gDB.query(
+                                'SELECT categoryID, categoryName FROM product_categories'
+                            );
+                        };
+
+                        // check if user request for category
+                        if (get_category) {
+                            getCategory().then(results => {
+                                fetched_categories = results;
+
+                            }).catch(err => {
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+                            });
+                        }
+
                         for (let i = 0; i < results.length; i++) {
+                            // check to add category
+                            if (get_category) {
+                                results[i].category = fetched_categories.find(
+                                    f => f.categoryID == results[i].category
+                                ).categoryName;
+                            }
+
                             // check to get cover image for products
                             if (results[i].coverImageRelativeURL) {
                                 // add featured image to results
@@ -16555,6 +16964,10 @@ router.get('/products', custom_utils.allowedScopes(['read:products', 'read:store
                         permitted_field_count++; // increment by one
                     }
                 });
+
+                if (req_fields.find(f => f == 'category')) {
+                    get_category = true;
+                }
 
                 select_query += ' FROM products ';
 
@@ -16684,7 +17097,36 @@ router.get('/products', custom_utils.allowedScopes(['read:products', 'read:store
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
                     gDB.query(select_query, select_post).then(results => {
+                        let fetched_categories;
+
+                        // get category
+                        const getCategory = async () => {
+                            return await gDB.query(
+                                'SELECT categoryID, categoryName FROM product_categories'
+                            );
+                        };
+
+                        // check if user request for category
+                        if (get_category) {
+                            getCategory().then(results => {
+                                fetched_categories = results;
+
+                            }).catch(err => {
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+                            });
+                        }
+
                         for (let i = 0; i < results.length; i++) {
+                            // check to add category
+                            if (get_category) {
+                                results[i].category = fetched_categories.find(
+                                    f => f.categoryID == results[i].category
+                                ).categoryName;
+                            }
+
                             // check to get cover image for products
                             if (results[i].coverImageRelativeURL) {
                                 // add featured image to results
@@ -16891,7 +17333,7 @@ router.get('/services', custom_utils.allowedScopes(['read:services', 'read:store
 
             const mappped_field_name = new Map([
                 ['location', 'locationID AS location_id'],
-                ['category', 'categoryID AS category_id'],
+                ['category', 'categoryID AS category'],
                 ['name', 'workName AS name'],
                 ['coverImage', 'coverImageRelativeURL'],
                 ['price', 'price'],
@@ -16900,6 +17342,7 @@ router.get('/services', custom_utils.allowedScopes(['read:services', 'read:store
 
             let permitted_field_count = 0;
             let field_already_exist = [];
+            let get_category = false;
 
             // check to retrieve information about the user that add the product
             if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
@@ -16924,15 +17367,21 @@ router.get('/services', custom_utils.allowedScopes(['read:services', 'read:store
                         }
                     });
 
+                    if (req_fields.find(f => f == 'category')) {
+                        get_category = true;
+                    }
+
                     select_query +=
                         ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM works AS A LEFT JOIN user AS B ON A.userID = B.userID ';
 
                 } else { // no fields selection
                     select_query +=
-                        ', A.locationID AS location_id, A.categoryID AS category_id, A.workName As name, ' +
+                        ', A.locationID AS location_id, A.categoryID AS category, A.workName As name, ' +
                         'A.coverImageRelativeURL, A.price, A.time, B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, ' +
                         'B.profilePictureBigURL FROM works AS A LEFT JOIN user AS B ON A.userID = B.userID ';
+
+                    get_category = true;
                 }
 
                 let counter = 0; // count numbers of search keyword
@@ -16979,7 +17428,36 @@ router.get('/services', custom_utils.allowedScopes(['read:services', 'read:store
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
                     gDB.query(select_query, select_post).then(results => {
+                        let fetched_categories;
+
+                        // get category
+                        const getCategory = async () => {
+                            return await gDB.query(
+                                'SELECT categoryID, categoryName FROM service_categories'
+                            );
+                        };
+
+                        // check if user request for category
+                        if (get_category) {
+                            getCategory().then(results => {
+                                fetched_categories = results;
+
+                            }).catch(err => {
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+                            });
+                        }
+
                         for (let i = 0; i < results.length; i++) {
+                            // check to add category
+                            if (get_category) {
+                                results[i].category = fetched_categories.find(
+                                    f => f.categoryID == results[i].category
+                                ).categoryName;
+                            }
+
                             // check to get cover image for products
                             if (results[i].coverImageRelativeURL) {
                                 // add featured image to results
@@ -17089,6 +17567,10 @@ router.get('/services', custom_utils.allowedScopes(['read:services', 'read:store
                     }
                 });
 
+                if (req_fields.find(f => f == 'category')) {
+                    get_category = true;
+                }
+
                 select_query += ' FROM works ';
 
                 let counter = 0; // count numbers of search keyword
@@ -17135,7 +17617,36 @@ router.get('/services', custom_utils.allowedScopes(['read:services', 'read:store
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
                     gDB.query(select_query, select_post).then(results => {
+                        let fetched_categories;
+
+                        // get category
+                        const getCategory = async () => {
+                            return await gDB.query(
+                                'SELECT categoryID, categoryName FROM service_categories'
+                            );
+                        };
+
+                        // check if user request for category
+                        if (get_category) {
+                            getCategory().then(results => {
+                                fetched_categories = results;
+
+                            }).catch(err => {
+                                // log the error to log file
+                                gLogger.log('error', err.message, {
+                                    stack: err.stack
+                                });
+                            });
+                        }
+
                         for (let i = 0; i < results.length; i++) {
+                            // check to add category
+                            if (get_category) {
+                                results[i].category = fetched_categories.find(
+                                    f => f.categoryID == results[i].category
+                                ).categoryName;
+                            }
+
                             // check to get cover image for products
                             if (results[i].coverImageRelativeURL) {
                                 // add featured image to results
@@ -17253,7 +17764,7 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
 
     const mappped_field_name = new Map([
         ['location', 'A.locationID AS location_id'],
-        ['category', 'A.categoryID AS category_id'],
+        ['category', 'A.categoryID AS category'],
         ['name', 'A.productName AS name'],
         ['description', 'A.productDescription AS description'],
         ['negotiable', 'A.priceNegotiable AS negotiable'],
@@ -17266,6 +17777,7 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
     let field_already_exist = [];
     let permitted_field_count = 0;
     let get_contact_info = true;
+    let get_category = false;
 
     // check to retrieve information about the user that add the product
     if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
@@ -17287,6 +17799,10 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
                 }
             });
 
+            if (req_fields.find(f => f == 'category')) {
+                get_category = true;
+            }
+
             // get seller contact information
             if (req_fields.find(f => (f == 'email' || f == 'phoneNumber'))) {
                 select_query += ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL, ' +
@@ -17305,13 +17821,14 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
             }
 
         } else {
-            select_query += ', A.locationID AS location_id, A.categoryID AS category_id, ' +
+            select_query += ', A.locationID AS location_id, A.categoryID AS category, ' +
                 'A.productName AS name, A.productDescription AS description, A.price, A.priceNegotiable AS negotiable, B.firstName, B.lastName, ' +
                 'B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL, C.contactEmail, C.contactPhoneNumber, ' +
                 'D.email, D.phoneNumber AS phone_number, A.time FROM products AS A LEFT JOIN user AS B ON A.userID = B.userID LEFT JOIN stores AS C ON A.storeID = C.storeID ' +
                 'LEFT JOIN product_contact_info AS D ON A.productID = D.productID ';
 
             get_product_images = true;
+            get_category = true;
         }
 
         // where condition
@@ -17328,6 +17845,35 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
                 });
 
                 return;
+            }
+
+            let fetched_categories;
+
+            // get category
+            const getCategory = async () => {
+                return await gDB.query(
+                    'SELECT categoryID, categoryName FROM product_categories'
+                );
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
+            // check to add category
+            if (get_category) {
+                product_results[0].category = fetched_categories.find(
+                    f => f.categoryID == product_results[0].category
+                ).categoryName;
             }
 
             if (req_fields && !get_product_images) { // fetch only product no picture
@@ -17517,6 +18063,10 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
             }
         });
 
+        if (req_fields.find(f => f == 'category')) {
+            get_category = true;
+        }
+
         // get seller contact information
         if (req_fields.find(f => (f == 'email' || f == 'phoneNumber'))) {
             select_query += ' FROM products AS A LEFT JOIN stores AS C ON A.storeID = C.storeID ' +
@@ -17543,6 +18093,35 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
                 });
 
                 return;
+            }
+
+            let fetched_categories;
+
+            // get category
+            const getCategory = async () => {
+                return await gDB.query(
+                    'SELECT categoryID, categoryName FROM product_categories'
+                );
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
+            // check to add category
+            if (get_category) {
+                product_results[0].category = fetched_categories.find(
+                    f => f.categoryID == product_results[0].category
+                ).categoryName;
             }
 
             if (!req_fields.find(f => f == 'images')) { // fetch only product no picture
@@ -17681,7 +18260,7 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
 
     const mappped_field_name = new Map([
         ['location', 'A.locationID AS location_id'],
-        ['category', 'A.categoryID AS category_id'],
+        ['category', 'A.categoryID AS category'],
         ['name', 'A.workName AS name'],
         ['description', 'A.workDescription AS description'],
         ['price', 'A.price'],
@@ -17692,6 +18271,7 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
 
     let field_already_exist = [];
     let permitted_field_count = 0;
+    let get_category = false;
 
     // check to retrieve information about the user that add the product
     if (!req_fields || req_fields.length < 1 || req_fields.find(f => f == 'user')) {
@@ -17713,6 +18293,10 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
                 }
             });
 
+            if (req_fields.find(f => f == 'category')) {
+                get_category = true;
+            }
+
             // get seller contact information
             if (req_fields.find(f => (f == 'email' || f == 'phoneNumber'))) {
                 select_query += ', B.firstName, B.lastName, B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL, ' +
@@ -17728,12 +18312,13 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
             }
 
         } else {
-            select_query += ', A.locationID AS location_id, A.categoryID AS category_id, ' +
+            select_query += ', A.locationID AS location_id, A.categoryID AS category, ' +
                 'A.workName AS name, A.workDescription AS description, A.price, B.firstName, B.lastName, ' +
                 'B.profilePictureSmallURL, B.profilePictureMediumURL, B.profilePictureBigURL, C.contactEmail AS email, C.contactPhoneNumber AS phone_number, ' +
                 ' A.time FROM works AS A LEFT JOIN user AS B ON A.userID = B.userID LEFT JOIN services AS C ON A.storeID = C.storeID ';
 
             get_service_images = true;
+            get_category = true;
         }
 
         // where condition
@@ -17750,6 +18335,36 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
                 });
 
                 return;
+            }
+
+
+            let fetched_categories;
+
+            // get category
+            const getCategory = async () => {
+                return await gDB.query(
+                    'SELECT categoryID, categoryName FROM service_categories'
+                );
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
+            // check to add category
+            if (get_category) {
+                work_results[0].category = fetched_categories.find(
+                    f => f.categoryID == work_results[0].category
+                ).categoryName;
             }
 
             if (req_fields && !get_service_images) { // fetch only work no picture
@@ -17893,6 +18508,10 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
             }
         });
 
+        if (req_fields.find(f => f == 'category')) {
+            get_category = true;
+        }
+
         // get seller contact information
         if (req_fields.find(f => (f == 'email' || f == 'phoneNumber'))) {
             select_query += ' FROM works AS A LEFT JOIN services AS C ON A.storeID = C.storeID ';
@@ -17915,6 +18534,35 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
                 });
 
                 return;
+            }
+
+            let fetched_categories;
+
+            // get category
+            const getCategory = async () => {
+                return await gDB.query(
+                    'SELECT categoryID, categoryName FROM service_categories'
+                );
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
+            // check to add category
+            if (get_category) {
+                work_results[0].category = fetched_categories.find(
+                    f => f.categoryID == work_results[0].category
+                ).categoryName;
             }
 
             if (!req_fields.find(f => f == 'images')) { // fetch only work no picture
@@ -22629,7 +23277,7 @@ router.get('/emergency/contacts/:contact_id', custom_utils.allowedScopes(['read:
         }
 
         const mappped_field_name = new Map([
-            ['category', 'categoryID AS category_id'],
+            ['category', 'categoryID AS category'],
             ['location', 'locationID AS location_id'],
             ['featuredImage', 'featuredImageRelativeURL AS featured_img'],
             ['title', 'title'],
@@ -22640,6 +23288,7 @@ router.get('/emergency/contacts/:contact_id', custom_utils.allowedScopes(['read:
             ['time', 'time']
         ]);
         let select_query = 'SELECT ';
+        let get_category = false;
 
         // check if is valid and required fields is given
         if (req.query.fields) {
@@ -22664,17 +23313,25 @@ router.get('/emergency/contacts/:contact_id', custom_utils.allowedScopes(['read:
 
             if (permitted_field_count < 1) {
                 select_query =
-                    'SELECT categoryID AS category_id, locationID AS location_id, featuredImageRelativeURL AS featured_img, ' +
+                    'SELECT categoryID AS category, locationID AS location_id, featuredImageRelativeURL AS featured_img, ' +
                     'title, address, email, phoneNumber AS phone_number, about, time FROM emergency_contacts ';
 
+                get_category = true;
+
             } else {
+                if (req_fields.find(f => f == 'category')) {
+                    get_category = true;
+                }
+
                 select_query += ' FROM emergency_contacts ';
             }
 
         } else { // no fields selection
             select_query +=
-                'categoryID AS category_id, locationID AS location_id, featuredImageRelativeURL AS featured_img, ' +
+                'categoryID AS category, locationID AS location_id, featuredImageRelativeURL AS featured_img, ' +
                 'title, address, email, phoneNumber AS phone_number, about, time FROM emergency_contacts ';
+
+            get_category = true;
         }
 
         // SQL WHERE statement
@@ -22682,6 +23339,35 @@ router.get('/emergency/contacts/:contact_id', custom_utils.allowedScopes(['read:
 
         // get a contact
         gDB.query(select_query, [req.params.contact_id]).then(results => {
+            let fetched_categories;
+
+            // get category
+            const getCategory = async () => {
+                return await gDB.query(
+                    'SELECT categoryID, categoryName FROM emergency_contact_categories'
+                );
+            };
+
+            // check if user request for category
+            if (get_category) {
+                getCategory().then(results => {
+                    fetched_categories = results;
+
+                }).catch(err => {
+                    // log the error to log file
+                    gLogger.log('error', err.message, {
+                        stack: err.stack
+                    });
+                });
+            }
+
+            // check to add category
+            if (get_category) {
+                results[0].category = fetched_categories.find(
+                    f => f.categoryID == results[0].category
+                ).categoryName;
+            }
+
             // check if contact has featured image
             if (results[0].featured_img) {
                 // add featured image to the results
