@@ -5222,17 +5222,14 @@ router.get('/users/:user_id/news', custom_utils.allowedScopes(['read:users']), (
     // get metadata for user's publication
     gDB.query(count_query, count_post).then(count_results => {
         // get publication
-        gDB.query(select_query, select_post).then(results => {
-            let fetched_categories;
-
-            // get category for news
-            const getCategory = async () => {
-                return await gDB.query('SELECT categoryID, categoryTitle FROM news_categories');
-            };
+        gDB.query(select_query, select_post).then(async results => {
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryTitle FROM news_categories'
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
@@ -5508,17 +5505,14 @@ router.get('/users/:user_id/articles', custom_utils.allowedScopes(['read:users']
     // get metadata for user's publication
     gDB.query(count_query, count_post).then(count_results => {
         // get publication
-        gDB.query(select_query, select_post).then(results => {
-            let fetched_categories;
-
-            // get category for article
-            const getCategory = async () => {
-                return await gDB.query('SELECT categoryID, categoryTitle FROM article_categories');
-            };
+        gDB.query(select_query, select_post).then(async results => {
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryTitle FROM article_categories'
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
@@ -6137,7 +6131,7 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
     }
 
     // get publication
-    gDB.query(query, [req.params.id]).then(results => {
+    gDB.query(query, [req.params.id]).then(async results => {
         // check if there is result
         if (results.length < 1) {
             res.status(404);
@@ -6149,16 +6143,13 @@ router.get('/news/:id', custom_utils.allowedScopes(['read:news', 'read:news:all'
             return;
         }
 
-        let fetched_categories;
-
-        // get category for news
-        const getCategory = async () => {
-            return await gDB.query('SELECT categoryID, categoryTitle FROM news_categories');
-        };
+        let fetched_categories = [];
 
         // check if user request for category
         if (get_category) {
-            getCategory().then(results => {
+            await gDB.query(
+                'SELECT categoryID, categoryTitle FROM news_categories'
+            ).then(results => {
                 fetched_categories = results;
 
             }).catch(err => {
@@ -6306,7 +6297,7 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
     }
 
     // get publication
-    gDB.query(query, [req.params.id]).then(results => {
+    gDB.query(query, [req.params.id]).then(async results => {
         // check if there is result
         if (results.length < 1) {
             res.status(404);
@@ -6318,16 +6309,13 @@ router.get('/articles/:id', custom_utils.allowedScopes(['read:articles', 'read:a
             return;
         }
 
-        let fetched_categories;
-
-        // get category for article
-        const getCategory = async () => {
-            return await gDB.query('SELECT categoryID, categoryTitle FROM article_categories');
-        };
+        let fetched_categories = [];
 
         // check if user request for category
         if (get_category) {
-            getCategory().then(results => {
+            await gDB.query(
+                'SELECT categoryID, categoryTitle FROM article_categories'
+            ).then(results => {
                 fetched_categories = results;
 
             }).catch(err => {
@@ -6653,17 +6641,14 @@ router.get('/news', custom_utils.allowedScopes(['read:news', 'read:news:all']), 
                 // get metadata for user's publication
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
-                    gDB.query(select_query, select_post).then(results => {
-                        let fetched_categories;
-
-                        // get category for news
-                        const getCategory = async () => {
-                            return await gDB.query('SELECT categoryID, categoryTitle FROM news_categories');
-                        };
+                    gDB.query(select_query, select_post).then(async results => {
+                        let fetched_categories = [];
 
                         // check if user request for category
                         if (get_category) {
-                            getCategory().then(results => {
+                            await gDB.query(
+                                'SELECT categoryID, categoryTitle FROM news_categories'
+                            ).then(results => {
                                 fetched_categories = results;
 
                             }).catch(err => {
@@ -7061,18 +7046,15 @@ router.get('/articles', custom_utils.allowedScopes(['read:articles', 'read:artic
                 // get metadata for user's publication
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
-                    gDB.query(select_query, select_post).then(results => {
+                    gDB.query(select_query, select_post).then(async results => {
 
-                        let fetched_categories;
-
-                        // get category for news
-                        const getCategory = async () => {
-                            return await gDB.query('SELECT categoryID, categoryTitle FROM article_categories');
-                        };
+                        let fetched_categories = [];
 
                         // check if user request for category
                         if (get_category) {
-                            getCategory().then(results => {
+                            await gDB.query(
+                                'SELECT categoryID, categoryTitle FROM article_categories'
+                            ).then(results => {
                                 fetched_categories = results;
 
                             }).catch(err => {
@@ -10988,7 +10970,7 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
         select_post.push(pass_user_id);
 
         // get user's store
-        gDB.query(select_query, select_post).then(results => {
+        gDB.query(select_query, select_post).then(async results => {
             if (results.length < 1) {
                 // send result to client
                 res.status(200);
@@ -10997,18 +10979,13 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
                 return;
             }
 
-            let fetched_categories;
-
-            // get category
-            const getCategory = async () => {
-                return await gDB.query(
-                    'SELECT categoryID, categoryName FROM ' + (store_type == 'product' ? 'product_categories' : 'service_categories')
-                );
-            };
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryName FROM ' + (store_type == 'product' ? 'product_categories' : 'service_categories')
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
@@ -11324,20 +11301,15 @@ router.get('/stores', custom_utils.allowedScopes(['read:stores']), (req, res) =>
                     // get metadata for user's publication
                     gDB.query(count_query, count_post).then(count_results => {
                         // get publication
-                        gDB.query(select_query, select_post).then(results => {
+                        gDB.query(select_query, select_post).then(async results => {
 
-                            let fetched_categories;
-
-                            // get category
-                            const getCategory = async () => {
-                                return await gDB.query(
-                                    'SELECT categoryID, categoryName FROM ' + category_table_name
-                                );
-                            };
+                            let fetched_categories = [];
 
                             // check if user request for category
                             if (get_category) {
-                                getCategory().then(results => {
+                                await gDB.query(
+                                    'SELECT categoryID, categoryName FROM ' + category_table_name
+                                ).then(results => {
                                     fetched_categories = results;
 
                                 }).catch(err => {
@@ -11759,7 +11731,7 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
         select_query += 'WHERE A.storeID = ? LIMIT 1';
 
         // check if store exist and retrieve the data
-        gDB.query(select_query, [req.params.store_id]).then(results => {
+        gDB.query(select_query, [req.params.store_id]).then(async results => {
             // check if store exist
             if (results.length < 1) {
                 res.status(404);
@@ -11771,18 +11743,13 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
                 return;
             }
 
-            let fetched_categories;
-
-            // get category
-            const getCategory = async () => {
-                return await gDB.query(
-                    'SELECT categoryID, categoryName FROM ' + (store_type == 'product' ? 'product_categories' : 'service_categories')
-                );
-            };
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryName FROM ' + (store_type == 'product' ? 'product_categories' : 'service_categories')
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
@@ -11894,7 +11861,7 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
         select_query += 'WHERE storeID = ? LIMIT 1';
 
         // check if store exist and retrieve the data
-        gDB.query(select_query, [req.params.store_id]).then(results => {
+        gDB.query(select_query, [req.params.store_id]).then(async results => {
             // check if store exist
             if (results.length < 1) {
                 res.status(404);
@@ -11907,18 +11874,13 @@ router.get('/stores/:store_id', custom_utils.allowedScopes(['read:stores']), (re
             }
 
 
-            let fetched_categories;
-
-            // get category
-            const getCategory = async () => {
-                return await gDB.query(
-                    'SELECT categoryID, categoryName FROM ' + (store_type == 'product' ? 'product_categories' : 'service_categories')
-                );
-            };
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryName FROM ' + (store_type == 'product' ? 'product_categories' : 'service_categories')
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
@@ -16825,19 +16787,14 @@ router.get('/products', custom_utils.allowedScopes(['read:products', 'read:store
                 // get metadata for user's publication
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
-                    gDB.query(select_query, select_post).then(results => {
-                        let fetched_categories;
-
-                        // get category
-                        const getCategory = async () => {
-                            return await gDB.query(
-                                'SELECT categoryID, categoryName FROM product_categories'
-                            );
-                        };
+                    gDB.query(select_query, select_post).then(async results => {
+                        let fetched_categories = [];
 
                         // check if user request for category
                         if (get_category) {
-                            getCategory().then(results => {
+                            await gDB.query(
+                                'SELECT categoryID, categoryName FROM product_categories'
+                            ).then(results => {
                                 fetched_categories = results;
 
                             }).catch(err => {
@@ -17096,19 +17053,14 @@ router.get('/products', custom_utils.allowedScopes(['read:products', 'read:store
                 // get metadata for user's publication
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
-                    gDB.query(select_query, select_post).then(results => {
-                        let fetched_categories;
-
-                        // get category
-                        const getCategory = async () => {
-                            return await gDB.query(
-                                'SELECT categoryID, categoryName FROM product_categories'
-                            );
-                        };
+                    gDB.query(select_query, select_post).then(async results => {
+                        let fetched_categories = [];
 
                         // check if user request for category
                         if (get_category) {
-                            getCategory().then(results => {
+                            await gDB.query(
+                                'SELECT categoryID, categoryName FROM product_categories'
+                            ).then(results => {
                                 fetched_categories = results;
 
                             }).catch(err => {
@@ -17427,19 +17379,14 @@ router.get('/services', custom_utils.allowedScopes(['read:services', 'read:store
                 // get metadata for user's publication
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
-                    gDB.query(select_query, select_post).then(results => {
-                        let fetched_categories;
-
-                        // get category
-                        const getCategory = async () => {
-                            return await gDB.query(
-                                'SELECT categoryID, categoryName FROM service_categories'
-                            );
-                        };
+                    gDB.query(select_query, select_post).then(async results => {
+                        let fetched_categories = [];
 
                         // check if user request for category
                         if (get_category) {
-                            getCategory().then(results => {
+                            await gDB.query(
+                                'SELECT categoryID, categoryName FROM service_categories'
+                            ).then(results => {
                                 fetched_categories = results;
 
                             }).catch(err => {
@@ -17616,19 +17563,14 @@ router.get('/services', custom_utils.allowedScopes(['read:services', 'read:store
                 // get metadata for user's publication
                 gDB.query(count_query, count_post).then(count_results => {
                     // get publication
-                    gDB.query(select_query, select_post).then(results => {
-                        let fetched_categories;
-
-                        // get category
-                        const getCategory = async () => {
-                            return await gDB.query(
-                                'SELECT categoryID, categoryName FROM service_categories'
-                            );
-                        };
+                    gDB.query(select_query, select_post).then(async results => {
+                        let fetched_categories = [];
 
                         // check if user request for category
                         if (get_category) {
-                            getCategory().then(results => {
+                            await gDB.query(
+                                'SELECT categoryID, categoryName FROM service_categories'
+                            ).then(results => {
                                 fetched_categories = results;
 
                             }).catch(err => {
@@ -17835,7 +17777,7 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
         select_query += 'WHERE A.productID = ? LIMIT 1';
 
         // check if product exist and retrieve
-        gDB.query(select_query, [req.params.product_id]).then(product_results => {
+        gDB.query(select_query, [req.params.product_id]).then(async product_results => {
             // check if product exist
             if (product_results.length < 1) {
                 res.status(404);
@@ -17847,18 +17789,13 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
                 return;
             }
 
-            let fetched_categories;
-
-            // get category
-            const getCategory = async () => {
-                return await gDB.query(
-                    'SELECT categoryID, categoryName FROM product_categories'
-                );
-            };
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryName FROM product_categories'
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
@@ -18083,7 +18020,7 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
         select_query += 'WHERE A.productID = ? LIMIT 1';
 
         // check if product exist and retrieve
-        gDB.query(select_query, [req.params.product_id]).then(product_results => {
+        gDB.query(select_query, [req.params.product_id]).then(async product_results => {
             // check if product exist
             if (product_results.length < 1) {
                 res.status(404);
@@ -18095,18 +18032,13 @@ router.get('/products/:product_id', custom_utils.allowedScopes(['read:products',
                 return;
             }
 
-            let fetched_categories;
-
-            // get category
-            const getCategory = async () => {
-                return await gDB.query(
-                    'SELECT categoryID, categoryName FROM product_categories'
-                );
-            };
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryName FROM product_categories'
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
@@ -18325,7 +18257,7 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
         select_query += 'WHERE A.workID = ? LIMIT 1';
 
         // check if work exist and retrieve
-        gDB.query(select_query, [req.params.service_id]).then(work_results => {
+        gDB.query(select_query, [req.params.service_id]).then(async work_results => {
             // check if work exist
             if (work_results.length < 1) {
                 res.status(404);
@@ -18338,18 +18270,13 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
             }
 
 
-            let fetched_categories;
-
-            // get category
-            const getCategory = async () => {
-                return await gDB.query(
-                    'SELECT categoryID, categoryName FROM service_categories'
-                );
-            };
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryName FROM service_categories'
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
@@ -18524,7 +18451,7 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
         select_query += 'WHERE A.workID = ? LIMIT 1';
 
         // check if work exist and retrieve
-        gDB.query(select_query, [req.params.service_id]).then(work_results => {
+        gDB.query(select_query, [req.params.service_id]).then(async work_results => {
             // check if work exist
             if (work_results.length < 1) {
                 res.status(404);
@@ -18536,18 +18463,13 @@ router.get('/services/:service_id', custom_utils.allowedScopes(['read:services',
                 return;
             }
 
-            let fetched_categories;
-
-            // get category
-            const getCategory = async () => {
-                return await gDB.query(
-                    'SELECT categoryID, categoryName FROM service_categories'
-                );
-            };
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryName FROM service_categories'
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
@@ -23338,19 +23260,14 @@ router.get('/emergency/contacts/:contact_id', custom_utils.allowedScopes(['read:
         select_query += 'WHERE contactID = ? LIMIT 1';
 
         // get a contact
-        gDB.query(select_query, [req.params.contact_id]).then(results => {
-            let fetched_categories;
-
-            // get category
-            const getCategory = async () => {
-                return await gDB.query(
-                    'SELECT categoryID, categoryName FROM emergency_contact_categories'
-                );
-            };
+        gDB.query(select_query, [req.params.contact_id]).then(async results => {
+            let fetched_categories = [];
 
             // check if user request for category
             if (get_category) {
-                getCategory().then(results => {
+                await gDB.query(
+                    'SELECT categoryID, categoryName FROM emergency_contact_categories'
+                ).then(results => {
                     fetched_categories = results;
 
                 }).catch(err => {
